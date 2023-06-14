@@ -1,0 +1,65 @@
+site_name: EQUi(Ne)<sup>2</sup> Documentation
+site_author: Allan Wollaber, Steven Jorgensen, John Holodnak, Jensen Dempsey, and Harry Li
+copyright: "Copyright (c) 2023 Massachusetts Institute of Technology, MIT Licensed" 
+watch: [docs, src]
+
+nav:
+- Home:
+   - Overview: index.md
+   - License: LICENSE.md
+- Examples: 
+   - Toy Problem with GP: example_notebooks/toy_example_GP.ipynb
+   - Toy Problem with Protonet: example_notebooks/toy_example_EquineProtonet.ipynb
+   - Image Classification: example_notebooks/MNIST_OOD_detection.ipynb
+   - Encrypted Network Traffic: example_notebooks/vnat_example.ipynb
+- Code Reference: reference/
+- Development:
+   - Contributing: CONTRIBUTING.md
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+  palette:
+    primary: blue
+    secondary: purple
+  favicon: assets/favicon.svg
+  
+extra_css:
+- css/mkdocstrings.css
+- css/code_select.css
+
+markdown_extensions:
+- admonition
+- pymdownx.emoji
+- pymdownx.magiclink
+- pymdownx.snippets:
+    check_paths: true
+- pymdownx.superfences
+- pymdownx.tabbed:
+    alternate_style: true
+- pymdownx.tasklist
+- pymdownx.highlight:
+    use_pygments: true
+    pygments_lang_class: true
+- toc:
+    permalink: "¤"
+
+plugins:
+- search
+- gen-files:
+    scripts:
+    - docs/gen_ref_nav.py
+- literate-nav:
+    nav_file: SUMMARY.md
+- section-index
+- mkdocstrings:
+    handlers:
+      python:
+        paths: [src]
+        options:
+           docstring_style: sphinx
+- mkdocs-jupyter:
+    ignore_h1_titles: true
+    include_source: true
+#

@@ -1,0 +1,393 @@
+# Copyright 2023, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
+# Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
+# SPDX-License-Identifier: MIT
+
+import math
+import io
+
+import icontract
+import torch
+from typing import Optional, Callable, Any
+from tqdm import tqdm
+from typeguard import typechecked
+from datetime import datetime
+
+from .equine import Equine, EquineOutput
+from .utils import generate_train_summary
+
+
+# -------------------------------------------------------------------------------
+# Note that the below code for
+# * `_random_ortho`,
+# * `_RandomFourierFeatures``, and
+# * `_Laplace`
+# is copied and modified from https://github.com/y0ast/DUE/blob/main/due/sngp.py
+# under its original MIT license, redisplayed here:
+# -------------------------------------------------------------------------------
+# MIT License
+#
+# Copyright (c) 2021 Joost van Amersfoort
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ------------------------------------------------------------------------------
+# Following the recommendation of their README at https://github.com/y0ast/DUE
+# we encourage anyone using this code in their research to cite the following papers:
+#
+# @article{van2021on,
+#   title={On Feature Collapse and Deep Kernel Learning for Single Forward Pass Uncertainty},
+#   author={van Amersfoort, Joost and Smith, Lewis and Jesson, Andrew and Key, Oscar and Gal, Yarin},
+#   journal={arXiv preprint arXiv:2102.11409},
+#   year={2021}
+# }
+#
+# @article{liu2020simple,
+#  title={Simple and principled uncertainty estimation with deterministic deep learning via distance awareness},
+#  author={Liu, Jeremiah and Lin, Zi and Padhy, Shreyas and Tran, Dustin and Bedrax Weiss, Tania and Lakshminarayanan, Balaji},
+#  journal={Advances in Neural Information Processing Systems},
+#  volume={33},
+#  pages={7498--7512},
+#  year={2020}
+# }
+
+
+@typechecked
+def _random_ortho(n: int, m: int) -> torch.Tensor:
+    q, _ = torch.linalg.qr(torch.randn(n, m))
+    return q
+
+
+@typechecked
+class _RandomFourierFeatures(torch.nn.Module):
+    def __init__(
+        self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
+    ) -> None:
+        super().__init__()
+        if feature_scale is None:
+            feature_scale = math.sqrt(num_random_features / 2)
+
+        self.register_buffer("feature_scale", torch.tensor(feature_scale))
+
+        if num_random_features <= in_dim:
+            W = _random_ortho(in_dim, num_random_features)
+        else:
+            # generate blocks of orthonormal rows which are not neccesarily orthonormal
+            # to each other.
+            dim_left = num_random_features
+            ws = []
+            while dim_left > in_dim:
+                ws.append(_random_ortho(in_dim, in_dim))
+                dim_left -= in_dim
+            ws.append(_random_ortho(in_dim, dim_left))
+            W = torch.cat(ws, 1)
+
+        feature_norm = torch.randn(W.shape) ** 2
+        W = W * feature_norm.sum(0).sqrt()
+        self.register_buffer("W", W)
+
+        b = torch.empty(num_random_features).uniform_(0, 2 * math.pi)
+        self.register_buffer("b", b)
+
+    def forward(self, x) -> torch.Tensor:
+        k = torch.cos(x @ self.W + self.b)
+        k = k / self.feature_scale
+
+        return k
+
+
+class _Laplace(torch.nn.Module):
+    def __init__(
+        self,
+        feature_extractor: torch.nn.Module,
+        num_deep_features: int,
+        num_gp_features: int,
+        normalize_gp_features: bool,
+        num_random_features: int,
+        num_outputs: int,
+        feature_scale: Optional[float],
+        mean_field_factor: Optional[float],  # required for classification problems
+        ridge_penalty: float = 1.0,
+    ) -> None:
+        super().__init__()
+        self.feature_extractor = feature_extractor
+        self.mean_field_factor = mean_field_factor
+        self.ridge_penalty = ridge_penalty
+        self.train_batch_size = 0  # to be set later
+
+        if num_gp_features > 0:
+            self.num_gp_features = num_gp_features
+            self.register_buffer(
+                "random_matrix",
+                torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
+            )
+            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)  # type: ignore
+        else:
+            self.num_gp_features = num_deep_features
+            self.jl = torch.nn.Identity()
+
+        self.normalize_gp_features = normalize_gp_features
+        if normalize_gp_features:
+            self.normalize = torch.nn.LayerNorm(num_gp_features)
+
+        self.rff = _RandomFourierFeatures(
+            num_gp_features, num_random_features, feature_scale
+        )
+        self.beta = torch.nn.Linear(num_random_features, num_outputs)
+
+        self.num_data = 0  # to be set later
+        self.register_buffer("seen_data", torch.tensor(0))
+
+        precision = torch.eye(num_random_features) * self.ridge_penalty
+        self.register_buffer("precision", precision)
+
+        self.recompute_covariance = True
+        self.register_buffer("covariance", torch.eye(num_random_features))
+        self.training_parameters_set = False
+
+    def reset_precision_matrix(self):
+        identity = torch.eye(self.precision.shape[0], device=self.precision.device)
+        self.precision = identity * self.ridge_penalty
+        self.seen_data = torch.tensor(0)
+        self.recompute_covariance = True
+
+    @icontract.require(lambda num_data: num_data > 0)
+    @icontract.require(
+        lambda num_data, batch_size: (0 < batch_size) & (batch_size <= num_data)
+    )
+    def set_training_params(self, num_data, batch_size) -> None:
+        self.num_data = num_data
+        self.train_batch_size = batch_size
+        self.training_parameters_set = True
+
+    @icontract.require(lambda self: self.mean_field_factor is not None)
+    def mean_field_logits(self, logits, pred_cov):
+        # Mean-Field approximation as alternative to MC integration of Gaussian-Softmax
+        # Based on: https://arxiv.org/abs/2006.07584
+
+        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * self.mean_field_factor)
+        if self.mean_field_factor > 0:  # type: ignore
+            logits = logits / logits_scale.unsqueeze(-1)
+
+        return logits
+
+    @icontract.require(lambda self: self.training_parameters_set)
+    def forward(self, x):
+        f = self.feature_extractor(x)
+        f_reduc = self.jl(f)
+        if self.normalize_gp_features:
+            f_reduc = self.normalize(f_reduc)
+
+        k = self.rff(f_reduc)
+
+        pred = self.beta(k)
+
+        if self.training:
+            precision_minibatch = k.t() @ k
+            self.precision += precision_minibatch
+            self.seen_data += x.shape[0]
+
+            assert (
+                self.seen_data <= self.num_data
+            ), "Did not reset precision matrix at start of epoch"
+        else:
+            assert self.seen_data > (
+                self.num_data - self.train_batch_size
+            ), "Not seen sufficient data for precision matrix"
+
+            if self.recompute_covariance:
+                with torch.no_grad():
+                    eps = 1e-7
+                    jitter = eps * torch.eye(
+                        self.precision.shape[1],
+                        device=self.precision.device,
+                    )
+                    u, info = torch.linalg.cholesky_ex(self.precision + jitter)
+                    assert (info == 0).all(), "Precision matrix inversion failed!"
+                    torch.cholesky_inverse(u, out=self.covariance)  # type: ignore
+
+                self.recompute_covariance = False
+
+            with torch.no_grad():
+                pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
+
+            if self.mean_field_factor is None:
+                return pred, pred_cov
+            else:
+                pred = self.mean_field_logits(pred, pred_cov)
+
+        return pred
+
+
+# -------------------------------------------------------------------------------
+# EquineGP, below, demonstrates how to adapt that approach in EQUINE
+@typechecked
+class EquineGP(Equine):
+    """
+    An example of an EQUINE model that builds upon the approach in "Spectral Norm
+    Gaussian Processes". This wraps any pytorch embedding neural network and provides
+    the `forward`, `predict`, `save`, and `load` methods required by Equine.
+    """
+
+    def __init__(
+        self, embedding_model: torch.nn.Module, emb_out_dim: int, num_classes: int
+    ) -> None:
+        """EquineGP constructor
+        :param embedding_model: Neural Network feature embedding
+        :param emb_out_dim: The number of deep features from the feature embedding
+        :param num_classes: The number of output classes this model predicts
+        """
+        super().__init__(embedding_model)
+        self.num_deep_features = emb_out_dim
+        self.num_gp_features = emb_out_dim
+        self.normalize_gp_features = True
+        self.num_random_features = 1024
+        self.num_outputs = num_classes
+        self.mean_field_factor = 25
+        self.ridge_penalty = 1
+        self.feature_scale = 2
+
+        self.model = _Laplace(
+            self.embedding_model,
+            self.num_deep_features,
+            self.num_gp_features,
+            self.normalize_gp_features,
+            self.num_random_features,
+            self.num_outputs,
+            self.feature_scale,
+            self.mean_field_factor,
+            self.ridge_penalty,
+        )
+
+    def train_model(
+        self,
+        dataset: torch.utils.data.TensorDataset,  # type: ignore
+        loss_fn: Callable,
+        opt: torch.optim.Optimizer,
+        num_epochs: int,
+        batch_size: int = 64,
+    ) -> dict[str, Any]:
+        """Train or fine-tune an EquineGP model
+        :param dataset: An iterable, pytorch TensorDataset
+        :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
+        :param opt: A pytorch optimizer, e.g., torch.optim.Adam()
+        :param num_epochs: The desired number of epochs to use for training,
+        "param batch_size: The number of samples to use per batch
+        """
+        train_loader = torch.utils.data.DataLoader(  # type: ignore
+            dataset, batch_size=batch_size, shuffle=True, drop_last=True
+        )
+        self.model.set_training_params(
+            len(train_loader.sampler), train_loader.batch_size
+        )
+        self.model.train()
+        for _ in tqdm(range(num_epochs)):
+            self.model.reset_precision_matrix()
+            epoch_loss = 0.0
+            for i, (xs, labels) in enumerate(train_loader):
+                opt.zero_grad()
+                yhats = self.model(xs)
+                loss = loss_fn(yhats, labels.to(torch.long))
+                loss.backward()
+                opt.step()
+                epoch_loss += loss.item()
+        self.model.eval()
+
+        _, train_y = dataset[:]
+        date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+        self.train_summary = generate_train_summary(self, train_y, date_trained)
+
+        return self.train_summary
+
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """EquineGP forward function, generates logits for classification
+        :param X: Input tensor for generating predictions
+        :return[torch.Tensor]: Output probabilities computed
+        """
+        preds = self.model(X)
+        return preds
+
+    @icontract.ensure(
+        lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))
+    )
+    def predict(self, X: torch.Tensor) -> EquineOutput:
+        """Predict function for EquineGP, inherited and implemented from Equine
+        :param X: Input tensor
+        :return[EquineOutput] : Output object containing prediction probabilities and OOD scores
+        """
+        preds = torch.softmax(self.model(X), dim=1)
+        equiprobable = torch.ones(self.num_outputs) / self.num_outputs
+        max_entropy = torch.sum(torch.special.entr(equiprobable))
+        ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
+        eq_out = EquineOutput(
+            classes=preds, ood_scores=ood_score, embeddings=torch.Tensor([])
+        )  # TODO return embeddings
+        return eq_out
+
+    def save(self, path: str) -> None:
+        """Function to save all model parameters to a file
+        :param path: Filename to write the model
+        """
+        model_settings = {
+            "emb_out_dim": self.num_deep_features,
+            "num_classes": self.num_outputs,
+        }
+
+        jit_model = torch.jit.script(self.model.feature_extractor)  # type: ignore
+        buffer = io.BytesIO()
+        torch.jit.save(jit_model, buffer)  # type: ignore
+        buffer.seek(0)
+
+        laplace_sd = self.model.state_dict()
+        keys_to_delete = []
+        for key in laplace_sd:
+            if "feature_extractor" in key:
+                keys_to_delete.append(key)
+        for key in keys_to_delete:
+            del laplace_sd[key]
+
+        save_data = {
+            "settings": model_settings,
+            "num_data": self.model.num_data,
+            "train_batch_size": self.model.train_batch_size,
+            "laplace_model_save": laplace_sd,
+            "embed_jit_save": buffer,
+            "train_summary": self.train_summary,
+        }
+
+        torch.save(save_data, path)  # TODO allow model checkpointing
+
+    @classmethod
+    def load(cls, path: str) -> Equine:  # noqa: F821 # type: ignore
+        """Function to load previously saved EquineGP model
+        :param path: input filename
+        :return[EquineGP] : The reconsituted EquineGP object
+        """
+        model_save = torch.load(path)
+        jit_model = torch.jit.load(model_save["embed_jit_save"])  # type: ignore
+        eq_model = cls(jit_model, **model_save["settings"])
+
+        eq_model.train_summary = model_save["train_summary"]
+        eq_model.model.load_state_dict(model_save["laplace_model_save"], strict=False)
+        eq_model.model.seen_data = model_save["laplace_model_save"]["seen_data"]
+
+        eq_model.model.set_training_params(
+            model_save["num_data"], model_save["train_batch_size"]
+        )
+        eq_model.eval()
+
+        return eq_model

@@ -14,7 +14,7 @@ setup(
     name="equine",
     version=version(),
     description="EQUINE^2: Establishing Quantified Uncertainty for Neural Networks",
-    url="",
+    url="https://github.com/mit-ll-responsible-ai/equine",
     author="",
     author_email="",
     license="MIT",
@@ -45,3 +45,4 @@ setup(
     },
     zip_safe=True,
 )
+

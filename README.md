@@ -1,7 +1,7 @@
 # Establishing Quantified Uncertainty in Neural Networks 
 <p align="center"><img src="assets/equine_full_logo.svg" width="720"\></p>
 
-[![Build Status](https://github.com/mit-ll-responsible-ai/equine/workflows/Tests/badge.svg)](https://github.com/mit-ll-responsible-ai/equine/actions?query=workflow%3ATests+branch%3Amain)
+[![Build Status](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/python-package.yml)
 ![python_passing_tests](https://img.shields.io/badge/Tests%20Passed-100%25-green)
 ![python_coverage](https://img.shields.io/badge/Coverage-91%25-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)

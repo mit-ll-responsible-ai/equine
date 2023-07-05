@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "equine"
+dynamic = ["version"]
+authors = [
+    { name = "Allan Wollaber"},
+    { name = "Steven Jorgensen"},
+    { name = "John Holodnak" },
+    { name = "Jensen Dempsey" },
+    { name = "Harry Li" },
+]
+description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+        "torch >= 1.10.0",
+        "torchmetrics >= 0.6.0",
+        "numpy",
+        "tqdm",
+        "typeguard<3.0",
+        "icontract",
+        "scikit-learn",  # TODO: remove dependency on train_test_split
+        "scipy",         # TODO: remove dependency on gaussian_kde
+] 
+license = { file = "LICENSE.txt" }
+keywords = ["machine learning", "robustness", "pytorch", "responsible", "AI"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest >= 3.8",
+    "hypothesis >= 6.41.0, < 6.49.0",
+    "pre-commit >= 2.19",
+]
+
+docs = [
+    "mkdocs>=1.3",
+    "mkdocs-material",
+    "mkdocstrings-python",
+    "mkdocs-jupyter",
+    "mkdocs-literate-nav",
+    "mkdocs-gen-files",
+    "mkdocs-section-index",
+]
+
+[project.urls]
+"Homepage" = "https://mit-ll-responsible-ai.github.io/equine/"
+"Bug Tracker" = "https://github.com/mit-ll-responsible-ai/equine/issues"
+"Source" = "https://github.com/mit-ll-responsible-ai/equine"
+
+[tool.setuptools.dynamic]
+version = {attr = "equine.__version__"}

@@ -1,9 +1,10 @@
 # Establishing Quantified Uncertainty in Neural Networks 
 <p align="center"><img src="assets/equine_full_logo.svg" width="720"\></p>
 
-[![Build Status](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/python-package.yml/badge.svg?branch=main)](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml)
+
+[![Build Status](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml/badge.svg?branch=main)](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml)
 ![python_passing_tests](https://img.shields.io/badge/Tests%20Passed-100%25-green)
-![python_coverage](https://img.shields.io/badge/Coverage-91%25-green)
+![python_coverage](https://img.shields.io/badge/Coverage-90%25-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
 
@@ -19,7 +20,7 @@ EQUINE was created to simplify two kinds of uncertainty quantification for super
 2) An in-distribution score, indicating whether any of the model's known labels should be trusted.
 
 Dive into our [documentation examples](https://mit-ll-responsible-ai.github.io/equine/)
-to get started. Additionally, we provide a companion web application (tbd).
+to get started. Additionally, we provide a [companion web application](https://mit-ll-responsible-ai.github.io/equine-webapp/)
 
 ## Installation
 Users are recommended to install a virtual environment such as Anaconda, as is also recommended

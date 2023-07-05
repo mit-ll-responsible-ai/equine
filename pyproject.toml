@@ -25,7 +25,7 @@ dependencies = [
         "scikit-learn",  # TODO: remove dependency on train_test_split
         "scipy",         # TODO: remove dependency on gaussian_kde
 ] 
-license = { file = "LICENSE.txt" }
+license = { file = "LICENSE.md" }
 keywords = ["machine learning", "robustness", "pytorch", "responsible", "AI"]
 classifiers = [
     "Development Status :: 4 - Beta",

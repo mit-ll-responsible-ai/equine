@@ -120,7 +120,8 @@ def generate_support(
     :param train_x: Input training data
     :param train_y: Corresponding classification labels
     :param support_size:  Number of support examples for each class
-    :param selected_labels: Selected class labels to generate examples for
+    :param selected_labels: Selected class labels to generate examples from
+    :param return_indexes: If True, also return the indices of the support examples
     :return[dict[Any, torch.Tensor]]: Ordered dictionary of class labels with corresponding support examples
     """
     labels, counts = torch.unique(train_y, return_counts=True)
@@ -153,8 +154,16 @@ def generate_episode(
     support_size: int,
     way: int,
     episode_size: int,
-):
-    """ """
+) -> Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]:
+    """
+    Generate a single episode of data for a few-shot learning task
+    :param train_x: Input training data
+    :param train_y: Corresponding classification labels
+    :param support_size:  Number of support examples for each class
+    :param way: Number of classes in the episode
+    :param episode_size: Total number of examples in the episode
+    :return[Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]]: Tuple of support examples, query examples, and query labels
+    """
     labels = torch.unique(train_y)
     selected_labels = sorted(
         labels[torch.randperm(labels.shape[0])][:way].tolist()

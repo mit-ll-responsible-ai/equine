@@ -313,7 +313,7 @@ class EquineProtonet(Equine):
         cov_type: CovType = CovType.UNIT,
         relative_mahal: bool = True,
         use_temperature: bool = False,
-        init_temperature: float = 1.0
+        init_temperature: float = 1.0,
     ) -> None:
         """EquineProtonet constructor
         :param embedding_model: Neural Network feature embedding model
@@ -333,7 +333,9 @@ class EquineProtonet(Equine):
         self.model_summary = None
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
-        self.register_buffer('temperature', torch.Tensor(self.init_temperature*torch.ones(1)))
+        self.register_buffer(
+            "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
+        )
 
         self.model = _Protonet(
             embedding_model,
@@ -376,11 +378,14 @@ class EquineProtonet(Equine):
         :param opt_class: A pytorch optimizer, e.g., torch.optim.Adam
         :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
         :param calibration_lr: learning rate for temperature scaling
+        :return: A tuple containing the model summary, the held out calibration data, and the calibration labels
         """
         self.train()
-        
+
         if self.use_temperature:
-            self.temperature = torch.Tensor(self.init_temperature*torch.ones(1)).type_as(self.temperature)
+            self.temperature = torch.Tensor(
+                self.init_temperature * torch.ones(1)
+            ).type_as(self.temperature)
 
         X, Y = dataset[:]
 
@@ -420,25 +425,28 @@ class EquineProtonet(Equine):
         self._fit_outlier_scores(ood_dists, calib_y)
 
         if self.use_temperature:
-            self.calibrate_temperature(calib_x, calib_y, num_calibration_epochs, calibration_lr)
+            self.calibrate_temperature(
+                calib_x, calib_y, num_calibration_epochs, calibration_lr
+            )
 
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
         return self.train_summary, calib_x, calib_y
-    
+
     def calibrate_temperature(
         self,
         calib_x: torch.Tensor,
         calib_y: torch.Tensor,
         num_calibration_epochs: int = 1,
-        calibration_lr: float = 0.01) -> None:
+        calibration_lr: float = 0.01,
+    ) -> None:
         """
         Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
         :param calib_x: training data to be used for temperature calibration
         :param calib_y: labels corresponding to calib_x
         :param num_calibration_epochs: number of epochs to tune temperature
         :param calibration_lr: learning rate for temperature optimization
-        :return:
+        :return:    None
         """
         self.temperature.requires_grad = True
         optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
@@ -447,7 +455,9 @@ class EquineProtonet(Equine):
             with torch.no_grad():
                 pred_probs, dists = self.model(calib_x)
             dists = dists / self.temperature
-            loss = torch.nn.functional.cross_entropy(torch.neg(dists), calib_y.to(torch.long))
+            loss = torch.nn.functional.cross_entropy(
+                torch.neg(dists), calib_y.to(torch.long)
+            )
             loss.backward()
             optimizer.step()
         self.temperature.requires_grad = False

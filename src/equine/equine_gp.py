@@ -252,7 +252,7 @@ class EquineGP(Equine):
         num_classes: int,
         use_temperature: bool = False,
         init_temperature: float = 1.0,
-        device: str = 'cpu',
+        device: str = "cpu",
     ) -> None:
         """EquineGP constructor
         :param embedding_model: Neural Network feature embedding
@@ -273,7 +273,9 @@ class EquineGP(Equine):
         self.feature_scale = 2
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
-        self.register_buffer('temperature', torch.Tensor(self.init_temperature*torch.ones(1)))
+        self.register_buffer(
+            "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
+        )
         self.model = _Laplace(
             self.embedding_model,
             self.num_deep_features,
@@ -308,6 +310,7 @@ class EquineGP(Equine):
         :param calib_frac: fraction of training data to use in temperature scaling
         :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
         :param calibration_lr: learning rate for temperature scaling
+        :return: A tuple containing the training history and a dataloader for the calibration data
         """
 
         if self.use_temperature:
@@ -316,7 +319,9 @@ class EquineGP(Equine):
                 X, Y, test_size=calib_frac, stratify=Y
             )  # TODO: Replace sklearn with torch call
             dataset = TensorDataset(train_x, train_y)
-            self.temperature = torch.Tensor(self.init_temperature*torch.ones(1)).type_as(self.temperature)
+            self.temperature = torch.Tensor(
+                self.init_temperature * torch.ones(1)
+            ).type_as(self.temperature)
 
         train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
@@ -342,10 +347,15 @@ class EquineGP(Equine):
         calibration_loader = None
         if self.use_temperature:
             dataset_calibration = TensorDataset(calib_x, calib_y)
-            calibration_loader = DataLoader(  
-                dataset_calibration, batch_size=batch_size, shuffle=True, drop_last=False
+            calibration_loader = DataLoader(
+                dataset_calibration,
+                batch_size=batch_size,
+                shuffle=True,
+                drop_last=False,
             )
-            self.calibrate_temperature(calibration_loader, num_calibration_epochs, calibration_lr)
+            self.calibrate_temperature(
+                calibration_loader, num_calibration_epochs, calibration_lr
+            )
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -357,7 +367,7 @@ class EquineGP(Equine):
         self,
         calibration_loader: DataLoader,
         num_calibration_epochs: int = 1,
-        calibration_lr: float = 0.01
+        calibration_lr: float = 0.01,
     ) -> None:
         """
         Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
@@ -422,7 +432,7 @@ class EquineGP(Equine):
             "num_classes": self.num_outputs,
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
-            "device": self.device_type
+            "device": self.device_type,
         }
 
         jit_model = torch.jit.script(self.model.feature_extractor)  # type: ignore

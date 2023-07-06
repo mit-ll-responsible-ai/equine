@@ -312,12 +312,16 @@ class EquineProtonet(Equine):
         emb_out_dim: int,
         cov_type: CovType = CovType.UNIT,
         relative_mahal: bool = True,
+        use_temperature: bool = False,
+        init_temperature: float = 1.0
     ) -> None:
         """EquineProtonet constructor
         :param embedding_model: Neural Network feature embedding model
         :param emb_out_dim: The number of output features from the embedding model
         :param cov_type: The type of covariance to use when training the protonet [UNIT, DIAG, FULL]
         :param relative_mahal: Use relative mahalanobis distance for OOD calculations. If false, uses standard mahalanobis distance instead
+        :param use_temperature: whether to use temperature scaling after training
+        param init_temperature: what to use as the initial temperature (1.0 has no effect)
         """
         super().__init__(embedding_model)
         self.cov_type = cov_type
@@ -327,6 +331,9 @@ class EquineProtonet(Equine):
         self.epsilon = DEFAULT_EPSILON
         self.outlier_score_kde = None
         self.model_summary = None
+        self.use_temperature = use_temperature
+        self.init_temperature = init_temperature
+        self.register_buffer('temperature', torch.Tensor(self.init_temperature*torch.ones(1)))
 
         self.model = _Protonet(
             embedding_model,
@@ -355,7 +362,9 @@ class EquineProtonet(Equine):
         episode_size: int = 100,
         loss_fn: Callable = torch.nn.functional.cross_entropy,
         opt_class: Callable = torch.optim.Adam,
-    ) -> dict[str, Any]:
+        num_calibration_epochs: int = 2,
+        calibration_lr: float = 0.01,
+    ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
         """Train or fine-tune an EquineProtonet model
         :param dataset: Input pytorch TensorDataset of training data for model
         :param num_episodes: The desired number of episodes to use for training
@@ -365,8 +374,13 @@ class EquineProtonet(Equine):
         :param episode_size: Number of examples to use per episode
         :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
         :param opt_class: A pytorch optimizer, e.g., torch.optim.Adam
+        :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
+        :param calibration_lr: learning rate for temperature scaling
         """
         self.train()
+        
+        if self.use_temperature:
+            self.temperature = torch.Tensor(self.init_temperature*torch.ones(1)).type_as(self.temperature)
 
         X, Y = dataset[:]
 
@@ -405,9 +419,38 @@ class EquineProtonet(Equine):
         ood_dists = self._compute_ood_dist(X_embed, pred_probs, dists)
         self._fit_outlier_scores(ood_dists, calib_y)
 
+        if self.use_temperature:
+            self.calibrate_temperature(calib_x, calib_y, num_calibration_epochs, calibration_lr)
+
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
-        return self.train_summary
+        return self.train_summary, calib_x, calib_y
+    
+    def calibrate_temperature(
+        self,
+        calib_x: torch.Tensor,
+        calib_y: torch.Tensor,
+        num_calibration_epochs: int = 1,
+        calibration_lr: float = 0.01) -> None:
+        """
+        Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
+        :param calib_x: training data to be used for temperature calibration
+        :param calib_y: labels corresponding to calib_x
+        :param num_calibration_epochs: number of epochs to tune temperature
+        :param calibration_lr: learning rate for temperature optimization
+        :return:
+        """
+        self.temperature.requires_grad = True
+        optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
+        for t in range(num_calibration_epochs):
+            optimizer.zero_grad()
+            with torch.no_grad():
+                pred_probs, dists = self.model(calib_x)
+            dists = dists / self.temperature
+            loss = torch.nn.functional.cross_entropy(torch.neg(dists), calib_y.to(torch.long))
+            loss.backward()
+            optimizer.step()
+        self.temperature.requires_grad = False
 
     @icontract.ensure(lambda self: self.model.support_embeddings is not None)
     def _fit_outlier_scores(
@@ -480,6 +523,9 @@ class EquineProtonet(Equine):
         if X_embed.shape == torch.Size([self.model.emb_out_dim]):
             X_embed = X_embed.unsqueeze(dim=0)  # Handle single examples
         preds, dists = self.model(X)
+        if self.use_temperature:
+            dists = dists / self.temperature
+            preds = torch.softmax(torch.negative(dists), dim=1)
         ood_dist = self._compute_ood_dist(X_embed, preds, dists)
         ood_scores = self._compute_outlier_scores(ood_dist, preds)
 
@@ -524,6 +570,8 @@ class EquineProtonet(Equine):
         model_settings = {
             "cov_type": self.cov_type,
             "emb_out_dim": self.emb_out_dim,
+            "use_temperature": self.use_temperature,
+            "init_temperature": self.temperature.item(),
         }
 
         jit_model = torch.jit.script(self.model.embedding_model)

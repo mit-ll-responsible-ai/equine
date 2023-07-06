@@ -144,6 +144,41 @@ def test_train_episodes(random_dataset):
 
 
 @given(random_dataset=random_dataset())
+@settings(deadline=None)
+def test_train_episodes_with_temperature(random_dataset):
+    dataset, num_classes = random_dataset
+    way = 3
+    num_shot = 3
+    num_episodes = 10
+    episode_size = 512
+
+    X, Y = dataset.tensors
+    num_deep_features = 32
+    embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
+    model = eq.EquineProtonet(embed_model, num_deep_features, use_temperature=True)
+    _, cal_x, cal_y = model.train_model(
+        torch.utils.data.TensorDataset(X, Y),
+        way=way,
+        support_size=num_shot,
+        num_episodes=num_episodes,
+        episode_size=episode_size,
+    )
+
+    assert model.model.training is False, "Model leaves training mode"
+    # Test on multiple predictions
+    eq_out = model.predict(X)
+    assert len(eq_out.classes) == len(X)
+    assert len(eq_out.ood_scores) == len(X)
+    # Test on single prediction
+    pred_out = model(X[0])
+    assert len(pred_out) == 1, "Single prediction works"
+    eq_out = model.predict(X[0])
+    assert len(eq_out.classes) == 1, "Single prediction works"
+
+    model.calibrate_temperature(cal_x, cal_y, 1, 0.01)
+
+
+@given(random_dataset=random_dataset())
 def test_predict_fail_before_training(random_dataset):
     dataset, num_classes, _ = random_dataset
     X, _ = dataset.tensors
@@ -163,6 +198,30 @@ def test_equine_protonet_save_load(random_dataset) -> None:
     embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
 
     model = eq.EquineProtonet(embedding_model, num_classes)
+    model.train_model(torch.utils.data.TensorDataset(X, Y), num_episodes=10)
+
+    old_output = model.predict(X[1:10])
+    tmp_filename = "tmp_eq_proto.pt"
+    if os.path.exists(tmp_filename):
+        os.remove(tmp_filename)
+    model.save(tmp_filename)
+    new_model = eq.EquineProtonet.load(tmp_filename)
+    new_output = new_model.predict(X[1:10])
+    assert (
+        torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
+    ), "Predictions changed on reload"
+    if os.path.exists(tmp_filename):
+        os.remove(tmp_filename)  # Cleanup
+
+
+@given(random_dataset=random_dataset())
+@settings(deadline=None, max_examples=2)
+def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
+    dataset, num_classes = random_dataset
+    X, Y = dataset.tensors
+    embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
+
+    model = eq.EquineProtonet(embedding_model, num_classes, use_temperature=True)
     model.train_model(torch.utils.data.TensorDataset(X, Y), num_episodes=10)
 
     old_output = model.predict(X[1:10])

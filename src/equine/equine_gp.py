@@ -7,10 +7,12 @@ import io
 
 import icontract
 import torch
-from typing import Optional, Callable, Any
+from torch.utils.data import TensorDataset, DataLoader  # type: ignore
+from typing import Optional, Callable, Any, Union
 from tqdm import tqdm
 from typeguard import typechecked
 from datetime import datetime
+from sklearn.model_selection import train_test_split
 
 from .equine import Equine, EquineOutput
 from .utils import generate_train_summary
@@ -244,12 +246,21 @@ class EquineGP(Equine):
     """
 
     def __init__(
-        self, embedding_model: torch.nn.Module, emb_out_dim: int, num_classes: int
+        self,
+        embedding_model: torch.nn.Module,
+        emb_out_dim: int,
+        num_classes: int,
+        use_temperature: bool = False,
+        init_temperature: float = 1.0,
+        device: str = "cpu",
     ) -> None:
         """EquineGP constructor
         :param embedding_model: Neural Network feature embedding
         :param emb_out_dim: The number of deep features from the feature embedding
         :param num_classes: The number of output classes this model predicts
+        :param use_temperature: whether to use temperature scaling after training
+        :param init_temperature: what to use as the initial temperature (1.0 has no effect)
+        "param device: either 'cuda' or 'cpu'
         """
         super().__init__(embedding_model)
         self.num_deep_features = emb_out_dim
@@ -260,7 +271,11 @@ class EquineGP(Equine):
         self.mean_field_factor = 25
         self.ridge_penalty = 1
         self.feature_scale = 2
-
+        self.use_temperature = use_temperature
+        self.init_temperature = init_temperature
+        self.register_buffer(
+            "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
+        )
         self.model = _Laplace(
             self.embedding_model,
             self.num_deep_features,
@@ -272,23 +287,43 @@ class EquineGP(Equine):
             self.mean_field_factor,
             self.ridge_penalty,
         )
+        self.device_type = device
+        self.device = torch.device(self.device_type)
 
     def train_model(
         self,
-        dataset: torch.utils.data.TensorDataset,  # type: ignore
+        dataset: TensorDataset,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
         batch_size: int = 64,
-    ) -> dict[str, Any]:
+        calib_frac: float = 0.1,
+        num_calibration_epochs: int = 2,
+        calibration_lr: float = 0.01,
+    ) -> tuple[dict[str, Any], Union[DataLoader, None]]:
         """Train or fine-tune an EquineGP model
         :param dataset: An iterable, pytorch TensorDataset
         :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
         :param opt: A pytorch optimizer, e.g., torch.optim.Adam()
         :param num_epochs: The desired number of epochs to use for training,
-        "param batch_size: The number of samples to use per batch
+        :param batch_size: The number of samples to use per batch
+        :param calib_frac: fraction of training data to use in temperature scaling
+        :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
+        :param calibration_lr: learning rate for temperature scaling
+        :return: A tuple containing the training history and a dataloader for the calibration data
         """
-        train_loader = torch.utils.data.DataLoader(  # type: ignore
+
+        if self.use_temperature:
+            X, Y = dataset[:]
+            train_x, calib_x, train_y, calib_y = train_test_split(
+                X, Y, test_size=calib_frac, stratify=Y
+            )  # TODO: Replace sklearn with torch call
+            dataset = TensorDataset(train_x, train_y)
+            self.temperature = torch.Tensor(
+                self.init_temperature * torch.ones(1)
+            ).type_as(self.temperature)
+
+        train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
         )
         self.model.set_training_params(
@@ -300,6 +335,8 @@ class EquineGP(Equine):
             epoch_loss = 0.0
             for i, (xs, labels) in enumerate(train_loader):
                 opt.zero_grad()
+                xs = xs.to(self.device)
+                labels = labels.to(self.device)
                 yhats = self.model(xs)
                 loss = loss_fn(yhats, labels.to(torch.long))
                 loss.backward()
@@ -307,19 +344,63 @@ class EquineGP(Equine):
                 epoch_loss += loss.item()
         self.model.eval()
 
+        calibration_loader = None
+        if self.use_temperature:
+            dataset_calibration = TensorDataset(calib_x, calib_y)
+            calibration_loader = DataLoader(
+                dataset_calibration,
+                batch_size=batch_size,
+                shuffle=True,
+                drop_last=False,
+            )
+            self.calibrate_temperature(
+                calibration_loader, num_calibration_epochs, calibration_lr
+            )
+
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
 
-        return self.train_summary
+        return self.train_summary, calibration_loader
+
+    def calibrate_temperature(
+        self,
+        calibration_loader: DataLoader,
+        num_calibration_epochs: int = 1,
+        calibration_lr: float = 0.01,
+    ) -> None:
+        """
+        Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
+        :param calibration_loader: data loader returned by train_model
+        :param num_calibration_epochs: number of epochs to tune temperature
+        :param calibration_lr: learning rate for temperature optimization
+        :return:
+        """
+        self.temperature.requires_grad = True
+        loss_fn = torch.nn.functional.cross_entropy
+        optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
+        for _ in range(num_calibration_epochs):
+            for (xs, labels) in calibration_loader:
+                optimizer.zero_grad()
+                xs = xs.to(self.device)
+                labels = labels.to(self.device)
+                with torch.no_grad():
+                    logits = self.model(xs)
+                logits = logits / self.temperature
+                loss = loss_fn(logits, labels.to(torch.long))
+                loss.backward()
+                optimizer.step()
+        self.temperature.requires_grad = False
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """EquineGP forward function, generates logits for classification
         :param X: Input tensor for generating predictions
         :return[torch.Tensor]: Output probabilities computed
         """
-        preds = self.model(X)
-        return preds
+        X = X.to(self.device)
+        with torch.no_grad():
+            preds = self.model(X)
+        return preds / self.temperature
 
     @icontract.ensure(
         lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))
@@ -329,7 +410,11 @@ class EquineGP(Equine):
         :param X: Input tensor
         :return[EquineOutput] : Output object containing prediction probabilities and OOD scores
         """
-        preds = torch.softmax(self.model(X), dim=1)
+        X = X.to(self.device)
+        with torch.no_grad():
+            logits = self.model(X)
+        logits = logits / self.temperature
+        preds = torch.softmax(logits, dim=1)
         equiprobable = torch.ones(self.num_outputs) / self.num_outputs
         max_entropy = torch.sum(torch.special.entr(equiprobable))
         ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
@@ -345,6 +430,9 @@ class EquineGP(Equine):
         model_settings = {
             "emb_out_dim": self.num_deep_features,
             "num_classes": self.num_outputs,
+            "use_temperature": self.use_temperature,
+            "init_temperature": self.temperature.item(),
+            "device": self.device_type,
         }
 
         jit_model = torch.jit.script(self.model.feature_extractor)  # type: ignore

@@ -7,6 +7,7 @@ import io
 
 import icontract
 import torch
+from torch.utils.data import TensorDataset, DataLoader  # type: ignore
 from typing import Optional, Callable, Any, Union
 from tqdm import tqdm
 from typeguard import typechecked
@@ -289,7 +290,7 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: torch.utils.data.TensorDataset,  # type: ignore
+        dataset: TensorDataset,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
@@ -297,7 +298,7 @@ class EquineGP(Equine):
         calib_frac: float = 0.1,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ) -> tuple[dict[str, Any], Union[torch.utils.data.DataLoader, None]]:
+    ) -> tuple[dict[str, Any], Union[DataLoader, None]]:
         """Train or fine-tune an EquineGP model
         :param dataset: An iterable, pytorch TensorDataset
         :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
@@ -314,10 +315,10 @@ class EquineGP(Equine):
             train_x, calib_x, train_y, calib_y = train_test_split(
                 X, Y, test_size=calib_frac, stratify=Y
             )  # TODO: Replace sklearn with torch call
-            dataset = torch.utils.data.TensorDataset(train_x, train_y)
+            dataset = TensorDataset(train_x, train_y)
             self.temperature = torch.Tensor(self.init_temperature*torch.ones(1)).type_as(self.temperature)
 
-        train_loader = torch.utils.data.DataLoader(  # type: ignore
+        train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
         )
         self.model.set_training_params(
@@ -340,12 +341,12 @@ class EquineGP(Equine):
 
         calibration_loader = None
         if self.use_temperature:
-            dataset_calibration = torch.utils.data.TensorDataset(calib_x, calib_y)
-            calibration_loader = torch.utils.data.DataLoader(  # type: ignore
+            dataset_calibration = TensorDataset(calib_x, calib_y)
+            calibration_loader = DataLoader(  
                 dataset_calibration, batch_size=batch_size, shuffle=True, drop_last=False
             )
             self.calibrate_temperature(calibration_loader, num_calibration_epochs, calibration_lr)
-        
+
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
@@ -354,9 +355,10 @@ class EquineGP(Equine):
 
     def calibrate_temperature(
         self,
-        calibration_loader: torch.utils.data.DataLoader,
+        calibration_loader: DataLoader,
         num_calibration_epochs: int = 1,
-        calibration_lr: float = 0.01) -> None:
+        calibration_lr: float = 0.01
+    ) -> None:
         """
         Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
         :param calibration_loader: data loader returned by train_model

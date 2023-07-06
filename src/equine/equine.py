@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 import torch
+from torch.utils.data import TensorDataset  # type: ignore
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -32,9 +33,7 @@ class Equine(torch.nn.Module, ABC):
     def predict(self, X: torch.Tensor) -> EquineOutput:
         raise NotImplementedError
 
-    def train_model(
-        dataset: torch.utils.data.TensorDataset, **kwargs
-    ) -> dict[str, Any]:
+    def train_model(self, dataset: TensorDataset, **kwargs) -> dict[str, Any]:
         raise NotImplementedError
 
     def save(self, path: str) -> None:

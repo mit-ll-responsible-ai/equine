@@ -17,7 +17,7 @@
         <link rel="next" href="../../../CONTRIBUTING/">
       
       <link rel="icon" href="../../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.17">
+      <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.18">
     
     
       
@@ -605,6 +605,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#equine.utils.generate_episode" class="md-nav__link">
+    generate_episode()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#equine.utils.generate_support" class="md-nav__link">
     generate_support()
   </a>
@@ -730,6 +737,13 @@
         <li class="md-nav__item">
   <a href="#equine.utils.expected_calibration_error" class="md-nav__link">
     expected_calibration_error()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#equine.utils.generate_episode" class="md-nav__link">
+    generate_episode()
   </a>
   
 </li>
@@ -1115,6 +1129,249 @@
 
 
 
+<h2 id="equine.utils.generate_episode" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">generate_episode</span><span class="p">(</span><span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">way</span><span class="p">,</span> <span class="n">episode_size</span><span class="p">)</span></code>
+
+<a href="#equine.utils.generate_episode" class="headerlink" title="Permanent link">¤</a></h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Generate a single episode of data for a few-shot learning task</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>train_x</code></td>
+          <td>
+                <code>torch.<span title="torch.Tensor">Tensor</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Input training data</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>train_y</code></td>
+          <td>
+                <code>torch.<span title="torch.Tensor">Tensor</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Corresponding classification labels</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>support_size</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Number of support examples for each class</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>way</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Number of classes in the episode</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>episode_size</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Total number of examples in the episode</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code><span title="typing.Tuple">Tuple</span>[dict[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>], torch.<span title="torch.Tensor">Tensor</span>, torch.<span title="torch.Tensor">Tensor</span>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Tuple of support examples, query examples, and query labels</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>src/equine/utils.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@typechecked</span>
+<span class="k">def</span> <span class="nf">generate_episode</span><span class="p">(</span>
+    <span class="n">train_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+    <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">way</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">episode_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a single episode of data for a few-shot learning task</span>
+<span class="sd">    :param train_x: Input training data</span>
+<span class="sd">    :param train_y: Corresponding classification labels</span>
+<span class="sd">    :param support_size:  Number of support examples for each class</span>
+<span class="sd">    :param way: Number of classes in the episode</span>
+<span class="sd">    :param episode_size: Total number of examples in the episode</span>
+<span class="sd">    :return[Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]]: Tuple of support examples, query examples, and query labels</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">)</span>
+    <span class="n">selected_labels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+        <span class="n">labels</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])][:</span><span class="n">way</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="p">)</span>  <span class="c1"># need to be in same order every time</span>
+
+    <span class="n">support</span><span class="p">,</span> <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">generate_support</span><span class="p">(</span>
+        <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">return_indexes</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="n">examples_per_task</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">episode_size</span> <span class="o">/</span> <span class="n">way</span><span class="p">)</span>
+
+    <span class="n">episode_data_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">episode_label_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">episode_support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">episode_label</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">):</span>
+        <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">train_x</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]]</span>
+        <span class="n">shuffled_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">episode_label</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">])</span>
+        <span class="p">)</span>  <span class="c1"># need sequential labels for episode</span>
+
+        <span class="n">num_remaining_examples</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">support_size</span>
+        <span class="k">assert</span> <span class="n">num_remaining_examples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">&quot;Cannot have &quot;</span>
+            <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_remaining_examples</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot; left with support_size &quot;</span>
+            <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">support_size</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot; and shape &quot;</span>
+            <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="o">+</span> <span class="s2">&quot; from train_x shaped &quot;</span>
+            <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">episode_end_idx</span> <span class="o">=</span> <span class="n">support_size</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_remaining_examples</span><span class="p">,</span> <span class="n">examples_per_task</span><span class="p">)</span>
+
+        <span class="n">episode_data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shuffled_x</span><span class="p">[</span><span class="n">support_size</span><span class="p">:</span><span class="n">episode_end_idx</span><span class="p">])</span>
+        <span class="n">episode_label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shuffled_y</span><span class="p">[</span><span class="n">support_size</span><span class="p">:</span><span class="n">episode_end_idx</span><span class="p">])</span>
+        <span class="n">episode_support</span><span class="p">[</span><span class="n">episode_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">support</span><span class="p">[</span><span class="n">label</span><span class="p">]</span>
+
+    <span class="n">episode_x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">episode_data_list</span><span class="p">)</span>
+    <span class="n">episode_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">episode_label_list</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">episode_support</span><span class="p">,</span> <span class="n">episode_x</span><span class="p">,</span> <span class="n">episode_y</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
 <h2 id="equine.utils.generate_support" class="doc doc-heading">
 <code class="highlight language-python"><span class="n">generate_support</span><span class="p">(</span><span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">return_indexes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
@@ -1186,11 +1443,24 @@
           </td>
           <td>
             <div class="doc-md-description">
-              <p>Selected class labels to generate examples for</p>
+              <p>Selected class labels to generate examples from</p>
             </div>
           </td>
           <td>
               <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>return_indexes</code></td>
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If True, also return the indices of the support examples</p>
+            </div>
+          </td>
+          <td>
+                <code>False</code>
           </td>
         </tr>
     </tbody>
@@ -1276,7 +1546,8 @@
 <span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
-<span class="normal">146</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@typechecked</span>
+<span class="normal">146</span>
+<span class="normal">147</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@typechecked</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">train_x</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">))</span>
@@ -1309,7 +1580,8 @@
 <span class="sd">    :param train_x: Input training data</span>
 <span class="sd">    :param train_y: Corresponding classification labels</span>
 <span class="sd">    :param support_size:  Number of support examples for each class</span>
-<span class="sd">    :param selected_labels: Selected class labels to generate examples for</span>
+<span class="sd">    :param selected_labels: Selected class labels to generate examples from</span>
+<span class="sd">    :param return_indexes: If True, also return the indices of the support examples</span>
 <span class="sd">    :return[dict[Any, torch.Tensor]]: Ordered dictionary of class labels with corresponding support examples</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1387,10 +1659,10 @@
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.74e28a9f.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.b425cdc4.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.220ee61c.min.js"></script>
       
     
   </body>

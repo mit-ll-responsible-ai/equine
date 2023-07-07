@@ -135,8 +135,8 @@ class _Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: dict[Any, torch.Tensor]
-    ) -> dict[Any, torch.Tensor]:
+        self, class_cov_dict: dict[float, torch.Tensor]
+    ) -> dict[float, torch.Tensor]:
         """Method to add regularization to each class covariance matrix based on the selected regularization type
         :param class_cov_dict: A dictionary containing each class and the corresponding covariance matrix
         :return dict: Dictonary containing the regularized class covariance matrices
@@ -175,7 +175,7 @@ class _Protonet(torch.nn.Module):
         return class_cov_dict
 
     def compute_shared_covariance(
-        self, class_cov_dict: dict[Any, torch.Tensor]
+        self, class_cov_dict: dict[float, torch.Tensor]
     ) -> torch.Tensor:
         """Method to calculate a shared covariance matrix
         :param class_cov_dict: A dictionary containing each class and the corresponding covariance matrix

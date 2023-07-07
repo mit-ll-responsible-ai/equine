@@ -8,7 +8,7 @@ import io
 import icontract
 import torch
 from torch.utils.data import TensorDataset, DataLoader  # type: ignore
-from typing import Optional, Callable, Any, Union
+from typing import Optional, Callable
 from tqdm import tqdm
 from typeguard import typechecked
 from datetime import datetime
@@ -300,7 +300,7 @@ class EquineGP(Equine):
         calib_frac: float = 0.1,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ) -> tuple[dict[str, Any], Union[DataLoader, None]]:
+    ):
         """Train or fine-tune an EquineGP model
         :param dataset: An iterable, pytorch TensorDataset
         :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()

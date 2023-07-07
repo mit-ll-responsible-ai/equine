@@ -20,7 +20,7 @@ dependencies = [
         "torchmetrics >= 0.6.0",
         "numpy",
         "tqdm",
-        "typeguard<3.0",
+        "typeguard<5.0",
         "icontract",
         "scikit-learn",  # TODO: remove dependency on train_test_split
         "scipy",         # TODO: remove dependency on gaussian_kde

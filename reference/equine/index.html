@@ -1285,7 +1285,7 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
         <span class="n">calib_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
         <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
         <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="n">DataLoader</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]:</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Train or fine-tune an EquineGP model</span>
 <span class="sd">        :param dataset: An iterable, pytorch TensorDataset</span>
 <span class="sd">        :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()</span>
@@ -2412,7 +2412,6 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
     <tbody>
         <tr>
           <td>
-                <code>tuple[dict[str, <span title="typing.Any">Any</span>], <span title="typing.Union">Union</span>[<span title="torch.utils.data.DataLoader">DataLoader</span>, None]]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -2506,7 +2505,7 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
     <span class="n">calib_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
     <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">Union</span><span class="p">[</span><span class="n">DataLoader</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]:</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Train or fine-tune an EquineGP model</span>
 <span class="sd">    :param dataset: An iterable, pytorch TensorDataset</span>
 <span class="sd">    :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()</span>

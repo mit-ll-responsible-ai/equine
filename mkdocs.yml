@@ -20,11 +20,22 @@ theme:
   name: material
   features:
     - navigation.tabs
-  palette:
-    primary: blue
-    secondary: purple
+  palette: 
+    # Palette toggle for light mode
+    - scheme: default
+      #primary: blue
+      #secondary: purple
+      toggle:
+        icon: material/brightness-7 
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  #palette:
   favicon: assets/favicon.svg
-  
+ 
 extra_css:
 - css/mkdocstrings.css
 - css/code_select.css
@@ -58,7 +69,7 @@ plugins:
       python:
         paths: [src]
         options:
-           docstring_style: sphinx
+           docstring_style: "numpy"
 - mkdocs-jupyter:
     ignore_h1_titles: true
     include_source: true

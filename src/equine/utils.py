@@ -1,7 +1,3 @@
-# Copyright 2023, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
-# Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
-# SPDX-License-Identifier: MIT
-
 from typing import Any, List, Union, Tuple
 import icontract
 import torch
@@ -19,10 +15,19 @@ from .equine import Equine
 @icontract.ensure(lambda result: result >= 0.0)
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
-    Compute the Brier score for a multiclass problem
-    :param y_hat:  Probabilities for each class
-    :param y_test: Integer argument class labels (ground truth)
-    :return[float]: Brier score
+    Compute the Brier score for a multiclass problem.
+
+    Parameters
+    ----------
+    y_hat : torch.Tensor
+        Probabilities for each class.
+    y_test : torch.Tensor
+        Integer argument class labels (ground truth).
+
+    Returns
+    -------
+    float
+        Brier score.
     """
     (_, num_classes) = y_hat.size()
     one_hot_y_test = torch.nn.functional.one_hot(y_test, num_classes=num_classes)
@@ -34,10 +39,21 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result <= 1.0)
 def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
-    """Compute the Brier skill score as compared to randomly guessing
-    :param y_hat: Probabilities for each class
-    :param y_test: Integer argument class labels (ground truth)
-    :return[float]: Brier skill score"""
+    """
+    Compute the Brier skill score as compared to randomly guessing.
+
+    Parameters
+    ----------
+    y_hat : torch.Tensor
+        Probabilities for each class.
+    y_test : torch.Tensor
+        Integer argument class labels (ground truth).
+
+    Returns
+    -------
+    float
+        Brier skill score.
+    """
     (_, num_classes) = y_hat.size()
     random_guess = (1.0 / num_classes) * torch.ones(y_hat.size())
     bs0 = brier_score(random_guess, y_test)
@@ -50,10 +66,21 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: (0.0 <= result) and (result <= 1.0))
 def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
-    """Compute the expected calibration error (ECE) for a multiclass problem
-    :param y_hat: Probabilities for each class
-    :param y_test: class label indices (ground truth)
-    :return[float]: Expected calibration error"""
+    """
+    Compute the expected calibration error (ECE) for a multiclass problem.
+
+    Parameters
+    ----------
+    y_hat : torch.Tensor
+        Probabilities for each class.
+    y_test : torch.Tensor
+        Class label indices (ground truth).
+
+    Returns
+    -------
+    float
+        Expected calibration error.
+    """
     (_, num_classes) = y_hat.size()
     metric = MulticlassCalibrationError(num_classes=num_classes, n_bins=25, norm="l1")
     ece = metric(y_hat, y_test).item()
@@ -72,12 +99,19 @@ def _get_shuffle_idxs_by_class(
 ) -> dict[Any, torch.Tensor]:
     """
     Internal helper function to randomly select indices of example classes for a given
-    set of labels
-    :param train_y: Label data
-    :param selected_labels: List of unique labels found in the label data
-    :param train_y: Label data
-    :param selected_labels: List of unique labels found in the label data
-    :return[dict[Any, torch.Tensor]]: Tensor of indices corresponding to each label
+    set of labels.
+
+    Parameters
+    ----------
+    train_y : torch.Tensor
+        Label data.
+    selected_labels : List
+        List of unique labels found in the label data.
+
+    Returns
+    -------
+    Dict[Any, torch.Tensor]
+        Tensor of indices corresponding to each label.
     """
     shuffled_idxs_by_class = OrderedDict()
     for label in selected_labels:
@@ -115,14 +149,27 @@ def generate_support(
 ) -> Union[
     dict[Any, torch.Tensor], Tuple[dict[Any, torch.Tensor], dict[Any, torch.Tensor]]
 ]:
-    """Randomly select `support_size` examples of `way` classes from the examples in
-    `train_x` with corresponding labels in `train_y` and return them as a dictionary
-    :param train_x: Input training data
-    :param train_y: Corresponding classification labels
-    :param support_size:  Number of support examples for each class
-    :param selected_labels: Selected class labels to generate examples from
-    :param return_indexes: If True, also return the indices of the support examples
-    :return[dict[Any, torch.Tensor]]: Ordered dictionary of class labels with corresponding support examples
+    """
+    Randomly select `support_size` examples of `way` classes from the examples in
+    `train_x` with corresponding labels in `train_y` and return them as a dictionary.
+
+    Parameters
+    ----------
+    train_x : torch.Tensor
+        Input training data.
+    train_y : torch.Tensor
+        Corresponding classification labels.
+    support_size : int
+        Number of support examples for each class.
+    selected_labels : List
+        Selected class labels to generate examples from.
+    return_indexes : bool, optional
+        If True, also return the indices of the support examples.
+
+    Returns
+    -------
+    Union[Dict[Any, torch.Tensor], Tuple[Dict[Any, torch.Tensor], Dict[Any, torch.Tensor]]]
+        Ordered dictionary of class labels with corresponding support examples.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
     for label, count in list(zip(labels, counts)):
@@ -156,13 +203,25 @@ def generate_episode(
     episode_size: int,
 ) -> Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]:
     """
-    Generate a single episode of data for a few-shot learning task
-    :param train_x: Input training data
-    :param train_y: Corresponding classification labels
-    :param support_size:  Number of support examples for each class
-    :param way: Number of classes in the episode
-    :param episode_size: Total number of examples in the episode
-    :return[Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]]: Tuple of support examples, query examples, and query labels
+    Generate a single episode of data for a few-shot learning task.
+
+    Parameters
+    ----------
+    train_x : torch.Tensor
+        Input training data.
+    train_y : torch.Tensor
+        Corresponding classification labels.
+    support_size : int
+        Number of support examples for each class.
+    way : int
+        Number of classes in the episode.
+    episode_size : int
+        Total number of examples in the episode.
+
+    Returns
+    -------
+    Tuple[Dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
+        Tuple of support examples, query examples, and query labels.
     """
     labels = torch.unique(train_y)
     selected_labels = sorted(
@@ -214,6 +273,21 @@ def generate_episode(
 def generate_model_metrics(
     eq_preds: EquineOutput, true_y: torch.Tensor
 ) -> dict[str, Any]:
+    """
+    Generate various metrics for evaluating a model's performance.
+
+    Parameters
+    ----------
+    eq_preds : EquineOutput
+        Model predictions.
+    true_y : torch.Tensor
+        True class labels.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary of model metrics.
+    """
     pred_y = torch.argmax(eq_preds.classes, dim=1)
     metrics = {
         "accuracy": accuracy_score(true_y, pred_y),
@@ -229,6 +303,19 @@ def generate_model_metrics(
 
 
 def get_num_examples_per_label(Y: torch.Tensor):
+    """
+    Get the number of examples per label in the given tensor.
+
+    Parameters
+    ----------
+    Y : torch.Tensor
+        Tensor of class labels.
+
+    Returns
+    -------
+    List[Dict[str, Any]]
+        List of dictionaries containing label and number of examples.
+    """
     tensor_labels, tensor_counts = Y.unique(return_counts=True)
 
     examples_per_label = []
@@ -241,7 +328,26 @@ def get_num_examples_per_label(Y: torch.Tensor):
 
 
 @icontract.require(lambda train_y: train_y.shape[0] > 0)
-def generate_train_summary(model: Equine, train_y: torch.Tensor, date_trained: str):
+def generate_train_summary(
+    model: Equine, train_y: torch.Tensor, date_trained: str
+) -> dict[str, Any]:
+    """
+    Generate a summary of the training data.
+
+    Parameters
+    ----------
+    model : Equine
+        Model object.
+    train_y : torch.Tensor
+        Training labels.
+    date_trained : str
+        Date of training.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing training summary.
+    """
     train_summary = {
         "numTrainExamples": get_num_examples_per_label(train_y),
         "dateTrained": date_trained,
@@ -258,6 +364,23 @@ def generate_model_summary(
     eq_preds: EquineOutput,
     test_y: torch.Tensor,
 ):
+    """
+    Generate a summary of the model's performance.
+
+    Parameters
+    ----------
+    model : Equine
+        Model object.
+    eq_preds : EquineOutput
+        Model predictions.
+    test_y : torch.Tensor
+        True class labels.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing model summary.
+    """
     summary = generate_model_metrics(eq_preds, test_y)
     summary["numTestExamples"] = get_num_examples_per_label(test_y)
     summary.update(model.train_summary)  # union of train_summary and generated metrics

@@ -79,6 +79,19 @@ class _RandomFourierFeatures(torch.nn.Module):
     def __init__(
         self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
     ) -> None:
+        """
+        Initialize the _RandomFourierFeatures module, which generates random Fourier features
+        for the embedding model.
+
+        Parameters
+        ----------
+        in_dim : int
+            The input dimensionality.
+        num_random_features : int
+            The number of random Fourier features to generate.
+        feature_scale : Optional[float]
+            The scaling factor for the random Fourier features. If None, defaults to sqrt(num_random_features / 2).
+        """
         super().__init__()
         if feature_scale is None:
             feature_scale = math.sqrt(num_random_features / 2)
@@ -106,6 +119,19 @@ class _RandomFourierFeatures(torch.nn.Module):
         self.register_buffer("b", b)
 
     def forward(self, x) -> torch.Tensor:
+        """
+        Compute the forward pass of the _RandomFourierFeatures module.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The input tensor of shape (batch_size, in_dim).
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor of shape (batch_size, num_random_features).
+        """
         k = torch.cos(x @ self.W + self.b)
         k = k / self.feature_scale
 
@@ -125,6 +151,32 @@ class _Laplace(torch.nn.Module):
         mean_field_factor: Optional[float],  # required for classification problems
         ridge_penalty: float = 1.0,
     ) -> None:
+        """
+        A private class to compute a Laplace approximation to a Gaussian Process (GP)
+        in the .
+
+        Parameters
+        ----------
+        feature_extractor : torch.nn.Module
+            The feature extractor module.
+        num_deep_features : int
+            The number of features output by the feature extractor.
+        num_gp_features : int
+            The number of features to use in the Gaussian process.
+        normalize_gp_features : bool
+            Whether to normalize the GP features.
+        num_random_features : int
+            The number of random Fourier features to use.
+        num_outputs : int
+            The number of outputs of the model.
+        feature_scale : Optional[float]
+            The scaling factor for the random Fourier features.
+        mean_field_factor : Optional[float]
+            The mean-field factor for the Gaussian-Softmax approximation.
+            Required for classification problems.
+        ridge_penalty : float, optional
+            The ridge penalty for the Laplace approximation.
+        """
         super().__init__()
         self.feature_extractor = feature_extractor
         self.mean_field_factor = mean_field_factor
@@ -162,6 +214,9 @@ class _Laplace(torch.nn.Module):
         self.training_parameters_set = False
 
     def reset_precision_matrix(self):
+        """
+        Reset the precision matrix to the identity matrix times the ridge penalty.
+        """
         identity = torch.eye(self.precision.shape[0], device=self.precision.device)
         self.precision = identity * self.ridge_penalty
         self.seen_data = torch.tensor(0)
@@ -172,12 +227,37 @@ class _Laplace(torch.nn.Module):
         lambda num_data, batch_size: (0 < batch_size) & (batch_size <= num_data)
     )
     def set_training_params(self, num_data, batch_size) -> None:
+        """
+        Set the training parameters for the Laplace approximation.
+
+        Parameters
+        ----------
+        num_data : int
+            The total number of data points.
+        batch_size : int
+            The batch size to use during training.
+        """
         self.num_data = num_data
         self.train_batch_size = batch_size
         self.training_parameters_set = True
 
     @icontract.require(lambda self: self.mean_field_factor is not None)
     def mean_field_logits(self, logits, pred_cov):
+        """
+        Compute the mean-field logits for the Gaussian-Softmax approximation.
+
+        Parameters
+        ----------
+        logits : torch.Tensor
+            The logits tensor of shape (batch_size, num_outputs).
+        pred_cov : torch.Tensor
+            The predicted covariance matrix of shape (batch_size, batch_size).
+
+        Returns
+        -------
+        torch.Tensor
+            The mean-field logits tensor of shape (batch_size, num_outputs).
+        """
         # Mean-Field approximation as alternative to MC integration of Gaussian-Softmax
         # Based on: https://arxiv.org/abs/2006.07584
 
@@ -189,6 +269,21 @@ class _Laplace(torch.nn.Module):
 
     @icontract.require(lambda self: self.training_parameters_set)
     def forward(self, x):
+        """
+        Compute the forward pass of the Laplace approximation to the Gaussian Process.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The input tensor of shape (batch_size, num_features).
+
+        Returns
+        -------
+        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+            If the model is in training mode, returns the predicted mean of shape (batch_size, 1).
+            If the model is in evaluation mode, returns a tuple containing the predicted mean of shape (batch_size, 1)
+            and the predicted covariance matrix of shape (batch_size, batch_size).
+        """
         f = self.feature_extractor(x)
         f_reduc = self.jl(f)
         if self.normalize_gp_features:
@@ -241,8 +336,29 @@ class _Laplace(torch.nn.Module):
 class EquineGP(Equine):
     """
     An example of an EQUINE model that builds upon the approach in "Spectral Norm
-    Gaussian Processes". This wraps any pytorch embedding neural network and provides
+    Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides
     the `forward`, `predict`, `save`, and `load` methods required by Equine.
+
+    Parameters
+    ----------
+    embedding_model : torch.nn.Module
+        Neural Network feature embedding.
+    emb_out_dim : int
+        The number of deep features from the feature embedding.
+    num_classes : int
+        The number of output classes this model predicts.
+    use_temperature : bool, optional
+        Whether to use temperature scaling after training.
+    init_temperature : float, optional
+        What to use as the initial temperature (1.0 has no effect).
+    device : str, optional
+        Either 'cuda' or 'cpu'.
+
+    Notes
+    -----
+    Although this model build upon the approach in SNGP, it does not enforce the spectral normalization
+    and ResNet architecture required for SNGP. Instead, it is a simple wrapper around
+    any pytorch embedding neural network. Your mileage may vary.
     """
 
     def __init__(
@@ -254,14 +370,6 @@ class EquineGP(Equine):
         init_temperature: float = 1.0,
         device: str = "cpu",
     ) -> None:
-        """EquineGP constructor
-        :param embedding_model: Neural Network feature embedding
-        :param emb_out_dim: The number of deep features from the feature embedding
-        :param num_classes: The number of output classes this model predicts
-        :param use_temperature: whether to use temperature scaling after training
-        :param init_temperature: what to use as the initial temperature (1.0 has no effect)
-        "param device: either 'cuda' or 'cpu'
-        """
         super().__init__(embedding_model)
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
@@ -301,18 +409,38 @@ class EquineGP(Equine):
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
     ):
-        """Train or fine-tune an EquineGP model
-        :param dataset: An iterable, pytorch TensorDataset
-        :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
-        :param opt: A pytorch optimizer, e.g., torch.optim.Adam()
-        :param num_epochs: The desired number of epochs to use for training,
-        :param batch_size: The number of samples to use per batch
-        :param calib_frac: fraction of training data to use in temperature scaling
-        :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
-        :param calibration_lr: learning rate for temperature scaling
-        :return: A tuple containing the training history and a dataloader for the calibration data
         """
+        Train or fine-tune an EquineGP model.
 
+        Parameters
+        ----------
+        dataset : TensorDataset
+            An iterable, pytorch TensorDataset.
+        loss_fn : Callable
+            A pytorch loss function, e.g., torch.nn.CrossEntropyLoss().
+        opt : torch.optim.Optimizer
+            A pytorch optimizer, e.g., torch.optim.Adam().
+        num_epochs : int
+            The desired number of epochs to use for training.
+        batch_size : int, optional
+            The number of samples to use per batch.
+        calib_frac : float, optional
+            Fraction of training data to use in temperature scaling.
+        num_calibration_epochs : int, optional
+            The desired number of epochs to use for temperature scaling.
+        calibration_lr : float, optional
+            Learning rate for temperature scaling.
+
+        Returns
+        -------
+        Tuple[dict[str, Any], DataLoader]
+            A tuple containing the training history and a dataloader for the calibration data.
+
+        Notes
+        -------
+        - If `use_temperature` is True, temperature scaling will be used after training.
+        - The calibration data is used to calibrate the temperature scaling.
+        """
         if self.use_temperature:
             X, Y = dataset[:]
             train_x, calib_x, train_y, calib_y = train_test_split(
@@ -370,11 +498,16 @@ class EquineGP(Equine):
         calibration_lr: float = 0.01,
     ) -> None:
         """
-        Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
-        :param calibration_loader: data loader returned by train_model
-        :param num_calibration_epochs: number of epochs to tune temperature
-        :param calibration_lr: learning rate for temperature optimization
-        :return:
+        Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.
+
+        Parameters
+        ----------
+        calibration_loader : DataLoader
+            Data loader returned by train_model.
+        num_calibration_epochs : int, optional
+            Number of epochs to tune temperature.
+        calibration_lr : float, optional
+            Learning rate for temperature optimization.
         """
         self.temperature.requires_grad = True
         loss_fn = torch.nn.functional.cross_entropy
@@ -393,9 +526,18 @@ class EquineGP(Equine):
         self.temperature.requires_grad = False
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """EquineGP forward function, generates logits for classification
-        :param X: Input tensor for generating predictions
-        :return[torch.Tensor]: Output probabilities computed
+        """
+        EquineGP forward function, generates logits for classification.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor for generating predictions.
+
+        Returns
+        -------
+        torch.Tensor
+            Output probabilities computed.
         """
         X = X.to(self.device)
         with torch.no_grad():
@@ -406,9 +548,18 @@ class EquineGP(Equine):
         lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))
     )
     def predict(self, X: torch.Tensor) -> EquineOutput:
-        """Predict function for EquineGP, inherited and implemented from Equine
-        :param X: Input tensor
-        :return[EquineOutput] : Output object containing prediction probabilities and OOD scores
+        """
+        Predict function for EquineGP, inherited and implemented from Equine.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        EquineOutput
+            Output object containing prediction probabilities and OOD scores.
         """
         X = X.to(self.device)
         with torch.no_grad():
@@ -424,8 +575,13 @@ class EquineGP(Equine):
         return eq_out
 
     def save(self, path: str) -> None:
-        """Function to save all model parameters to a file
-        :param path: Filename to write the model
+        """
+        Function to save all model parameters to a file.
+
+        Parameters
+        ----------
+        path : str
+            Filename to write the model.
         """
         model_settings = {
             "emb_out_dim": self.num_deep_features,
@@ -461,9 +617,18 @@ class EquineGP(Equine):
 
     @classmethod
     def load(cls, path: str) -> Equine:  # noqa: F821 # type: ignore
-        """Function to load previously saved EquineGP model
-        :param path: input filename
-        :return[EquineGP] : The reconsituted EquineGP object
+        """
+        Function to load previously saved EquineGP model.
+
+        Parameters
+        ----------
+        path : str
+            Input filename.
+
+        Returns
+        -------
+        EquineGP
+            The reconstituted EquineGP object.
         """
         model_save = torch.load(path)
         jit_model = torch.jit.load(model_save["embed_jit_save"])  # type: ignore

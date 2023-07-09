@@ -13,7 +13,7 @@ from .utils import (
     generate_support,
 )
 
-__version__ = "0.1.1rc1"
+__version__ = "0.1.1rc3"
 
 __all__ = [
     "Equine",

@@ -26,7 +26,7 @@ few dependencies beyond torch.
 ```console
 pip install equine
 ```
-Users interested in contributing should refer to `CONTRIBUTING.md` for details.
+Users interested in contributing should refer to [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Design
 EQUINE extends pytorch's `nn.Module` interface using a `predict` method that returns both

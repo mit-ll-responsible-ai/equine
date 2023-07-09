@@ -18,6 +18,31 @@ class Equine(torch.nn.Module, ABC):
     importantly, the `.predict()` method must be outfitted to return an
     EquineOutput object that contains both the class logits
     *and* an out-of-distribution (ood) score.
+
+    Parameters
+    ----------
+    embedding_model : torch.nn.Module
+        The embedding model to use.
+    head_layers : int, optional
+        The number of layers to use in the model head, by default 1.
+
+    Methods
+    -------
+    forward(X)
+        Forward pass of the model.
+    predict(X)
+        Predict function for the model.
+    train_model(dataset, **kwargs)
+        Train the model on the given dataset.
+    save(path)
+        Save all model parameters to a file.
+    load(path)
+        Load a previously saved Equine model.
+
+    Raises
+    ------
+    NotImplementedError
+        If any of the abstract methods are not implemented.
     """
 
     def __init__(self, embedding_model, head_layers=1) -> None:

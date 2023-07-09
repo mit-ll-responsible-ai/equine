@@ -270,7 +270,6 @@ class Protonet(torch.nn.Module):
 
         return shared_covariance
 
-    @typechecked
     @icontract.require(lambda X_embed, mu: X_embed.shape[-1] == mu.shape[-1])
     @icontract.ensure(lambda result: torch.all(result >= 0))
     def compute_distance(
@@ -307,12 +306,13 @@ class Protonet(torch.nn.Module):
             sol = torch.linalg.lstsq(cov, diff, rcond=10 ** (-4))
             sol = sol.solution  # classes x dimension x examples
             dist = torch.sum(diff * sol, dim=1)  # classes x examples
-            dist = torch.sqrt(dist.permute(1, 0) + self.epsilon)  # examples x classes
+            dist = torch.sqrt(
+                torch.abs(dist.permute(1, 0)) + self.epsilon
+            )  # examples x classes
             dist = dist.squeeze(dim=1)
 
         return dist
 
-    @typechecked
     def compute_classes(self, distances: torch.Tensor) -> torch.Tensor:
         """
         Method to compute predicted classes from distances via a softmax function.
@@ -330,7 +330,6 @@ class Protonet(torch.nn.Module):
         softmax = torch.nn.functional.softmax(torch.neg(distances), dim=-1)
         return softmax
 
-    @typechecked
     def forward(self, X: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Protonet forward function, generates class probability predictions and distances from prototypes.
@@ -386,7 +385,6 @@ class Protonet(torch.nn.Module):
         else:
             self.covariance = self.compute_covariance(cov_type=self.cov_type)
 
-    @typechecked
     @icontract.require(lambda self: self.support_embeddings is not None)
     def compute_global_moments(self) -> None:
         """Method to calculate the global moments of the support embeddings for use in OOD score generation"""

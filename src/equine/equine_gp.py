@@ -561,10 +561,7 @@ class EquineGP(Equine):
         EquineOutput
             Output object containing prediction probabilities and OOD scores.
         """
-        X = X.to(self.device)
-        with torch.no_grad():
-            logits = self.model(X)
-        logits = logits / self.temperature
+        logits = self(X)
         preds = torch.softmax(logits, dim=1)
         equiprobable = torch.ones(self.num_outputs) / self.num_outputs
         max_entropy = torch.sum(torch.special.entr(equiprobable))

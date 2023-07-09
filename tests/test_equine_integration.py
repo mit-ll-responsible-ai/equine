@@ -42,10 +42,14 @@ def test_equine_gp_instantiation(random_dataset) -> None:
 def test_unimplemented_errors():
     em = BasicEmbeddingModel(2, 4)
     with pytest.raises(TypeError):
-        eq.Equine(em)
+        eq.Equine(em)  # type: ignore
     with pytest.raises(NotImplementedError):
-        eq.Equine.predict(None, torch.Tensor([1, 2]))
+        eq.Equine.predict(None, torch.Tensor([1, 2]))  # type: ignore
     with pytest.raises(NotImplementedError):
-        eq.Equine.forward(None, torch.Tensor([1, 2]))
+        eq.Equine.forward(None, torch.Tensor([1, 2]))  # type: ignore
+    with pytest.raises(NotImplementedError):
+        eq.Equine.train_model(None, torch.Tensor([1, 2]))  # type: ignore
+    with pytest.raises(NotImplementedError):
+        eq.Equine.save(None, "tmp")  # type: ignore
     with pytest.raises(NotImplementedError):
         eq.Equine.load("tmp")  # type: ignore

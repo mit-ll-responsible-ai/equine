@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Union, Tuple, Dict
 import icontract
 import torch
 from typeguard import typechecked
@@ -14,9 +14,9 @@ from .equine_output import EquineOutput
 from .equine import Equine
 
 
-@typechecked
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result >= 0.0)
+@typechecked
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the Brier score for a multiclass problem.
@@ -39,9 +39,9 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     return bs
 
 
-@typechecked
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result <= 1.0)
+@typechecked
 def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the Brier skill score as compared to randomly guessing.
@@ -66,9 +66,9 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     return bss
 
 
-@typechecked
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: (0.0 <= result) and (result <= 1.0))
+@typechecked
 def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the expected calibration error (ECE) for a multiclass problem.
@@ -91,13 +91,13 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     return ece
 
 
-@typechecked
 @icontract.require(
     lambda train_y, selected_labels: len(selected_labels) <= len(train_y)
 )
 @icontract.ensure(
     lambda result, selected_labels: set(result.keys()).issubset(set(selected_labels))
 )
+@typechecked
 def _get_shuffle_idxs_by_class(
     train_y: torch.Tensor, selected_labels: List
 ) -> dict[Any, torch.Tensor]:
@@ -125,7 +125,6 @@ def _get_shuffle_idxs_by_class(
     return shuffled_idxs_by_class
 
 
-@typechecked
 @icontract.require(lambda train_x, train_y: len(train_x) <= len(train_y))
 @icontract.require(
     lambda selected_labels, train_x: (0 < len(selected_labels))
@@ -144,6 +143,7 @@ def _get_shuffle_idxs_by_class(
     if (return_indexes is True)
     else len(result.keys()) == len(selected_labels)
 )
+@typechecked
 def generate_support(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
@@ -270,10 +270,10 @@ def generate_episode(
     return episode_support, episode_x, episode_y.squeeze().to(torch.long)
 
 
-@typechecked
 @icontract.require(
     lambda eq_preds, true_y: eq_preds.classes.size(dim=0) == true_y.size(dim=0)
 )
+@typechecked
 def generate_model_metrics(
     eq_preds: EquineOutput, true_y: torch.Tensor
 ) -> dict[str, Any]:
@@ -306,7 +306,8 @@ def generate_model_metrics(
     return metrics
 
 
-def get_num_examples_per_label(Y: torch.Tensor):
+@typechecked
+def get_num_examples_per_label(Y: torch.Tensor) -> List[Dict[str, Any]]:
     """
     Get the number of examples per label in the given tensor.
 
@@ -332,6 +333,7 @@ def get_num_examples_per_label(Y: torch.Tensor):
 
 
 @icontract.require(lambda train_y: train_y.shape[0] > 0)
+@typechecked
 def generate_train_summary(
     model: Equine, train_y: torch.Tensor, date_trained: str
 ) -> dict[str, Any]:
@@ -363,6 +365,7 @@ def generate_train_summary(
 @icontract.require(
     lambda eq_preds, test_y: test_y.shape[0] == eq_preds.classes.shape[0]
 )
+@typechecked
 def generate_model_summary(
     model: Equine,
     eq_preds: EquineOutput,

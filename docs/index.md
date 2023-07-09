@@ -3,7 +3,7 @@
 
 [![Build Status](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml/badge.svg?branch=main)](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml)
 ![python_passing_tests](https://img.shields.io/badge/Tests%20Passed-100%25-green)
-![python_coverage](https://img.shields.io/badge/Coverage-91%25-green)
+![python_coverage](https://img.shields.io/badge/Coverage-97%25-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
 

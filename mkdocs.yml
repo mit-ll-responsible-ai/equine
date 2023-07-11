@@ -2,6 +2,7 @@ site_name: EQUi(Ne)<sup>2</sup> Documentation
 site_author: Allan Wollaber, Steven Jorgensen, John Holodnak, Jensen Dempsey, and Harry Li
 copyright: "Copyright (c) 2023 Massachusetts Institute of Technology, MIT Licensed" 
 watch: [docs, src]
+repo_url: https://github.com/mit-ll-responsible-ai/equine
 
 nav:
 - Home:
@@ -20,11 +21,22 @@ theme:
   name: material
   features:
     - navigation.tabs
-  palette:
-    primary: blue
-    secondary: purple
+  palette: 
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: material/brightness-7 
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   favicon: assets/favicon.svg
-  
+  icon:
+    repo: fontawesome/brands/github
+
+ 
 extra_css:
 - css/mkdocstrings.css
 - css/code_select.css
@@ -58,7 +70,7 @@ plugins:
       python:
         paths: [src]
         options:
-           docstring_style: sphinx
+           docstring_style: "numpy"
 - mkdocs-jupyter:
     ignore_h1_titles: true
     include_source: true

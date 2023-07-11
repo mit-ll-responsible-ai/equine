@@ -35,7 +35,7 @@ COV_REG_TYPE = "epsilon"
 
 ###############################################
 @typechecked
-class _Protonet(torch.nn.Module):
+class Protonet(torch.nn.Module):
     """
     Private class that implements a prototypical neural network for use in EQUINE.
     """
@@ -48,12 +48,21 @@ class _Protonet(torch.nn.Module):
         cov_reg_type: str,
         epsilon: float,
     ) -> None:
-        """Protonet class constructor
-        :param embedding_model: The pytorch embedding model to generate logits with
-        :param emb_out_dim: Dimention size of given embedding model's output
-        :param cov_type: Type of covariance to use when computing distances [unit, diag, full]
-        :param cov_reg_type: type of regularization to use when generating the covariance matrix [epsilon, shared]
-        :param epsilon: Epsilon value to use for covariance regularization
+        """
+        Protonet class constructor.
+
+        Parameters
+        ----------
+        embedding_model : torch.nn.Module
+            The PyTorch embedding model to generate logits with.
+        emb_out_dim : int
+            Dimension size of given embedding model's output.
+        cov_type : CovType
+            Type of covariance to use when computing distances [unit, diag, full].
+        cov_reg_type : str
+            Type of regularization to use when generating the covariance matrix [epsilon, shared].
+        epsilon : float
+            Epsilon value to use for covariance regularization.
         """
         super().__init__()
         self.embedding_model = embedding_model
@@ -67,16 +76,35 @@ class _Protonet(torch.nn.Module):
         self.model_head = self.create_model_head(emb_out_dim)
 
     def create_model_head(self, emb_out_dim: int):
-        """Method for adding a pytorch layer on top of given embedding model
-        :param emb_out_dim: Dimention size of embedding model output
-        :return torch.nn.Linear: Returns the created pytorch model layer
+        """
+        Method for adding a PyTorch layer on top of the given embedding model. This layer
+        is intended to offer extra degrees of freedom for distance learning in the embedding space.
+
+        Parameters
+        ----------
+        emb_out_dim : int
+            Dimension size of the embedding model output.
+
+        Returns
+        -------
+        torch.nn.Linear
+            The created PyTorch model layer.
         """
         return torch.nn.Linear(emb_out_dim, emb_out_dim)
 
     def compute_embeddings(self, X: torch.Tensor) -> torch.Tensor:
-        """Method for calculating model embeddings using both the given embedding model and the added model head.
-        :param X: Input tensor to compute embeddings on
-        :return torch.Tensor: Returns fully computed embedding tensors for given X tensor
+        """
+        Method for calculating model embeddings using both the given embedding model and the added model head.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor to compute embeddings on.
+
+        Returns
+        -------
+        torch.Tensor
+            Fully computed embedding tensors for the given X tensor.
         """
         model_embeddings = self.embedding_model(X)
         head_embeddings = self.model_head(model_embeddings)
@@ -84,8 +112,14 @@ class _Protonet(torch.nn.Module):
 
     @icontract.require(lambda self: self.support_embeddings is not None)
     def compute_prototypes(self) -> torch.Tensor:
-        """Method for computing class prototypes based on given support examples
-        :return torch.Tensor: Tensors of prototypes for each of the given classes in the support
+        """
+        Method for computing class prototypes based on given support examples.
+        ``Prototypes'' in this context are the means of the support embeddings for each class.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensors of prototypes for each of the given classes in the support.
         """
         # Compute prototype for each class
         proto_list = []
@@ -99,9 +133,19 @@ class _Protonet(torch.nn.Module):
 
     @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_covariance(self, cov_type: CovType) -> torch.Tensor:
-        """Method for generating the regularized support example covariance matrix used for calculating distances
-        :param cov_type: Type of covariance to use [unit, diag, full]
-        :return torch.Tensor: Tensor containing the generated regularized covariance matrix
+        """
+        Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.
+        Note that this method is only called once per episode, and the resulting tensor is used for all queries.
+
+        Parameters
+        ----------
+        cov_type : CovType
+            Type of covariance to use [unit, diag, full].
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor containing the generated regularized covariance matrix.
         """
         class_cov_dict = OrderedDict().fromkeys(self.support_embeddings.keys())
         for label in self.support_embeddings.keys():
@@ -137,9 +181,18 @@ class _Protonet(torch.nn.Module):
     def regularize_covariance(
         self, class_cov_dict: dict[float, torch.Tensor]
     ) -> dict[float, torch.Tensor]:
-        """Method to add regularization to each class covariance matrix based on the selected regularization type
-        :param class_cov_dict: A dictionary containing each class and the corresponding covariance matrix
-        :return dict: Dictonary containing the regularized class covariance matrices
+        """
+        Method to add regularization to each class covariance matrix based on the selected regularization type.
+
+        Parameters
+        ----------
+        class_cov_dict : dict[float, torch.Tensor]
+            A dictionary containing each class and the corresponding covariance matrix.
+
+        Returns
+        -------
+        dict[float, torch.Tensor]
+            Dictionary containing the regularized class covariance matrices.
         """
         if self.cov_type == CovType.FULL:
             regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim))
@@ -177,9 +230,22 @@ class _Protonet(torch.nn.Module):
     def compute_shared_covariance(
         self, class_cov_dict: dict[float, torch.Tensor]
     ) -> torch.Tensor:
-        """Method to calculate a shared covariance matrix
-        :param class_cov_dict: A dictionary containing each class and the corresponding covariance matrix
-        :return torch.Tensor: Tensor containing the shared covariance matrix
+        """
+        Method to calculate a shared covariance matrix.
+
+        The shared covariance matrix is calculated as the weighted average of the class covariance matrices,
+        where the weights are the number of support examples for each class. This is useful when the number of
+        support examples for each class is small.
+
+        Parameters
+        ----------
+        class_cov_dict : dict[float, torch.Tensor]
+            A dictionary containing each class and the corresponding covariance matrix.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor containing the shared covariance matrix.
         """
         total_support = sum([x.shape[0] for x in class_cov_dict.values()])
 
@@ -204,17 +270,27 @@ class _Protonet(torch.nn.Module):
 
         return shared_covariance
 
-    @typechecked
     @icontract.require(lambda X_embed, mu: X_embed.shape[-1] == mu.shape[-1])
     @icontract.ensure(lambda result: torch.all(result >= 0))
     def compute_distance(
         self, X_embed: torch.Tensor, mu: torch.Tensor, cov: torch.Tensor
     ) -> torch.Tensor:
-        """Method to compute the distances to class prototypes for the given embeddings
-        :param X_embed: The embeddings to compute the distances on
-        :param mu: The class prototypes
-        :param cov: The support covariance matrix
-        :return torch.Tensor: The calculated distances from each of the class prototypes for the given embeddings
+        """
+        Method to compute the distances to class prototypes for the given embeddings.
+
+        Parameters
+        ----------
+        X_embed : torch.Tensor
+            The embeddings of the query examples.
+        mu : torch.Tensor
+            The class prototypes (means of the support embeddings).
+        cov : torch.Tensor
+            The support covariance matrix.
+
+        Returns
+        -------
+        torch.Tensor
+            The calculated distances from each of the class prototypes for the given embeddings.
         """
         _queries = torch.unsqueeze(X_embed, 1)  # examples x 1 x dimension
         diff = torch.sub(mu, _queries) ** 2  # examples x classes x dimension
@@ -230,25 +306,43 @@ class _Protonet(torch.nn.Module):
             sol = torch.linalg.lstsq(cov, diff, rcond=10 ** (-4))
             sol = sol.solution  # classes x dimension x examples
             dist = torch.sum(diff * sol, dim=1)  # classes x examples
-            dist = torch.sqrt(dist.permute(1, 0) + self.epsilon)  # examples x classes
+            dist = torch.sqrt(
+                torch.abs(dist.permute(1, 0)) + self.epsilon
+            )  # examples x classes
             dist = dist.squeeze(dim=1)
 
         return dist
 
-    @typechecked
     def compute_classes(self, distances: torch.Tensor) -> torch.Tensor:
-        """Method to compute predicted classes from distances via a softmax function
-        :param distances: The distances of embeddings to class prototypes
-        :return torch.Tensor: Tensor of class predictions
+        """
+        Method to compute predicted classes from distances via a softmax function.
+
+        Parameters
+        ----------
+        distances : torch.Tensor
+            The distances of embeddings to class prototypes.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of class predictions.
         """
         softmax = torch.nn.functional.softmax(torch.neg(distances), dim=-1)
         return softmax
 
-    @typechecked
     def forward(self, X: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """_Protonet forward function, generates class probability predictions
-        :param X: Input tensor for generating predictions
-        :return tuple[torch.Tensor, torch.Tensor]: Tuple containing class probability predictions, and class distances from prototypes
+        """
+        Protonet forward function, generates class probability predictions and distances from prototypes.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor of queires for generating predictions.
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor]
+            Tuple containing class probability predictions, and class distances from prototypes.
         """
         if self.support is None or self.support_embeddings is None:
             raise ValueError(
@@ -265,8 +359,13 @@ class _Protonet(torch.nn.Module):
         return classes, distances
 
     def update_support(self, support: OrderedDict) -> None:
-        """Method to update the support examples, and all the calculations that rely on them
-        :param support: Ordered dict containing class labels and their associated support examples
+        """
+        Method to update the support examples, and all the calculations that rely on them.
+
+        Parameters
+        ----------
+        support : OrderedDict
+            Ordered dict containing class labels and their associated support examples.
         """
         self.support = support  # TODO torch.nn.ParameterDict(support)
 
@@ -286,7 +385,6 @@ class _Protonet(torch.nn.Module):
         else:
             self.covariance = self.compute_covariance(cov_type=self.cov_type)
 
-    @typechecked
     @icontract.require(lambda self: self.support_embeddings is not None)
     def compute_global_moments(self) -> None:
         """Method to calculate the global moments of the support embeddings for use in OOD score generation"""
@@ -301,9 +399,24 @@ class _Protonet(torch.nn.Module):
 @typechecked
 class EquineProtonet(Equine):
     """
-    An example of an EQUINE model that utilizes protonets and relative mahalanobis distances
+    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
     to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
     and provides the `forward`, `predict`, `save`, and `load` methods required by Equine.
+
+    Parameters
+    ----------
+    embedding_model : torch.nn.Module
+        Neural Network feature embedding model.
+    emb_out_dim : int
+        The number of output features from the embedding model.
+    cov_type : CovType, optional
+        The type of covariance to use when training the protonet [UNIT, DIAG, FULL], by default CovType.UNIT.
+    relative_mahal : bool, optional
+        Use relative mahalanobis distance for OOD calculations. If false, uses standard mahalanobis distance instead, by default True.
+    use_temperature : bool, optional
+        Whether to use temperature scaling after training, by default False.
+    init_temperature : float, optional
+        What to use as the initial temperature (1.0 has no effect), by default 1.0.
     """
 
     def __init__(
@@ -315,14 +428,6 @@ class EquineProtonet(Equine):
         use_temperature: bool = False,
         init_temperature: float = 1.0,
     ) -> None:
-        """EquineProtonet constructor
-        :param embedding_model: Neural Network feature embedding model
-        :param emb_out_dim: The number of output features from the embedding model
-        :param cov_type: The type of covariance to use when training the protonet [UNIT, DIAG, FULL]
-        :param relative_mahal: Use relative mahalanobis distance for OOD calculations. If false, uses standard mahalanobis distance instead
-        :param use_temperature: whether to use temperature scaling after training
-        param init_temperature: what to use as the initial temperature (1.0 has no effect)
-        """
         super().__init__(embedding_model)
         self.cov_type = cov_type
         self.cov_reg_type = COV_REG_TYPE
@@ -337,7 +442,7 @@ class EquineProtonet(Equine):
             "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
         )
 
-        self.model = _Protonet(
+        self.model = Protonet(
             embedding_model,
             self.emb_out_dim,
             self.cov_type,
@@ -346,9 +451,18 @@ class EquineProtonet(Equine):
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """EquineProtonet forward function, generates logits for classification
-        :param X: Input tensor for generating predictions
-        :return torch.Tensor: Output class predictions
+        """
+        Generates logits for classification based on the input tensor.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            The input tensor for generating predictions.
+
+        Returns
+        -------
+        torch.Tensor
+            The output class predictions.
         """
         preds, _ = self.model(X)
         return preds
@@ -367,18 +481,36 @@ class EquineProtonet(Equine):
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
     ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
-        """Train or fine-tune an EquineProtonet model
-        :param dataset: Input pytorch TensorDataset of training data for model
-        :param num_episodes: The desired number of episodes to use for training
-        :param calib_frac: Fraction of given training data to reserve for model calibration
-        :param support_size: Number of support examples to generate for each class
-        :param way: Number of classes to train on per episode
-        :param episode_size: Number of examples to use per episode
-        :param loss_fn: A pytorch loss function, eg., torch.nn.CrossEntropyLoss()
-        :param opt_class: A pytorch optimizer, e.g., torch.optim.Adam
-        :param num_calibration_epochs: The desired number of epochs to use for temperature scaling,
-        :param calibration_lr: learning rate for temperature scaling
-        :return: A tuple containing the model summary, the held out calibration data, and the calibration labels
+        """
+        Train or fine-tune an EquineProtonet model.
+
+        Parameters
+        ----------
+        dataset : TensorDataset
+            Input pytorch TensorDataset of training data for model.
+        num_episodes : int
+            The desired number of episodes to use for training.
+        calib_frac : float, optional
+            Fraction of given training data to reserve for model calibration, by default 0.2.
+        support_size : int, optional
+            Number of support examples to generate for each class, by default 25.
+        way : int, optional
+            Number of classes to train on per episode, by default 3.
+        episode_size : int, optional
+            Number of examples to use per episode, by default 100.
+        loss_fn : Callable, optional
+            A pytorch loss function, eg., torch.nn.CrossEntropyLoss(), by default torch.nn.functional.cross_entropy.
+        opt_class : Callable, optional
+            A pytorch optimizer, e.g., torch.optim.Adam, by default torch.optim.Adam.
+        num_calibration_epochs : int, optional
+            The desired number of epochs to use for temperature scaling, by default 2.
+        calibration_lr : float, optional
+            Learning rate for temperature scaling, by default 0.01.
+
+        Returns
+        -------
+        tuple[dict[str, Any], torch.Tensor, torch.Tensor]
+            A tuple containing the model summary, the held out calibration data, and the calibration labels.
         """
         self.train()
 
@@ -441,12 +573,22 @@ class EquineProtonet(Equine):
         calibration_lr: float = 0.01,
     ) -> None:
         """
-        Fine-tune the temperature after training.  Note this function is also run at the conclusion of train_model
-        :param calib_x: training data to be used for temperature calibration
-        :param calib_y: labels corresponding to calib_x
-        :param num_calibration_epochs: number of epochs to tune temperature
-        :param calibration_lr: learning rate for temperature optimization
-        :return:    None
+        Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.
+
+        Parameters
+        ----------
+        calib_x : torch.Tensor
+            Training data to be used for temperature calibration.
+        calib_y : torch.Tensor
+            Labels corresponding to `calib_x`.
+        num_calibration_epochs : int, optional
+            Number of epochs to tune temperature, by default 1.
+        calibration_lr : float, optional
+            Learning rate for temperature optimization, by default 0.01.
+
+        Returns
+        -------
+        None
         """
         self.temperature.requires_grad = True
         optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
@@ -466,9 +608,19 @@ class EquineProtonet(Equine):
     def _fit_outlier_scores(
         self, ood_dists: torch.Tensor, calib_y: torch.Tensor
     ) -> None:
-        """Private function to fit outlier scores with a kernel density estimate (KDE)
-        :param ood_dists: Tensor of computed OOD distances
-        :param calib_y: Tensor of class labels for ood_dists examples
+        """
+        Private function to fit outlier scores with a kernel density estimate (KDE).
+
+        Parameters
+        ----------
+        ood_dists : torch.Tensor
+            Tensor of computed OOD distances.
+        calib_y : torch.Tensor
+            Tensor of class labels for `ood_dists` examples.
+
+        Returns
+        -------
+        None
         """
         self.outlier_score_kde = OrderedDict.fromkeys(
             self.model.support_embeddings.keys()
@@ -480,10 +632,20 @@ class EquineProtonet(Equine):
             self.outlier_score_kde[label] = class_kde
 
     def _compute_outlier_scores(self, ood_dists, predictions) -> torch.Tensor:
-        """Private function to compute OOD scores using the calculated kernel density estimate (KDE)
-        :param ood_dists: Tensor of computed OOD distances
-        :param predictions: Tensor of model protonet predictions
-        :return torch.Tensor: Tensor of OOD scores for the given examples
+        """
+        Private function to compute OOD scores using the calculated kernel density estimate (KDE).
+
+        Parameters
+        ----------
+        ood_dists : torch.Tensor
+            Tensor of computed OOD distances.
+        predictions : torch.Tensor
+            Tensor of model protonet predictions.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of OOD scores for the given examples.
         """
         ood_scores = torch.zeros_like(ood_dists)
         for i in range(len(predictions)):
@@ -503,11 +665,22 @@ class EquineProtonet(Equine):
         predictions: torch.Tensor,
         distances: torch.Tensor,
     ) -> torch.Tensor:
-        """Private function to compute OOD distances using a distance function
-        :param X_embeddings: Tensor of example embeddings
-        :param predictions: Tensor of model protonet predictions for the given embeddings
-        :param distances: Tensor of calculated protonet distances for the given embeddings
-        :return torch.Tensor: Tensor of OOD distances for the given embeddings
+        """
+        Private function to compute OOD distances using a distance function.
+
+        Parameters
+        ----------
+        X_embeddings : torch.Tensor
+            Tensor of example embeddings.
+        predictions : torch.Tensor
+            Tensor of model protonet predictions for the given embeddings.
+        distances : torch.Tensor
+            Tensor of calculated protonet distances for the given embeddings.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor of OOD distances for the given embeddings.
         """
         preds = torch.argmax(predictions, dim=1)
         preds = preds.unsqueeze(dim=-1)
@@ -525,9 +698,17 @@ class EquineProtonet(Equine):
         return ood_dist
 
     def predict(self, X: torch.Tensor) -> EquineOutput:
-        """Predict function for EquineProtonet, inherited and implemented from Equine
-        :param X: Input tensor
-        :return[EquineOutput] : Output object containing prediction probabilities and OOD scores
+        """Predict function for EquineProtonet, inherited and implemented from Equine.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Input tensor.
+
+        Returns
+        -------
+        EquineOutput
+            Output object containing prediction probabilities and OOD scores.
         """
         X_embed = self.model.compute_embeddings(X)
         if X_embed.shape == torch.Size([self.model.emb_out_dim]):
@@ -545,10 +726,20 @@ class EquineProtonet(Equine):
     def update_support(
         self, support_x: torch.Tensor, support_y: torch.Tensor, calib_frac: float
     ) -> None:
-        """Function to update protonet support examples with given examples
-        :param support_x: Tensor containing support examples for protonet
-        :param support_y: Tensor containing labels for given support examples
-        :param calib_frac: Fraction of given support data to use for OOD calibration
+        """Function to update protonet support examples with given examples.
+
+        Parameters
+        ----------
+        support_x : torch.Tensor
+            Tensor containing support examples for protonet.
+        support_y : torch.Tensor
+            Tensor containing labels for given support examples.
+        calib_frac : float
+            Fraction of given support data to use for OOD calibration.
+
+        Returns
+        -------
+        None
         """
 
         support_x, calib_x, support_y, calib_y = train_test_split(
@@ -574,8 +765,17 @@ class EquineProtonet(Equine):
         self._fit_outlier_scores(ood_dists, calib_y)
 
     def save(self, path: str) -> None:
-        """Function to save all model parameters to a file
-        :param path: Filename to write the model
+        """
+        Save all model parameters to a file.
+
+        Parameters
+        ----------
+        path : str
+            Filename to write the model.
+
+        Returns
+        -------
+        None
         """
         model_settings = {
             "cov_type": self.cov_type,
@@ -602,9 +802,18 @@ class EquineProtonet(Equine):
 
     @classmethod
     def load(cls, path: str) -> Equine:  # noqa: F821 TODO typehint doesnt want to work?
-        """Function to load previously saved EquineProtonet model
-        :param path: input filename
-        :return[EquineGP] : The reconsituted EquineProtonet object
+        """
+        Load a previously saved EquineProtonet model.
+
+        Parameters
+        ----------
+        path : str
+            The filename of the saved model.
+
+        Returns
+        -------
+        EquineProtonet
+            The reconstituted EquineProtonet object.
         """
         model_save = torch.load(path)
         support = model_save["support"]

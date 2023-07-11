@@ -11,9 +11,13 @@ from .utils import (
     brier_skill_score,
     expected_calibration_error,
     generate_support,
+    generate_episode,
+    generate_model_metrics,
+    generate_train_summary,
+    generate_model_summary,
 )
 
-__version__ = "0.1.1rc1"
+__version__ = "0.1.1rc3"
 
 __all__ = [
     "Equine",
@@ -25,4 +29,8 @@ __all__ = [
     "brier_skill_score",
     "expected_calibration_error",
     "generate_support",
+    "generate_episode",
+    "generate_model_metrics",
+    "generate_train_summary",
+    "generate_model_summary",
 ]

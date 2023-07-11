@@ -39,7 +39,7 @@ classifiers = [
 [project.optional-dependencies]
 tests = [
     "pytest >= 3.8",
-    "hypothesis >= 6.41.0, < 6.81.0",
+    "hypothesis >= 6.41.0, < 6.82.0",
     "pre-commit >= 2.19",
 ]
 

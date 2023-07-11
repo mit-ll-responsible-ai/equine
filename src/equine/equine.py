@@ -49,6 +49,11 @@ class Equine(torch.nn.Module, ABC):
         super().__init__()
         self.embedding_model = embedding_model
         self.head_layers = head_layers
+        self.train_summary = {
+            "numTrainExamples": 0,
+            "dateTrained": "",
+            "modelType": "",
+            }
 
     @abstractmethod
     def forward(self, X: torch.Tensor):

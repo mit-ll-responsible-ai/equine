@@ -16,7 +16,7 @@ class Equine(torch.nn.Module, ABC):
     EQUINE is set up to extend torch's nn.Module to enrich it with
     a method that enables uncertainty quantification and visualization. Most
     importantly, the `.predict()` method must be outfitted to return an
-    EquineOutput object that contains both the class logits
+    EquineOutput object that contains both the class probabilities
     *and* an out-of-distribution (ood) score.
 
     Parameters
@@ -26,18 +26,14 @@ class Equine(torch.nn.Module, ABC):
     head_layers : int, optional
         The number of layers to use in the model head, by default 1.
 
-    Methods
-    -------
-    forward(X)
-        Forward pass of the model.
-    predict(X)
-        Predict function for the model.
-    train_model(dataset, **kwargs)
-        Train the model on the given dataset.
-    save(path)
-        Save all model parameters to a file.
-    load(path)
-        Load a previously saved Equine model.
+    Attributes
+    ----------
+    embedding_model : torch.nn.Module
+        The neural embedding model to enrich with uncertainty quantification.
+    head_layers : int
+        The number of linear layers to append to the embedding model (default 1, not always used).
+    train_summary : dict[str, Any]
+        A dictionary containing information about the model training.
 
     Raises
     ------
@@ -53,22 +49,89 @@ class Equine(torch.nn.Module, ABC):
             "numTrainExamples": 0,
             "dateTrained": "",
             "modelType": "",
-            }
+        }
 
     @abstractmethod
-    def forward(self, X: torch.Tensor):
+    def forward(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the model. This is to preserve the usual behavior
+        of torch.nn.Module.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            The input data.
+
+        Returns
+        -------
+        torch.Tensor
+            The output of the model.
+
+        """
         raise NotImplementedError
 
     @abstractmethod
     def predict(self, X: torch.Tensor) -> EquineOutput:
+        """
+        Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
+        given input data.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            The input data.
+
+        Returns
+        -------
+        EquineOutput
+            An EquineOutput object containing the class probabilties and OOD scores.
+        """
         raise NotImplementedError
 
+    @abstractmethod
     def train_model(self, dataset: TensorDataset, **kwargs) -> dict[str, Any]:
+        """
+        Upon implementation, train the model on the given dataset.
+
+        Parameters
+        ----------
+        dataset : TensorDataset
+            TensorDataset containing the training data.
+        **kwargs
+            Additional keyword arguments to pass to the training function.
+
+        Returns
+        -------
+        dict[str, Any]
+            Dictionary containing summary training information.
+        """
         raise NotImplementedError
 
+    @abstractmethod
     def save(self, path: str) -> None:
+        """
+        Upon implementation, save the model to the given file path.
+
+        Parameters
+        ----------
+        path : str
+            File path to save the model to.
+        """
         raise NotImplementedError
 
     @classmethod
     def load(cls: Equine, path: str) -> Equine:  # noqa: F821 # type: ignore
+        """
+        Upon implementation, load the model from the given file path.
+
+        Parameters
+        ----------
+        path : str
+            File path to load the model from.
+
+        Returns
+        -------
+        Equine
+            Loaded model object.
+        """
         raise NotImplementedError

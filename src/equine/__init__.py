@@ -6,6 +6,8 @@ from .equine import Equine, EquineOutput
 from .equine_gp import EquineGP
 from .equine_protonet import EquineProtonet, CovType
 
+from typing import TYPE_CHECKING
+
 from .utils import (
     brier_score,
     brier_skill_score,
@@ -17,7 +19,13 @@ from .utils import (
     generate_model_summary,
 )
 
-__version__ = "0.1.1rc5"
+if not TYPE_CHECKING:
+    try:
+        from ._version import version as __version__
+    except ImportError:
+        __version__ = "unknown version"
+else:  # pragma: no cover
+    __version__: str
 
 __all__ = [
     "Equine",

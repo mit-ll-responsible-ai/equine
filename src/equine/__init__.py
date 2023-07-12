@@ -17,7 +17,7 @@ from .utils import (
     generate_model_summary,
 )
 
-__version__ = "0.1.1rc4"
+__version__ = "0.1.1rc5"
 
 __all__ = [
     "Equine",

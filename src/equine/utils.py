@@ -198,6 +198,19 @@ def generate_support(
         return support
 
 
+@icontract.require(lambda train_x: len(train_x.shape) == 2)
+@icontract.require(lambda train_y: len(train_y.shape) == 1)
+@icontract.require(lambda support_size: support_size > 1)
+@icontract.require(lambda way: way > 0)
+@icontract.require(lambda episode_size: episode_size > 0)
+@icontract.ensure(lambda result: len(result) == 3)
+@icontract.ensure(lambda result: result[1].shape[0] == result[2].shape[0])
+@icontract.ensure(lambda way, result: len(result[0]) == way)
+@icontract.ensure(
+    lambda support_size, result: all(
+        len(support) == support_size for support in result[0].values()
+    )
+)
 @typechecked
 def generate_episode(
     train_x: torch.Tensor,
@@ -236,7 +249,7 @@ def generate_episode(
         train_x, train_y, support_size, selected_labels, return_indexes=True
     )
 
-    examples_per_task = int(episode_size / way)
+    examples_per_task = episode_size // way
 
     episode_data_list = []
     episode_label_list = []
@@ -306,6 +319,11 @@ def generate_model_metrics(
     return metrics
 
 
+@icontract.require(lambda Y: len(Y.shape) == 1)
+@icontract.ensure(
+    lambda result: all("label" in d and "numExamples" in d for d in result)
+)
+@icontract.ensure(lambda result: all(d["numExamples"] >= 0 for d in result))
 @typechecked
 def get_num_examples_per_label(Y: torch.Tensor) -> List[Dict[str, Any]]:
     """

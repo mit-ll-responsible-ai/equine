@@ -14,7 +14,7 @@
         <link rel="prev" href="../../example_notebooks/vnat_example/">
       
       
-        <link rel="next" href="equine/">
+        <link rel="next" href="_version/">
       
       <link rel="icon" href="../../assets/favicon.svg">
       <meta name="generator" content="mkdocs-1.4.3, mkdocs-material-9.1.18">
@@ -543,6 +543,20 @@
   
   
     <li class="md-nav__item">
+      <a href="_version/" class="md-nav__link">
+        _version
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="equine/" class="md-nav__link">
         equine
       </a>
@@ -990,15 +1004,15 @@
 
 
 <h2 id="equine.Equine" class="doc doc-heading">
-        <code>Equine</code>
+          <code>Equine</code>
 
 
 <a href="#equine.Equine" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
   
       <p>EQUINE Abstract Base Class (ABC):
@@ -1007,6 +1021,8 @@ a method that enables uncertainty quantification and visualization. Most
 importantly, the <code>.predict()</code> method must be outfitted to return an
 EquineOutput object that contains both the class probabilities
 <em>and</em> an out-of-distribution (ood) score.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1049,6 +1065,8 @@ EquineOutput object that contains both the class probabilities
         </tr>
     </tbody>
   </table>
+
+
 
   <p><strong>Attributes:</strong></p>
   <table>
@@ -1096,6 +1114,8 @@ EquineOutput object that contains both the class probabilities
     </tbody>
   </table>
 
+
+
   <p><strong>Raises:</strong></p>
   <table>
     <thead>
@@ -1118,10 +1138,9 @@ EquineOutput object that contains both the class probabilities
     </tbody>
   </table>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 14</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 14</span>
 <span class="normal"> 15</span>
 <span class="normal"> 16</span>
 <span class="normal"> 17</span>
@@ -1369,11 +1388,12 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -1401,6 +1421,8 @@ EquineOutput object that contains both the class probabilities
   
       <p>Forward pass of the model. This is to preserve the usual behavior
 of torch.nn.Module.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1430,6 +1452,8 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1452,9 +1476,9 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
 <span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
@@ -1490,10 +1514,11 @@ of torch.nn.Module.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1512,6 +1537,8 @@ of torch.nn.Module.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, load the model from the given file path.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1541,6 +1568,8 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1563,9 +1592,9 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
@@ -1597,10 +1626,11 @@ of torch.nn.Module.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1620,6 +1650,8 @@ of torch.nn.Module.</p>
   
       <p>Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
 given input data.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1649,6 +1681,8 @@ given input data.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1671,9 +1705,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
 <span class="normal">74</span>
 <span class="normal">75</span>
 <span class="normal">76</span>
@@ -1707,10 +1741,11 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1729,6 +1764,8 @@ given input data.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, save the model to the given file path.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1758,9 +1795,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">110</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">110</span>
 <span class="normal">111</span>
 <span class="normal">112</span>
 <span class="normal">113</span>
@@ -1782,10 +1819,11 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1804,6 +1842,8 @@ given input data.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, train the model on the given dataset.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1846,6 +1886,8 @@ given input data.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1868,9 +1910,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
 <span class="normal"> 92</span>
 <span class="normal"> 93</span>
 <span class="normal"> 94</span>
@@ -1906,7 +1948,7 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -1924,20 +1966,22 @@ given input data.</p>
 
 
 <h2 id="equine.EquineGP" class="doc doc-heading">
-        <code>EquineGP</code>
+          <code>EquineGP</code>
 
 
 <a href="#equine.EquineGP" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
 
   
       <p>An example of an EQUINE model that builds upon the approach in "Spectral Norm
 Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides
 the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2041,10 +2085,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
 and ResNet architecture required for SNGP. Instead, it is a simple wrapper around
 any pytorch embedding neural network. Your mileage may vary.</p>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
 <span class="normal">336</span>
 <span class="normal">337</span>
 <span class="normal">338</span>
@@ -2662,11 +2705,12 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -2689,6 +2733,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2746,9 +2792,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">494</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">494</span>
 <span class="normal">495</span>
 <span class="normal">496</span>
 <span class="normal">497</span>
@@ -2814,10 +2860,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2832,6 +2879,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>EquineGP forward function, generates logits for classification.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2861,6 +2910,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2883,9 +2934,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">528</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">528</span>
 <span class="normal">529</span>
 <span class="normal">530</span>
 <span class="normal">531</span>
@@ -2921,10 +2972,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2943,6 +2995,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Function to load previously saved EquineGP model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2972,6 +3026,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2994,9 +3050,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">615</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">615</span>
 <span class="normal">616</span>
 <span class="normal">617</span>
 <span class="normal">618</span>
@@ -3054,10 +3110,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -3072,6 +3129,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Predict function for EquineGP, inherited and implemented from Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -3101,6 +3160,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -3123,9 +3184,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">547</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">547</span>
 <span class="normal">548</span>
 <span class="normal">549</span>
 <span class="normal">550</span>
@@ -3177,10 +3238,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="p">)</span>  <span class="c1"># TODO return embeddings</span>
     <span class="k">return</span> <span class="n">eq_out</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -3195,6 +3257,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Function to save all model parameters to a file.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -3224,9 +3288,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">574</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">574</span>
 <span class="normal">575</span>
 <span class="normal">576</span>
 <span class="normal">577</span>
@@ -3306,10 +3370,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -3324,6 +3389,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Train or fine-tune an EquineGP model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -3451,6 +3518,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -3478,9 +3547,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <li>The calibration data is used to calibrate the temperature scaling.</li>
 </ul>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">401</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">401</span>
 <span class="normal">402</span>
 <span class="normal">403</span>
 <span class="normal">404</span>
@@ -3664,7 +3733,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span> <span class="n">calibration_loader</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -3682,7 +3751,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
 
 <h2 id="equine.EquineOutput" class="doc doc-heading">
-        <code>EquineOutput</code>
+          <code>EquineOutput</code>
 
   
   <span class="doc doc-labels">
@@ -3696,6 +3765,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
   
       <p>Output object containing prediction probabilities, OOD scores, and embeddings, which can be used for visualization.</p>
+
+
 
   <p><strong>Attributes:</strong></p>
   <table>
@@ -3743,10 +3814,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_output.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 8</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_output.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 8</span>
 <span class="normal"> 9</span>
 <span class="normal">10</span>
 <span class="normal">11</span>
@@ -3782,7 +3852,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">ood_scores</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="n">embeddings</span><span class="p">:</span> <span class="n">Tensor</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
@@ -3809,20 +3879,22 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
 
 <h2 id="equine.EquineProtonet" class="doc doc-heading">
-        <code>EquineProtonet</code>
+          <code>EquineProtonet</code>
 
 
 <a href="#equine.EquineProtonet" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
 
   
       <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
 to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
 and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -3874,7 +3946,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>CovType.UNIT</code>
+                <code><span title="equine.equine_protonet.CovType">CovType</span>.<span title="equine.equine_protonet.CovType.UNIT">UNIT</span></code>
           </td>
         </tr>
         <tr>
@@ -3922,10 +3994,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">399</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">399</span>
 <span class="normal">400</span>
 <span class="normal">401</span>
 <span class="normal">402</span>
@@ -4787,11 +4858,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -4814,6 +4886,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4885,6 +4959,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -4907,9 +4983,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
 <span class="normal">569</span>
 <span class="normal">570</span>
 <span class="normal">571</span>
@@ -4985,10 +5061,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5003,6 +5080,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generates logits for classification based on the input tensor.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5032,6 +5111,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5054,9 +5135,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
 <span class="normal">454</span>
 <span class="normal">455</span>
 <span class="normal">456</span>
@@ -5088,10 +5169,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">preds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5110,6 +5192,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Load a previously saved EquineProtonet model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5139,6 +5223,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5161,9 +5247,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">803</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">803</span>
 <span class="normal">804</span>
 <span class="normal">805</span>
 <span class="normal">806</span>
@@ -5217,10 +5303,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5235,6 +5322,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5264,6 +5353,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5286,9 +5377,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">700</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">700</span>
 <span class="normal">701</span>
 <span class="normal">702</span>
 <span class="normal">703</span>
@@ -5336,10 +5427,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">EquineOutput</span><span class="p">(</span><span class="n">classes</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">ood_scores</span><span class="o">=</span><span class="n">ood_scores</span><span class="p">,</span> <span class="n">embeddings</span><span class="o">=</span><span class="n">X_embed</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5354,6 +5446,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Save all model parameters to a file.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5383,6 +5477,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5405,9 +5501,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
 <span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
@@ -5477,10 +5573,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5495,6 +5592,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Train or fine-tune an EquineProtonet model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5602,7 +5701,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>torch.nn.functional.cross_entropy</code>
+                <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.functional">functional</span>.<span title="torch.nn.functional.cross_entropy">cross_entropy</span></code>
           </td>
         </tr>
         <tr>
@@ -5616,7 +5715,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>torch.optim.Adam</code>
+                <code>torch.<span title="torch.optim">optim</span>.<span title="torch.optim.Adam">Adam</span></code>
           </td>
         </tr>
         <tr>
@@ -5650,6 +5749,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5672,9 +5773,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
 <span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
@@ -5868,10 +5969,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">)</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">calib_y</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5886,6 +5988,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Function to update protonet support examples with given examples.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5943,6 +6047,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5965,9 +6071,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">725</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">725</span>
 <span class="normal">726</span>
 <span class="normal">727</span>
 <span class="normal">728</span>
@@ -6049,7 +6155,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="bp">self</span><span class="o">.</span><span class="n">_fit_outlier_scores</span><span class="p">(</span><span class="n">ood_dists</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -6061,6 +6167,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   </div>
 
 </div>
+
 
 
 <div class="doc doc-object doc-function">
@@ -6076,6 +6183,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Compute the Brier score for a multiclass problem.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6119,6 +6228,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6141,9 +6252,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
 <span class="normal">18</span>
 <span class="normal">19</span>
 <span class="normal">20</span>
@@ -6189,10 +6300,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">bs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">one_hot_y_test</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">bs</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -6207,6 +6319,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Compute the Brier skill score as compared to randomly guessing.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6250,6 +6364,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6272,9 +6388,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
 <span class="normal">43</span>
 <span class="normal">44</span>
 <span class="normal">45</span>
@@ -6324,10 +6440,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">bss</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">bs1</span> <span class="o">/</span> <span class="n">bs0</span>
     <span class="k">return</span> <span class="n">bss</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -6342,6 +6459,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Compute the expected calibration error (ECE) for a multiclass problem.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6385,6 +6504,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6407,9 +6528,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">69</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">69</span>
 <span class="normal">70</span>
 <span class="normal">71</span>
 <span class="normal">72</span>
@@ -6455,10 +6576,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">ece</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">ece</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -6473,6 +6595,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generate a single episode of data for a few-shot learning task.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6558,6 +6682,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6580,9 +6706,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
 <span class="normal">204</span>
@@ -6748,10 +6874,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">episode_support</span><span class="p">,</span> <span class="n">episode_x</span><span class="p">,</span> <span class="n">episode_y</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -6766,6 +6893,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generate various metrics for evaluating a model's performance.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6809,6 +6938,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6831,9 +6962,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">286</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">286</span>
 <span class="normal">287</span>
 <span class="normal">288</span>
 <span class="normal">289</span>
@@ -6901,10 +7032,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">metrics</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -6919,6 +7051,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generate a summary of the model's performance.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -6976,6 +7110,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -6998,9 +7134,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
 <span class="normal">384</span>
 <span class="normal">385</span>
 <span class="normal">386</span>
@@ -7062,10 +7198,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">summary</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -7081,6 +7218,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   
       <p>Randomly select <code>support_size</code> examples of <code>way</code> classes from the examples in
 <code>train_x</code> with corresponding labels in <code>train_y</code> and return them as a dictionary.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -7166,6 +7305,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -7188,9 +7329,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
@@ -7332,10 +7473,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">support</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -7350,6 +7492,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generate a summary of the training data.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -7407,6 +7551,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -7429,9 +7575,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">353</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">353</span>
 <span class="normal">354</span>
 <span class="normal">355</span>
 <span class="normal">356</span>
@@ -7487,7 +7633,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">train_summary</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>

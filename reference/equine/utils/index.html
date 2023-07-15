@@ -543,6 +543,20 @@
   
   
     <li class="md-nav__item">
+      <a href="../_version/" class="md-nav__link">
+        _version
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equine/" class="md-nav__link">
         equine
       </a>
@@ -901,6 +915,7 @@
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
@@ -914,6 +929,8 @@
   <div class="doc doc-contents ">
   
       <p>Compute the Brier score for a multiclass problem.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -957,6 +974,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -979,9 +998,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
 <span class="normal">18</span>
 <span class="normal">19</span>
 <span class="normal">20</span>
@@ -1027,10 +1046,11 @@
     <span class="n">bs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">one_hot_y_test</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">bs</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1045,6 +1065,8 @@
   <div class="doc doc-contents ">
   
       <p>Compute the Brier skill score as compared to randomly guessing.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1088,6 +1110,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1110,9 +1134,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
 <span class="normal">43</span>
 <span class="normal">44</span>
 <span class="normal">45</span>
@@ -1162,10 +1186,11 @@
     <span class="n">bss</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">bs1</span> <span class="o">/</span> <span class="n">bs0</span>
     <span class="k">return</span> <span class="n">bss</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1180,6 +1205,8 @@
   <div class="doc doc-contents ">
   
       <p>Compute the expected calibration error (ECE) for a multiclass problem.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1223,6 +1250,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1245,9 +1274,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">69</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">69</span>
 <span class="normal">70</span>
 <span class="normal">71</span>
 <span class="normal">72</span>
@@ -1293,10 +1322,11 @@
     <span class="n">ece</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">ece</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1311,6 +1341,8 @@
   <div class="doc doc-contents ">
   
       <p>Generate a single episode of data for a few-shot learning task.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1396,6 +1428,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1418,9 +1452,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
 <span class="normal">204</span>
@@ -1586,10 +1620,11 @@
 
     <span class="k">return</span> <span class="n">episode_support</span><span class="p">,</span> <span class="n">episode_x</span><span class="p">,</span> <span class="n">episode_y</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1604,6 +1639,8 @@
   <div class="doc doc-contents ">
   
       <p>Generate various metrics for evaluating a model's performance.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1647,6 +1684,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1669,9 +1708,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">286</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">286</span>
 <span class="normal">287</span>
 <span class="normal">288</span>
 <span class="normal">289</span>
@@ -1739,10 +1778,11 @@
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">metrics</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1757,6 +1797,8 @@
   <div class="doc doc-contents ">
   
       <p>Generate a summary of the model's performance.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1814,6 +1856,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1836,9 +1880,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
 <span class="normal">384</span>
 <span class="normal">385</span>
 <span class="normal">386</span>
@@ -1900,10 +1944,11 @@
 
     <span class="k">return</span> <span class="n">summary</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1919,6 +1964,8 @@
   
       <p>Randomly select <code>support_size</code> examples of <code>way</code> classes from the examples in
 <code>train_x</code> with corresponding labels in <code>train_y</code> and return them as a dictionary.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2004,6 +2051,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2026,9 +2075,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">128</span>
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
@@ -2170,10 +2219,11 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">support</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2188,6 +2238,8 @@
   <div class="doc doc-contents ">
   
       <p>Generate a summary of the training data.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2245,6 +2297,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2267,9 +2321,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">353</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">353</span>
 <span class="normal">354</span>
 <span class="normal">355</span>
 <span class="normal">356</span>
@@ -2325,10 +2379,11 @@
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">train_summary</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2343,6 +2398,8 @@
   <div class="doc doc-contents ">
   
       <p>Get the number of examples per label in the given tensor.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2372,6 +2429,8 @@
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2394,9 +2453,9 @@
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/utils.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">322</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/utils.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">322</span>
 <span class="normal">323</span>
 <span class="normal">324</span>
 <span class="normal">325</span>
@@ -2454,7 +2513,7 @@
 
     <span class="k">return</span> <span class="n">examples_per_label</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>

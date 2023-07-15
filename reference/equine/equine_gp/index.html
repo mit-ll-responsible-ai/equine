@@ -543,6 +543,20 @@
   
   
     <li class="md-nav__item">
+      <a href="../_version/" class="md-nav__link">
+        _version
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equine/" class="md-nav__link">
         equine
       </a>
@@ -929,20 +943,22 @@
 
 
 <h2 id="equine.equine_gp.EquineGP" class="doc doc-heading">
-        <code>EquineGP</code>
+          <code>EquineGP</code>
 
 
 <a href="#equine.equine_gp.EquineGP" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
 
   
       <p>An example of an EQUINE model that builds upon the approach in "Spectral Norm
 Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides
 the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1046,10 +1062,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
 and ResNet architecture required for SNGP. Instead, it is a simple wrapper around
 any pytorch embedding neural network. Your mileage may vary.</p>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
 <span class="normal">336</span>
 <span class="normal">337</span>
 <span class="normal">338</span>
@@ -1667,11 +1682,12 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -1694,6 +1710,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1751,9 +1769,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">494</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">494</span>
 <span class="normal">495</span>
 <span class="normal">496</span>
 <span class="normal">497</span>
@@ -1819,10 +1837,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
             <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1837,6 +1856,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>EquineGP forward function, generates logits for classification.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1866,6 +1887,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1888,9 +1911,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">528</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">528</span>
 <span class="normal">529</span>
 <span class="normal">530</span>
 <span class="normal">531</span>
@@ -1926,10 +1949,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1948,6 +1972,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Function to load previously saved EquineGP model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1977,6 +2003,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1999,9 +2027,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">615</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">615</span>
 <span class="normal">616</span>
 <span class="normal">617</span>
 <span class="normal">618</span>
@@ -2059,10 +2087,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2077,6 +2106,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Predict function for EquineGP, inherited and implemented from Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2106,6 +2137,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2128,9 +2161,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">547</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">547</span>
 <span class="normal">548</span>
 <span class="normal">549</span>
 <span class="normal">550</span>
@@ -2182,10 +2215,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="p">)</span>  <span class="c1"># TODO return embeddings</span>
     <span class="k">return</span> <span class="n">eq_out</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2200,6 +2234,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Function to save all model parameters to a file.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2229,9 +2265,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">574</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">574</span>
 <span class="normal">575</span>
 <span class="normal">576</span>
 <span class="normal">577</span>
@@ -2311,10 +2347,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2329,6 +2366,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
   <div class="doc doc-contents ">
   
       <p>Train or fine-tune an EquineGP model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2456,6 +2495,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2483,9 +2524,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <li>The calibration data is used to calibrate the temperature scaling.</li>
 </ul>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">401</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">401</span>
 <span class="normal">402</span>
 <span class="normal">403</span>
 <span class="normal">404</span>
@@ -2669,7 +2710,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span> <span class="n">calibration_loader</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>

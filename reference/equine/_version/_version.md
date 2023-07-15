@@ -1,0 +1,1 @@
+::: equine._version

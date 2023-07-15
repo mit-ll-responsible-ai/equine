@@ -11,7 +11,7 @@
       
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../_version/">
       
       
         <link rel="next" href="../equine_gp/">
@@ -541,6 +541,20 @@
               
   
   
+  
+    <li class="md-nav__item">
+      <a href="../_version/" class="md-nav__link">
+        _version
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
     
   
   
@@ -875,15 +889,15 @@
 
 
 <h2 id="equine.equine.Equine" class="doc doc-heading">
-        <code>Equine</code>
+          <code>Equine</code>
 
 
 <a href="#equine.equine.Equine" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
   
       <p>EQUINE Abstract Base Class (ABC):
@@ -892,6 +906,8 @@ a method that enables uncertainty quantification and visualization. Most
 importantly, the <code>.predict()</code> method must be outfitted to return an
 EquineOutput object that contains both the class probabilities
 <em>and</em> an out-of-distribution (ood) score.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -934,6 +950,8 @@ EquineOutput object that contains both the class probabilities
         </tr>
     </tbody>
   </table>
+
+
 
   <p><strong>Attributes:</strong></p>
   <table>
@@ -981,6 +999,8 @@ EquineOutput object that contains both the class probabilities
     </tbody>
   </table>
 
+
+
   <p><strong>Raises:</strong></p>
   <table>
     <thead>
@@ -1003,10 +1023,9 @@ EquineOutput object that contains both the class probabilities
     </tbody>
   </table>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 14</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 14</span>
 <span class="normal"> 15</span>
 <span class="normal"> 16</span>
 <span class="normal"> 17</span>
@@ -1254,11 +1273,12 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -1286,6 +1306,8 @@ EquineOutput object that contains both the class probabilities
   
       <p>Forward pass of the model. This is to preserve the usual behavior
 of torch.nn.Module.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1315,6 +1337,8 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1337,9 +1361,9 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
 <span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
@@ -1375,10 +1399,11 @@ of torch.nn.Module.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1397,6 +1422,8 @@ of torch.nn.Module.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, load the model from the given file path.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1426,6 +1453,8 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1448,9 +1477,9 @@ of torch.nn.Module.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
 <span class="normal">125</span>
@@ -1482,10 +1511,11 @@ of torch.nn.Module.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1505,6 +1535,8 @@ of torch.nn.Module.</p>
   
       <p>Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
 given input data.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1534,6 +1566,8 @@ given input data.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1556,9 +1590,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
 <span class="normal">74</span>
 <span class="normal">75</span>
 <span class="normal">76</span>
@@ -1592,10 +1626,11 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1614,6 +1649,8 @@ given input data.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, save the model to the given file path.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1643,9 +1680,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">110</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">110</span>
 <span class="normal">111</span>
 <span class="normal">112</span>
 <span class="normal">113</span>
@@ -1667,10 +1704,11 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1689,6 +1727,8 @@ given input data.</p>
   <div class="doc doc-contents ">
   
       <p>Upon implementation, train the model on the given dataset.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1731,6 +1771,8 @@ given input data.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -1753,9 +1795,9 @@ given input data.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
 <span class="normal"> 92</span>
 <span class="normal"> 93</span>
 <span class="normal"> 94</span>
@@ -1791,7 +1833,7 @@ given input data.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>

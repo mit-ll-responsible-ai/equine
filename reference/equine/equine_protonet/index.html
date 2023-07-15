@@ -543,6 +543,20 @@
   
   
     <li class="md-nav__item">
+      <a href="../_version/" class="md-nav__link">
+        _version
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equine/" class="md-nav__link">
         equine
       </a>
@@ -1111,20 +1125,22 @@
 
 
 <h2 id="equine.equine_protonet.EquineProtonet" class="doc doc-heading">
-        <code>EquineProtonet</code>
+          <code>EquineProtonet</code>
 
 
 <a href="#equine.equine_protonet.EquineProtonet" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
 
   
       <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
 to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
 and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1176,7 +1192,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>CovType.UNIT</code>
+                <code><span title="equine.equine_protonet.CovType">CovType</span>.<span title="equine.equine_protonet.CovType.UNIT">UNIT</span></code>
           </td>
         </tr>
         <tr>
@@ -1224,10 +1240,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">399</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">399</span>
 <span class="normal">400</span>
 <span class="normal">401</span>
 <span class="normal">402</span>
@@ -2089,11 +2104,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -2116,6 +2132,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2187,6 +2205,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2209,9 +2229,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
 <span class="normal">569</span>
 <span class="normal">570</span>
 <span class="normal">571</span>
@@ -2287,10 +2307,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2305,6 +2326,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Generates logits for classification based on the input tensor.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2334,6 +2357,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2356,9 +2381,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
 <span class="normal">454</span>
 <span class="normal">455</span>
 <span class="normal">456</span>
@@ -2390,10 +2415,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">preds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2412,6 +2438,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Load a previously saved EquineProtonet model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2441,6 +2469,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2463,9 +2493,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">803</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">803</span>
 <span class="normal">804</span>
 <span class="normal">805</span>
 <span class="normal">806</span>
@@ -2519,10 +2549,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2537,6 +2568,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2566,6 +2599,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2588,9 +2623,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">700</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">700</span>
 <span class="normal">701</span>
 <span class="normal">702</span>
 <span class="normal">703</span>
@@ -2638,10 +2673,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="k">return</span> <span class="n">EquineOutput</span><span class="p">(</span><span class="n">classes</span><span class="o">=</span><span class="n">preds</span><span class="p">,</span> <span class="n">ood_scores</span><span class="o">=</span><span class="n">ood_scores</span><span class="p">,</span> <span class="n">embeddings</span><span class="o">=</span><span class="n">X_embed</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2656,6 +2692,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Save all model parameters to a file.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2685,6 +2723,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2707,9 +2747,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
 <span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
@@ -2779,10 +2819,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -2797,6 +2838,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Train or fine-tune an EquineProtonet model.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -2904,7 +2947,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>torch.nn.functional.cross_entropy</code>
+                <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.functional">functional</span>.<span title="torch.nn.functional.cross_entropy">cross_entropy</span></code>
           </td>
         </tr>
         <tr>
@@ -2918,7 +2961,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </div>
           </td>
           <td>
-                <code>torch.optim.Adam</code>
+                <code>torch.<span title="torch.optim">optim</span>.<span title="torch.optim.Adam">Adam</span></code>
           </td>
         </tr>
         <tr>
@@ -2952,6 +2995,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -2974,9 +3019,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">470</span>
 <span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
@@ -3170,10 +3215,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">)</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">calib_y</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -3188,6 +3234,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Function to update protonet support examples with given examples.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -3245,6 +3293,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -3267,9 +3317,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">725</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">725</span>
 <span class="normal">726</span>
 <span class="normal">727</span>
 <span class="normal">728</span>
@@ -3351,7 +3401,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="bp">self</span><span class="o">.</span><span class="n">_fit_outlier_scores</span><span class="p">(</span><span class="n">ood_dists</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -3369,23 +3419,22 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h2 id="equine.equine_protonet.Protonet" class="doc doc-heading">
-        <code>Protonet</code>
+          <code>Protonet</code>
 
 
 <a href="#equine.equine_protonet.Protonet" class="headerlink" title="Permanent link">¤</a></h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code>torch.<span title="torch.nn">nn</span>.<span title="torch.nn.Module">Module</span></code></p>
 
   
       <p>Private class that implements a prototypical neural network for use in EQUINE.</p>
 
-
-        <details class="quote">
-          <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 37</span>
+            <details class="quote">
+              <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 37</span>
 <span class="normal"> 38</span>
 <span class="normal"> 39</span>
 <span class="normal"> 40</span>
@@ -4103,11 +4152,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_mean</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
   <div class="doc doc-children">
+
 
 
 
@@ -4130,6 +4180,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Protonet class constructor.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4215,9 +4267,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">43</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">43</span>
 <span class="normal">44</span>
 <span class="normal">45</span>
 <span class="normal">46</span>
@@ -4285,10 +4337,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="c1"># self.support_embeddings = None</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_model_head</span><span class="p">(</span><span class="n">emb_out_dim</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4303,6 +4356,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   <div class="doc doc-contents ">
   
       <p>Method to compute predicted classes from distances via a softmax function.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4332,6 +4387,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -4354,9 +4411,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">316</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">316</span>
 <span class="normal">317</span>
 <span class="normal">318</span>
 <span class="normal">319</span>
@@ -4388,10 +4445,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">softmax</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">neg</span><span class="p">(</span><span class="n">distances</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">softmax</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4407,6 +4465,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
   
       <p>Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.
 Note that this method is only called once per episode, and the resulting tensor is used for all queries.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4436,6 +4496,8 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -4458,9 +4520,9 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">134</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">134</span>
 <span class="normal">135</span>
 <span class="normal">136</span>
 <span class="normal">137</span>
@@ -4514,10 +4576,11 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <span class="k">return</span> <span class="n">reg_covariance</span>  <span class="c1"># TODO try putting everything on GPU with .to() and see if faster</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4536,9 +4599,9 @@ Note that this method is only called once per episode, and the resulting tensor 
 :param embedding: embedding tensor to use when generating the covariance matrix
 :return torch.Tensor: Tensor containing the requested covariance matrix</p>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">162</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">162</span>
 <span class="normal">163</span>
 <span class="normal">164</span>
 <span class="normal">165</span>
@@ -4574,10 +4637,11 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <span class="k">return</span> <span class="n">class_covariance</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4592,6 +4656,8 @@ Note that this method is only called once per episode, and the resulting tensor 
   <div class="doc doc-contents ">
   
       <p>Method to compute the distances to class prototypes for the given embeddings.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4649,6 +4715,8 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -4671,9 +4739,9 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">273</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">273</span>
 <span class="normal">274</span>
 <span class="normal">275</span>
 <span class="normal">276</span>
@@ -4757,10 +4825,11 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <span class="k">return</span> <span class="n">dist</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4775,6 +4844,8 @@ Note that this method is only called once per episode, and the resulting tensor 
   <div class="doc doc-contents ">
   
       <p>Method for calculating model embeddings using both the given embedding model and the added model head.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -4804,6 +4875,8 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -4826,9 +4899,9 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 95</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 95</span>
 <span class="normal"> 96</span>
 <span class="normal"> 97</span>
 <span class="normal"> 98</span>
@@ -4862,10 +4935,11 @@ Note that this method is only called once per episode, and the resulting tensor 
     <span class="n">head_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="p">(</span><span class="n">model_embeddings</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">head_embeddings</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4881,9 +4955,9 @@ Note that this method is only called once per episode, and the resulting tensor 
   
       <p>Method to calculate the global moments of the support embeddings for use in OOD score generation</p>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
 <span class="normal">389</span>
 <span class="normal">390</span>
 <span class="normal">391</span>
@@ -4899,10 +4973,11 @@ Note that this method is only called once per episode, and the resulting tensor 
     <span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">global_mean</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -4918,6 +4993,8 @@ Note that this method is only called once per episode, and the resulting tensor 
   
       <p>Method for computing class prototypes based on given support examples.
 ``Prototypes'' in this context are the means of the support embeddings for each class.</p>
+
+
 
   <p><strong>Returns:</strong></p>
   <table>
@@ -4941,9 +5018,9 @@ Note that this method is only called once per episode, and the resulting tensor 
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
 <span class="normal">114</span>
 <span class="normal">115</span>
 <span class="normal">116</span>
@@ -4983,10 +5060,11 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <span class="k">return</span> <span class="n">prototypes</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5004,6 +5082,8 @@ Note that this method is only called once per episode, and the resulting tensor 
 <p>The shared covariance matrix is calculated as the weighted average of the class covariance matrices,
 where the weights are the number of support examples for each class. This is useful when the number of
 support examples for each class is small.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5033,6 +5113,8 @@ support examples for each class is small.</p>
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5055,9 +5137,9 @@ support examples for each class is small.</p>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
 <span class="normal">231</span>
 <span class="normal">232</span>
 <span class="normal">233</span>
@@ -5141,10 +5223,11 @@ support examples for each class is small.</p>
 
     <span class="k">return</span> <span class="n">shared_covariance</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5160,6 +5243,8 @@ support examples for each class is small.</p>
   
       <p>Method for adding a PyTorch layer on top of the given embedding model. This layer
 is intended to offer extra degrees of freedom for distance learning in the embedding space.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5189,6 +5274,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5211,9 +5298,9 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">78</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
 <span class="normal">81</span>
@@ -5245,10 +5332,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5263,6 +5351,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
   <div class="doc doc-contents ">
   
       <p>Protonet forward function, generates class probability predictions and distances from prototypes.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5292,6 +5382,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5314,9 +5406,9 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">333</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
 <span class="normal">336</span>
@@ -5370,10 +5462,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 
     <span class="k">return</span> <span class="n">classes</span><span class="p">,</span> <span class="n">distances</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5388,6 +5481,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
   <div class="doc doc-contents ">
   
       <p>Method to add regularization to each class covariance matrix based on the selected regularization type.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5417,6 +5512,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
+
+
   <p><strong>Returns:</strong></p>
   <table>
     <thead>
@@ -5439,9 +5536,9 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">181</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">181</span>
 <span class="normal">182</span>
 <span class="normal">183</span>
 <span class="normal">184</span>
@@ -5537,10 +5634,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 
     <span class="k">return</span> <span class="n">class_cov_dict</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -5555,6 +5653,8 @@ is intended to offer extra degrees of freedom for distance learning in the embed
   <div class="doc doc-contents ">
   
       <p>Method to update the support examples, and all the calculations that rely on them.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -5584,9 +5684,9 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">361</span>
+          <details class="quote">
+            <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">361</span>
 <span class="normal">362</span>
 <span class="normal">363</span>
 <span class="normal">364</span>
@@ -5638,7 +5738,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     <span class="k">else</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">covariance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_covariance</span><span class="p">(</span><span class="n">cov_type</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>

@@ -1,4 +1,5 @@
 * [equine](equine/index.md)
+    * [\_version](equine/_version.md)
     * [equine](equine/equine.md)
     * [equine_gp](equine/equine_gp.md)
     * [equine_output](equine/equine_output.md)

@@ -7,6 +7,8 @@
 ![python_coverage](https://img.shields.io/badge/Coverage-97%25-green)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
+[![DOI](https://zenodo.org/badge/653796804.svg)](https://zenodo.org/badge/latestdoi/653796804)
+
 
 ## Usage
 Deep neural networks (DNNs) for supervised labeling problems are known to

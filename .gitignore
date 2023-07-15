@@ -132,3 +132,6 @@ dmypy.json
 .pyre/
 
 .DS_store
+
+# setuptools_scm
+src/equine/_version.py

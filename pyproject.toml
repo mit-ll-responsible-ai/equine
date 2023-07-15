@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0","setuptools_scm[toml]>=6.2"] 
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,6 +11,10 @@ authors = [
     { name = "John Holodnak" },
     { name = "Jensen Dempsey" },
     { name = "Harry Li" },
+]
+maintainers = [
+    { name = "Allan Wollaber"}, 
+    { name = "Steven Jorgensen"},
 ]
 description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks"
 readme = "README.md"
@@ -58,5 +62,6 @@ docs = [
 "Bug Tracker" = "https://github.com/mit-ll-responsible-ai/equine/issues"
 "Source" = "https://github.com/mit-ll-responsible-ai/equine"
 
-[tool.setuptools.dynamic]
-version = {attr = "equine.__version__"}
+[tool.setuptools_scm]
+write_to = "src/equine/_version.py"
+#version_scheme = "no-guess-dev"

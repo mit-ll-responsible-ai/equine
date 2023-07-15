@@ -64,4 +64,4 @@ docs = [
 
 [tool.setuptools_scm]
 write_to = "src/equine/_version.py"
-version_scheme = "no-guess-dev"
+#version_scheme = "no-guess-dev"

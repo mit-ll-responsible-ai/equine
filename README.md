@@ -22,7 +22,7 @@ EQUINE was created to simplify two kinds of uncertainty quantification for super
 2) An in-distribution score, indicating whether any of the model's known labels should be trusted.
 
 Dive into our [documentation examples](https://mit-ll-responsible-ai.github.io/equine/)
-to get started. Additionally, we provide a [companion web application](https://mit-ll-responsible-ai.github.io/equine-webapp/).
+to get started. Additionally, we provide a [companion web application](https://github.com/mit-ll-responsible-ai/equine-webapp).
 
 ## Installation
 Users are recommended to install a virtual environment such as Anaconda, as is also recommended

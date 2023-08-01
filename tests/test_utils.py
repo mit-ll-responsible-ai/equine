@@ -7,6 +7,7 @@ import torch
 from hypothesis import given
 from hypothesis import strategies as st
 import hypothesis.extra.numpy as hnp
+import pytest
 
 
 @st.composite
@@ -40,8 +41,19 @@ def support_dataset(draw):
 
 @given(dataset=support_dataset())
 def test_generate_support(dataset) -> None:
-    train_x, train_y, support_sz, tasks, way = dataset
+    train_x, train_y, support_sz, tasks, _ = dataset
     eq.utils.generate_support(train_x, train_y, support_sz, tasks)
+
+
+@given(dataset=support_dataset())
+def test_generate_episode(dataset) -> None:
+    train_x, train_y, support_sz, tasks, way = dataset
+    episode_size = max(len(tasks), train_x.shape[0] // 4)
+    eq.utils.generate_episode(train_x, train_y, support_sz, way, episode_size)
+    with pytest.raises(ValueError):
+        eq.utils.generate_episode(
+            train_x, train_y, support_sz, len(tasks) + 1, episode_size
+        )
 
 
 @st.composite

@@ -241,6 +241,11 @@ def generate_episode(
         Tuple of support examples, query examples, and query labels.
     """
     labels = torch.unique(train_y)
+    if way > len(labels):
+        raise ValueError(
+            f"The way (#classes in each episode), {way}, must be <= number of labels, {len(labels)}"
+        )
+
     selected_labels = sorted(
         labels[torch.randperm(labels.shape[0])][:way].tolist()
     )  # need to be in same order every time

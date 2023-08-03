@@ -6,9 +6,10 @@
 2. Install virtual environment (the below example assumes conda)
 
     ```shell
-    conda create --name equine python>=3.10
+    conda create --name equine python==3.10
     conda activate equine
     ```
+    We currently support python versions >= 3.9
 
 3. Install the code with the extra `tests` dependencies
 

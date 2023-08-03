@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, List, Union, Tuple, Dict
+from typing import Any, List, Union, Tuple
 import icontract
 import torch
 from typeguard import typechecked
@@ -114,7 +114,7 @@ def _get_shuffle_idxs_by_class(
 
     Returns
     -------
-    Dict[Any, torch.Tensor]
+    dict[Any, torch.Tensor]
         Tensor of indices corresponding to each label.
     """
     shuffled_idxs_by_class = OrderedDict()
@@ -137,11 +137,15 @@ def _get_shuffle_idxs_by_class(
     lambda support_size, selected_labels, train_x: support_size * len(selected_labels)
     <= len(train_x)
 )
+@icontract.require(
+    lambda selected_labels, shuffled_indexes: (
+        len(shuffled_indexes.keys()) == len(selected_labels)
+    )
+    if shuffled_indexes is not None
+    else True
+)
 @icontract.ensure(
-    lambda result, selected_labels, return_indexes: len(result[0].keys())
-    == len(selected_labels)
-    if (return_indexes is True)
-    else len(result.keys()) == len(selected_labels)
+    lambda result, selected_labels: len(result.keys()) == len(selected_labels)
 )
 @typechecked
 def generate_support(
@@ -149,10 +153,8 @@ def generate_support(
     train_y: torch.Tensor,
     support_size: int,
     selected_labels: List,
-    return_indexes=False,
-) -> Union[
-    dict[Any, torch.Tensor], Tuple[dict[Any, torch.Tensor], dict[Any, torch.Tensor]]
-]:
+    shuffled_indexes: Union[None, dict[Any, torch.Tensor]] = None,
+) -> dict[Any, torch.Tensor]:
     """
     Randomly select `support_size` examples of `way` classes from the examples in
     `train_x` with corresponding labels in `train_y` and return them as a dictionary.
@@ -167,20 +169,22 @@ def generate_support(
         Number of support examples for each class.
     selected_labels : List
         Selected class labels to generate examples from.
-    return_indexes : bool, optional
-        If True, also return the indices of the support examples.
+    shuffled_indexes: Union[None, dict[Any, torch.Tensor]], optional
+        Simply use the precomputed indexes if they are available
 
     Returns
     -------
-    Union[Dict[Any, torch.Tensor], Tuple[Dict[Any, torch.Tensor], Dict[Any, torch.Tensor]]]
+    dict[Any, torch.Tensor]
         Ordered dictionary of class labels with corresponding support examples.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
-    for label, count in list(zip(labels, counts)):
-        if (label in selected_labels) and (count < support_size):
-            raise ValueError(f"Not enough support examples in class {label}")
-
-    shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
+    if shuffled_indexes is None:
+        for label, count in list(zip(labels, counts)):
+            if (label in selected_labels) and (count < support_size):
+                raise ValueError(f"Not enough support examples in class {label}")
+        shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
+    else:
+        shuffled_idxs = shuffled_indexes
 
     support = OrderedDict()
     for label in selected_labels:
@@ -192,10 +196,7 @@ def generate_support(
         selected_support = shuffled_x[:support_size]
         support[label] = selected_support
 
-    if return_indexes:
-        return support, shuffled_idxs
-    else:
-        return support
+    return support
 
 
 @icontract.require(lambda train_x: len(train_x.shape) == 2)
@@ -237,10 +238,10 @@ def generate_episode(
 
     Returns
     -------
-    Tuple[Dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
+    Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
         Tuple of support examples, query examples, and query labels.
     """
-    labels = torch.unique(train_y)
+    labels, counts = torch.unique(train_y, return_counts=True)
     if way > len(labels):
         raise ValueError(
             f"The way (#classes in each episode), {way}, must be <= number of labels, {len(labels)}"
@@ -250,8 +251,13 @@ def generate_episode(
         labels[torch.randperm(labels.shape[0])][:way].tolist()
     )  # need to be in same order every time
 
-    support, shuffled_idxs = generate_support(
-        train_x, train_y, support_size, selected_labels, return_indexes=True
+    for label, count in list(zip(labels, counts)):
+        if (label in selected_labels) and (count < support_size):
+            raise ValueError(f"Not enough support examples in class {label}")
+    shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
+
+    support = generate_support(
+        train_x, train_y, support_size, selected_labels, shuffled_idxs
     )
 
     examples_per_task = episode_size // way
@@ -307,7 +313,7 @@ def generate_model_metrics(
 
     Returns
     -------
-    Dict[str, Any]
+    dict[str, Any]
         Dictionary of model metrics.
     """
     pred_y = torch.argmax(eq_preds.classes, dim=1)
@@ -330,7 +336,7 @@ def generate_model_metrics(
 )
 @icontract.ensure(lambda result: all(d["numExamples"] >= 0 for d in result))
 @typechecked
-def get_num_examples_per_label(Y: torch.Tensor) -> List[Dict[str, Any]]:
+def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
     """
     Get the number of examples per label in the given tensor.
 
@@ -341,7 +347,7 @@ def get_num_examples_per_label(Y: torch.Tensor) -> List[Dict[str, Any]]:
 
     Returns
     -------
-    List[Dict[str, Any]]
+    List[dict[str, Any]]
         List of dictionaries containing label and number of examples.
     """
     tensor_labels, tensor_counts = Y.unique(return_counts=True)
@@ -374,7 +380,7 @@ def generate_train_summary(
 
     Returns
     -------
-    Dict[str, Any]
+    dict[str, Any]
         Dictionary containing training summary.
     """
     train_summary = {
@@ -408,7 +414,7 @@ def generate_model_summary(
 
     Returns
     -------
-    Dict[str, Any]
+    dict[str, Any]
         Dictionary containing model summary.
     """
     summary = generate_model_metrics(eq_preds, test_y)

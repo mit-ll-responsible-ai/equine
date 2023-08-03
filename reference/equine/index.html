@@ -17,7 +17,7 @@
         <link rel="next" href="_version/">
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.5.1, mkdocs-material-9.1.21">
+      <meta name="generator" content="mkdocs-1.5.2, mkdocs-material-9.1.21">
     
     
       
@@ -6695,7 +6695,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><span title="typing.Tuple">Tuple</span>[<span title="typing.Dict">Dict</span>[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>], torch.<span title="torch.Tensor">Tensor</span>, torch.<span title="torch.Tensor">Tensor</span>]</code>
+                <code><span title="typing.Tuple">Tuple</span>[dict[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>], torch.<span title="torch.Tensor">Tensor</span>, torch.<span title="torch.Tensor">Tensor</span>]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -6708,8 +6708,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
           <details class="quote">
             <summary>Source code in <code>src/equine/utils.py</code></summary>
-            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
-<span class="normal">202</span>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">202</span>
 <span class="normal">203</span>
 <span class="normal">204</span>
 <span class="normal">205</span>
@@ -6795,7 +6794,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">285</span>
 <span class="normal">286</span>
 <span class="normal">287</span>
-<span class="normal">288</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">support_size</span><span class="p">:</span> <span class="n">support_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">way</span><span class="p">:</span> <span class="n">way</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
@@ -6834,10 +6839,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Tuple[Dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]</span>
+<span class="sd">    Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]</span>
 <span class="sd">        Tuple of support examples, query examples, and query labels.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">)</span>
+    <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">way</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;The way (#classes in each episode), </span><span class="si">{</span><span class="n">way</span><span class="si">}</span><span class="s2">, must be &lt;= number of labels, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -6847,8 +6852,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">labels</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">labels</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])][:</span><span class="n">way</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
     <span class="p">)</span>  <span class="c1"># need to be in same order every time</span>
 
-    <span class="n">support</span><span class="p">,</span> <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">generate_support</span><span class="p">(</span>
-        <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">return_indexes</span><span class="o">=</span><span class="kc">True</span>
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">_get_shuffle_idxs_by_class</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">)</span>
+
+    <span class="n">support</span> <span class="o">=</span> <span class="n">generate_support</span><span class="p">(</span>
+        <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">shuffled_idxs</span>
     <span class="p">)</span>
 
     <span class="n">examples_per_task</span> <span class="o">=</span> <span class="n">episode_size</span> <span class="o">//</span> <span class="n">way</span>
@@ -6961,7 +6971,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><span title="typing.Dict">Dict</span>[str, <span title="typing.Any">Any</span>]</code>
+                <code>dict[str, <span title="typing.Any">Any</span>]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -6974,13 +6984,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
           <details class="quote">
             <summary>Source code in <code>src/equine/utils.py</code></summary>
-            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">291</span>
-<span class="normal">292</span>
-<span class="normal">293</span>
-<span class="normal">294</span>
-<span class="normal">295</span>
-<span class="normal">296</span>
-<span class="normal">297</span>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">297</span>
 <span class="normal">298</span>
 <span class="normal">299</span>
 <span class="normal">300</span>
@@ -7007,7 +7011,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
-<span class="normal">324</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">true_y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="p">)</span>
 <span class="nd">@typechecked</span>
@@ -7026,7 +7036,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Dict[str, Any]</span>
+<span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary of model metrics.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">pred_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
@@ -7133,7 +7143,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><span title="typing.Dict">Dict</span>[str, <span title="typing.Any">Any</span>]</code>
+                <code>dict[str, <span title="typing.Any">Any</span>]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -7146,13 +7156,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
           <details class="quote">
             <summary>Source code in <code>src/equine/utils.py</code></summary>
-            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">394</span>
 <span class="normal">395</span>
 <span class="normal">396</span>
 <span class="normal">397</span>
@@ -7176,7 +7180,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">415</span>
 <span class="normal">416</span>
 <span class="normal">417</span>
-<span class="normal">418</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">:</span> <span class="n">test_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="p">)</span>
 <span class="nd">@typechecked</span>
@@ -7199,7 +7209,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Dict[str, Any]</span>
+<span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary containing model summary.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">summary</span> <span class="o">=</span> <span class="n">generate_model_metrics</span><span class="p">(</span><span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">)</span>
@@ -7219,7 +7229,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h2 id="equine.generate_support" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">generate_support</span><span class="p">(</span><span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">return_indexes</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">generate_support</span><span class="p">(</span><span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">shuffled_indexes</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#equine.generate_support" class="headerlink" title="Permanent link">¤</a></h2>
 
@@ -7299,17 +7309,17 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
           </td>
         </tr>
         <tr>
-          <td><code>return_indexes</code></td>
+          <td><code>shuffled_indexes</code></td>
           <td>
-                <code>bool</code>
+                <code><span title="typing.Union">Union</span>[None, dict[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>]]</code>
           </td>
           <td>
             <div class="doc-md-description">
-              <p>If True, also return the indices of the support examples.</p>
+              <p>Simply use the precomputed indexes if they are available</p>
             </div>
           </td>
           <td>
-                <code>False</code>
+                <code>None</code>
           </td>
         </tr>
     </tbody>
@@ -7328,7 +7338,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><span title="typing.Union">Union</span>[<span title="typing.Dict">Dict</span>[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>], <span title="typing.Tuple">Tuple</span>[<span title="typing.Dict">Dict</span>[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>], <span title="typing.Dict">Dict</span>[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>]]]</code>
+                <code>dict[<span title="typing.Any">Any</span>, torch.<span title="torch.Tensor">Tensor</span>]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -7411,7 +7421,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">195</span>
 <span class="normal">196</span>
 <span class="normal">197</span>
-<span class="normal">198</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
+<span class="normal">198</span>
+<span class="normal">199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">train_x</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">))</span>
     <span class="o">&amp;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">))</span>
@@ -7423,11 +7434,15 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">lambda</span> <span class="n">support_size</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">train_x</span><span class="p">:</span> <span class="n">support_size</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
     <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span>
 <span class="p">)</span>
+<span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+    <span class="k">lambda</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">shuffled_indexes</span><span class="p">:</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">shuffled_indexes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">shuffled_indexes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="k">else</span> <span class="kc">True</span>
+<span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
-    <span class="k">lambda</span> <span class="n">result</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">return_indexes</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-    <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">return_indexes</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">)</span>
-    <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
+    <span class="k">lambda</span> <span class="n">result</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
 <span class="p">)</span>
 <span class="nd">@typechecked</span>
 <span class="k">def</span> <span class="nf">generate_support</span><span class="p">(</span>
@@ -7435,10 +7450,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">selected_labels</span><span class="p">:</span> <span class="n">List</span><span class="p">,</span>
-    <span class="n">return_indexes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span>
-    <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span>
-<span class="p">]:</span>
+    <span class="n">shuffled_indexes</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Randomly select `support_size` examples of `way` classes from the examples in</span>
 <span class="sd">    `train_x` with corresponding labels in `train_y` and return them as a dictionary.</span>
@@ -7453,20 +7466,22 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Number of support examples for each class.</span>
 <span class="sd">    selected_labels : List</span>
 <span class="sd">        Selected class labels to generate examples from.</span>
-<span class="sd">    return_indexes : bool, optional</span>
-<span class="sd">        If True, also return the indices of the support examples.</span>
+<span class="sd">    shuffled_indexes: Union[None, dict[Any, torch.Tensor]], optional</span>
+<span class="sd">        Simply use the precomputed indexes if they are available</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Union[Dict[Any, torch.Tensor], Tuple[Dict[Any, torch.Tensor], Dict[Any, torch.Tensor]]]</span>
+<span class="sd">    dict[Any, torch.Tensor]</span>
 <span class="sd">        Ordered dictionary of class labels with corresponding support examples.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">_get_shuffle_idxs_by_class</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">shuffled_indexes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">_get_shuffle_idxs_by_class</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">shuffled_indexes</span>
 
     <span class="n">support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">:</span>
@@ -7478,10 +7493,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">selected_support</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="p">[:</span><span class="n">support_size</span><span class="p">]</span>
         <span class="n">support</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">selected_support</span>
 
-    <span class="k">if</span> <span class="n">return_indexes</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">support</span><span class="p">,</span> <span class="n">shuffled_idxs</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">support</span>
+    <span class="k">return</span> <span class="n">support</span>
 </code></pre></div></td></tr></table></div>
           </details>
   </div>
@@ -7574,7 +7586,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><span title="typing.Dict">Dict</span>[str, <span title="typing.Any">Any</span>]</code>
+                <code>dict[str, <span title="typing.Any">Any</span>]</code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -7587,13 +7599,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
           <details class="quote">
             <summary>Source code in <code>src/equine/utils.py</code></summary>
-            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">364</span>
 <span class="normal">365</span>
 <span class="normal">366</span>
 <span class="normal">367</span>
@@ -7614,7 +7620,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">382</span>
 <span class="normal">383</span>
 <span class="normal">384</span>
-<span class="normal">385</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="nd">@typechecked</span>
 <span class="k">def</span> <span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
@@ -7633,7 +7645,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Dict[str, Any]</span>
+<span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary containing training summary.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">train_summary</span> <span class="o">=</span> <span class="p">{</span>

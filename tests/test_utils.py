@@ -40,7 +40,7 @@ def support_dataset(draw):
 
 
 @given(dataset=support_dataset())
-def test_generate_support(dataset) -> None:
+def test_generate_support(dataset):
     train_x, train_y, support_sz, tasks, _ = dataset
     eq.utils.generate_support(train_x, train_y, support_sz, tasks)
 

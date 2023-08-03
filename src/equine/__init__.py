@@ -19,7 +19,7 @@ from .utils import (
     generate_model_summary,
 )
 
-if not TYPE_CHECKING:
+if not TYPE_CHECKING:  # pragma: no cover
     try:
         from ._version import version as __version__
     except ImportError:

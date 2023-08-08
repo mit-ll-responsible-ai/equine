@@ -5,7 +5,7 @@
 from typing import Any, List, Union, Tuple
 import icontract
 import torch
-from typeguard import typechecked
+from beartype import beartype
 from collections import OrderedDict
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 from torchmetrics.classification import MulticlassCalibrationError
@@ -16,7 +16,7 @@ from .equine import Equine
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result >= 0.0)
-@typechecked
+@beartype
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the Brier score for a multiclass problem.
@@ -41,7 +41,7 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result <= 1.0)
-@typechecked
+@beartype
 def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the Brier skill score as compared to randomly guessing.
@@ -68,7 +68,7 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: (0.0 <= result) and (result <= 1.0))
-@typechecked
+@beartype
 def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
     Compute the expected calibration error (ECE) for a multiclass problem.
@@ -97,7 +97,7 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
 @icontract.ensure(
     lambda result, selected_labels: set(result.keys()).issubset(set(selected_labels))
 )
-@typechecked
+@beartype
 def _get_shuffle_idxs_by_class(
     train_y: torch.Tensor, selected_labels: List
 ) -> dict[Any, torch.Tensor]:
@@ -147,7 +147,7 @@ def _get_shuffle_idxs_by_class(
 @icontract.ensure(
     lambda result, selected_labels: len(result.keys()) == len(selected_labels)
 )
-@typechecked
+@beartype
 def generate_support(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
@@ -212,7 +212,7 @@ def generate_support(
         len(support) == support_size for support in result[0].values()
     )
 )
-@typechecked
+@beartype
 def generate_episode(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
@@ -297,7 +297,7 @@ def generate_episode(
 @icontract.require(
     lambda eq_preds, true_y: eq_preds.classes.size(dim=0) == true_y.size(dim=0)
 )
-@typechecked
+@beartype
 def generate_model_metrics(
     eq_preds: EquineOutput, true_y: torch.Tensor
 ) -> dict[str, Any]:
@@ -335,7 +335,7 @@ def generate_model_metrics(
     lambda result: all("label" in d and "numExamples" in d for d in result)
 )
 @icontract.ensure(lambda result: all(d["numExamples"] >= 0 for d in result))
-@typechecked
+@beartype
 def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
     """
     Get the number of examples per label in the given tensor.
@@ -362,7 +362,7 @@ def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
 
 
 @icontract.require(lambda train_y: train_y.shape[0] > 0)
-@typechecked
+@beartype
 def generate_train_summary(
     model: Equine, train_y: torch.Tensor, date_trained: str
 ) -> dict[str, Any]:
@@ -394,7 +394,7 @@ def generate_train_summary(
 @icontract.require(
     lambda eq_preds, test_y: test_y.shape[0] == eq_preds.classes.shape[0]
 )
-@typechecked
+@beartype
 def generate_model_summary(
     model: Equine,
     eq_preds: EquineOutput,

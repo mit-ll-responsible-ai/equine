@@ -18,7 +18,7 @@ def test_equine_protonet_instantiation(random_dataset) -> None:
     embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
 
     model = eq.EquineProtonet(embedding_model, num_classes)
-    model.train_model(torch.utils.data.TensorDataset(X, Y), num_episodes=0)
+    model.train_model(torch.utils.data.TensorDataset(X, Y), num_episodes=0)  # type: ignore
 
 
 @given(random_dataset=random_dataset())
@@ -41,6 +41,8 @@ def test_equine_gp_instantiation(random_dataset) -> None:
 
 def test_unimplemented_errors():
     em = BasicEmbeddingModel(2, 4)
+    t = torch.Tensor([1, 2])
+    td = torch.utils.data.TensorDataset(t, t)  # type: ignore
     with pytest.raises(TypeError):
         eq.Equine(em)  # type: ignore
     with pytest.raises(NotImplementedError):
@@ -48,7 +50,7 @@ def test_unimplemented_errors():
     with pytest.raises(NotImplementedError):
         eq.Equine.forward(None, torch.Tensor([1, 2]))  # type: ignore
     with pytest.raises(NotImplementedError):
-        eq.Equine.train_model(None, torch.Tensor([1, 2]))  # type: ignore
+        eq.Equine.train_model(None, td)  # type: ignore
     with pytest.raises(NotImplementedError):
         eq.Equine.save(None, "tmp")  # type: ignore
     with pytest.raises(NotImplementedError):

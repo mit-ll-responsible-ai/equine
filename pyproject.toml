@@ -45,6 +45,7 @@ tests = [
     "pytest >= 3.8",
     "hypothesis >= 6.41.0, < 6.83.0",
     "pre-commit >= 2.19",
+    "codespell"
 ]
 
 docs = [
@@ -65,3 +66,6 @@ docs = [
 [tool.setuptools_scm]
 write_to = "src/equine/_version.py"
 #version_scheme = "no-guess-dev"
+
+[tool.setuptools.package-data]
+equine = ["py.typed"]

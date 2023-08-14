@@ -2395,7 +2395,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">640</span>
 <span class="normal">641</span>
 <span class="normal">642</span>
-<span class="normal">643</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@typechecked</span>
+<span class="normal">643</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span> <span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An example of an EQUINE model that builds upon the approach in &quot;Spectral Norm</span>
@@ -2441,7 +2441,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span> <span class="o">=</span> <span class="n">num_classes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mean_field_factor</span> <span class="o">=</span> <span class="mi">25</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">ridge_penalty</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">feature_scale</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_scale</span> <span class="o">=</span> <span class="mf">2.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span> <span class="o">=</span> <span class="n">use_temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">=</span> <span class="n">init_temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
@@ -3173,7 +3173,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <tbody>
         <tr>
           <td>
-                <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="#equine.EquineOutput">EquineOutput</a></code>
+                <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -4426,7 +4426,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">826</span>
 <span class="normal">827</span>
 <span class="normal">828</span>
-<span class="normal">829</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@typechecked</span>
+<span class="normal">829</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span> <span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
@@ -5366,7 +5366,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <tbody>
         <tr>
           <td>
-                <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="#equine.EquineOutput">EquineOutput</a></code>
+                <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
           </td>
           <td>
             <div class="doc-md-description">
@@ -6278,7 +6278,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">38</span>
 <span class="normal">39</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">brier_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the Brier score for a multiclass problem.</span>
@@ -6416,7 +6416,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">65</span>
 <span class="normal">66</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">brier_skill_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the Brier skill score as compared to randomly guessing.</span>
@@ -6554,7 +6554,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">90</span>
 <span class="normal">91</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">expected_calibration_error</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the expected calibration error (ECE) for a multiclass problem.</span>
@@ -6813,7 +6813,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="nb">len</span><span class="p">(</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="n">support_size</span> <span class="k">for</span> <span class="n">support</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
     <span class="p">)</span>
 <span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">generate_episode</span><span class="p">(</span>
     <span class="n">train_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -7020,7 +7020,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">true_y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">generate_model_metrics</span><span class="p">(</span>
     <span class="n">eq_preds</span><span class="p">:</span> <span class="n">EquineOutput</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
@@ -7189,7 +7189,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">424</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">:</span> <span class="n">test_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">generate_model_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span>
     <span class="n">eq_preds</span><span class="p">:</span> <span class="n">EquineOutput</span><span class="p">,</span>
@@ -7444,7 +7444,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span>
 <span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">generate_support</span><span class="p">(</span>
     <span class="n">train_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -7627,7 +7627,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">389</span>
 <span class="normal">390</span>
 <span class="normal">391</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-<span class="nd">@typechecked</span>
+<span class="nd">@beartype</span>
 <span class="k">def</span> <span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>

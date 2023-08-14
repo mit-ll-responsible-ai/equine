@@ -10,7 +10,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader  # type: ignore
 from typing import Optional, Callable
 from tqdm import tqdm
-from typeguard import typechecked
+from beartype import beartype
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 
@@ -68,13 +68,13 @@ from .utils import generate_train_summary
 # }
 
 
-@typechecked
+@beartype
 def _random_ortho(n: int, m: int) -> torch.Tensor:
     q, _ = torch.linalg.qr(torch.randn(n, m))
     return q
 
 
-@typechecked
+@beartype
 class _RandomFourierFeatures(torch.nn.Module):
     def __init__(
         self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
@@ -332,7 +332,7 @@ class _Laplace(torch.nn.Module):
 
 # -------------------------------------------------------------------------------
 # EquineGP, below, demonstrates how to adapt that approach in EQUINE
-@typechecked
+@beartype
 class EquineGP(Equine):
     """
     An example of an EQUINE model that builds upon the approach in "Spectral Norm
@@ -378,7 +378,7 @@ class EquineGP(Equine):
         self.num_outputs = num_classes
         self.mean_field_factor = 25
         self.ridge_penalty = 1
-        self.feature_scale = 2
+        self.feature_scale = 2.0
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
         self.register_buffer(

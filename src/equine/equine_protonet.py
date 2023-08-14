@@ -11,7 +11,7 @@ from datetime import datetime
 import icontract
 import torch
 from torch.utils.data import TensorDataset
-from typeguard import typechecked
+from beartype import beartype
 from sklearn.model_selection import train_test_split
 from scipy.stats import gaussian_kde
 from tqdm import tqdm
@@ -34,7 +34,7 @@ COV_REG_TYPE = "epsilon"
 
 
 ###############################################
-@typechecked
+@beartype
 class Protonet(torch.nn.Module):
     """
     Private class that implements a prototypical neural network for use in EQUINE.
@@ -396,7 +396,7 @@ class Protonet(torch.nn.Module):
 
 
 ###############################################
-@typechecked
+@beartype
 class EquineProtonet(Equine):
     """
     A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances

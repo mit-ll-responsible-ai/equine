@@ -24,7 +24,7 @@ dependencies = [
         "torchmetrics >= 0.6.0",
         "numpy",
         "tqdm",
-        "typeguard >= 3.0, <=4.0",
+        "beartype",
         "icontract",
         "scikit-learn",  # TODO: remove dependency on train_test_split
         "scipy",         # TODO: remove dependency on gaussian_kde
@@ -45,6 +45,7 @@ tests = [
     "pytest >= 3.8",
     "hypothesis >= 6.41.0, < 6.83.0",
     "pre-commit >= 2.19",
+    "codespell"
 ]
 
 docs = [
@@ -65,3 +66,6 @@ docs = [
 [tool.setuptools_scm]
 write_to = "src/equine/_version.py"
 #version_scheme = "no-guess-dev"
+
+[tool.setuptools.package-data]
+equine = ["py.typed"]

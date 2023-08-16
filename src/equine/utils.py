@@ -34,7 +34,7 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
         Brier score.
     """
     (_, num_classes) = y_hat.size()
-    one_hot_y_test = torch.nn.functional.one_hot(y_test, num_classes=num_classes)
+    one_hot_y_test = torch.nn.functional.one_hot(y_test.long(), num_classes=num_classes)
     bs = torch.mean(torch.sum((y_hat - one_hot_y_test) ** 2, dim=1)).item()
     return bs
 

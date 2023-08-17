@@ -2,12 +2,12 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import equine as eq
+import pytest
 import torch
+from conftest import BasicEmbeddingModel, random_dataset
 from hypothesis import given, settings
 
-import pytest
-from conftest import BasicEmbeddingModel, random_dataset
+import equine as eq
 
 
 @given(random_dataset=random_dataset())
@@ -55,3 +55,24 @@ def test_unimplemented_errors():
         eq.Equine.save(None, "tmp")  # type: ignore
     with pytest.raises(NotImplementedError):
         eq.Equine.load("tmp")  # type: ignore
+
+
+@given(random_dataset=random_dataset())
+@settings(deadline=None, max_examples=5)
+def test_model_summary(random_dataset) -> None:
+    dataset, num_classes, _ = random_dataset
+    X, Y = dataset.tensors
+    embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
+
+    model = eq.EquineGP(embedding_model, num_classes, num_classes)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=0.001,
+        momentum=0.9,
+        weight_decay=0.0001,
+    )
+    model.train_model(dataset, loss_fn, optimizer, 2)
+    eq_out = model.predict(X)
+
+    eq.utils.generate_model_summary(model, eq_out, Y)

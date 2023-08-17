@@ -2,16 +2,17 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Tuple, Union
+
 import icontract
 import torch
 from beartype import beartype
 from collections import OrderedDict
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from torchmetrics.classification import MulticlassCalibrationError
 
-from .equine_output import EquineOutput
 from .equine import Equine
+from .equine_output import EquineOutput
 
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
@@ -152,7 +153,7 @@ def generate_support(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
     support_size: int,
-    selected_labels: List,
+    selected_labels: List[Any],
     shuffled_indexes: Union[None, dict[Any, torch.Tensor]] = None,
 ) -> dict[Any, torch.Tensor]:
     """
@@ -399,7 +400,7 @@ def generate_model_summary(
     model: Equine,
     eq_preds: EquineOutput,
     test_y: torch.Tensor,
-):
+) -> dict[str, Any]:
     """
     Generate a summary of the model's performance.
 

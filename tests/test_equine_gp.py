@@ -2,12 +2,12 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import equine as eq
-import torch
 import os
+import torch
+from conftest import BasicEmbeddingModel, random_dataset
 from hypothesis import given, settings
 
-from conftest import BasicEmbeddingModel, random_dataset
+import equine as eq
 
 
 @given(random_dataset=random_dataset())

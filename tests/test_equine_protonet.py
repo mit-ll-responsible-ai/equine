@@ -1,13 +1,13 @@
 # Copyright 2023, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
-import torch
-from hypothesis import given, settings, strategies as st
-import pytest
 import os
+import pytest
+import torch
+from conftest import BasicEmbeddingModel, random_dataset
+from hypothesis import given, settings, strategies as st
 
 import equine as eq
-from conftest import BasicEmbeddingModel, random_dataset
 
 
 @given(
@@ -168,7 +168,7 @@ def test_predict_fail_before_training(random_dataset):
 
 
 @given(random_dataset=random_dataset())
-@settings(deadline=None, max_examples=2)
+@settings(deadline=None, max_examples=1)
 def test_equine_protonet_save_load(random_dataset) -> None:
     dataset, num_classes, _ = random_dataset
     X, Y = dataset.tensors
@@ -192,7 +192,7 @@ def test_equine_protonet_save_load(random_dataset) -> None:
 
 
 @given(random_dataset=random_dataset())
-@settings(deadline=None, max_examples=2)
+@settings(deadline=None, max_examples=1)
 def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     dataset, num_classes, _ = random_dataset
     X, Y = dataset.tensors

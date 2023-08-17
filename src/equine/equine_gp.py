@@ -2,21 +2,20 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import math
-import io
+from typing import Any, Callable, Optional, Tuple
 
 import icontract
+import io
+import math
 import torch
-from torch.utils.data import TensorDataset, DataLoader  # type: ignore
-from typing import Optional, Callable
-from tqdm import tqdm
 from beartype import beartype
 from datetime import datetime
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
+from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
 from .utils import generate_train_summary
-
 
 # -------------------------------------------------------------------------------
 # Note that the below code for
@@ -101,7 +100,7 @@ class _RandomFourierFeatures(torch.nn.Module):
         if num_random_features <= in_dim:
             W = _random_ortho(in_dim, num_random_features)
         else:
-            # generate blocks of orthonormal rows which are not neccesarily orthonormal
+            # generate blocks of orthonormal rows which are not necessarily orthonormal
             # to each other.
             dim_left = num_random_features
             ws = []
@@ -408,7 +407,7 @@ class EquineGP(Equine):
         calib_frac: float = 0.1,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ):
+    ) -> Tuple[dict[str, Any], Optional[DataLoader[Any]]]:
         """
         Train or fine-tune an EquineGP model.
 
@@ -513,7 +512,7 @@ class EquineGP(Equine):
         loss_fn = torch.nn.functional.cross_entropy
         optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
         for _ in range(num_calibration_epochs):
-            for (xs, labels) in calibration_loader:
+            for xs, labels in calibration_loader:
                 optimizer.zero_grad()
                 xs = xs.to(self.device)
                 labels = labels.to(self.device)
@@ -613,7 +612,7 @@ class EquineGP(Equine):
         torch.save(save_data, path)  # TODO allow model checkpointing
 
     @classmethod
-    def load(cls, path: str) -> Equine:  # noqa: F821 # type: ignore
+    def load(cls, path: str) -> Equine:
         """
         Function to load previously saved EquineGP model.
 

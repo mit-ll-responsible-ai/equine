@@ -69,3 +69,149 @@ write_to = "src/equine/_version.py"
 
 [tool.setuptools.package-data]
 equine = ["py.typed"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E501"]
+exclude = "src/equine/_version.py"
+
+
+[tool.isort]
+known_first_party = ["equine", "tests"]
+profile = "black"
+combine_as_imports = true
+known_third_party = "torch,torchmetrics,numpy,tqdm,beartype,icontract,scikit-learn,scipy"
+known_standard_library = "typing"
+line_length = 88
+include_trailing_comma = true
+
+[tool.pytest]
+addopts = "--cov=equine --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=100 --durations=0"
+testpaths = "tests"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+omit = ["src/equine/_version.py"]
+exclude_lines = [
+       'pragma: no cover',
+       'def __repr__',
+       'raise NotImplementedError',
+       'raise ValueError',
+       '@(abc\.)?abstractmethod',
+       '@(typing\.)?overload',
+       'except ImportError:',
+       'except ModuleNotFoundError:',
+       'if (typing\.)?TYPE_CHECKING:',
+       'if sys\.version_info',
+]
+
+[tool.pyright]
+include = ["src"]
+exclude = [
+       "**/node_modules",
+       "**/__pycache__",
+       "src/equine/_version.py",
+       "**/.hypothesis",
+       "**/docs",
+       "**/.tox",
+]
+reportUnnecessaryTypeIgnoreComment = true
+reportUnnecessaryIsInstance = false
+
+[tool.codespell]
+skip = 'docs/*'
+
+[tool.tox]
+legacy_tox_ini = """
+
+[tox]
+isolated_build = True
+envlist = py39, py310, py311
+
+[gh-actions]
+python =
+  3.9: py39
+  3.10: py310
+  3.11: py311
+
+
+[testenv]
+description = Runs test suite parallelized in the specified python enviornment and 
+              against number of available processes (up to 4). 
+              Run `tox -e py39 -- -n 0` to run tests in a python 3.9 with 
+              parallelization disabled.
+passenv = *
+deps = pytest
+       hypothesis
+       pytest-xdist
+       tzdata
+commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
+
+
+[testenv:coverage]
+description = Runs test suite and measures test-coverage. Fails if coverage is 
+              below 100 prcnt. Run `tox -e coverage -- -n 0` to disable parallelization.
+setenv = NUMBA_DISABLE_JIT=1
+usedevelop = true
+basepython = python3.10
+deps = {[testenv]deps}
+       coverage[toml]
+       pytest-cov
+commands = pytest --cov-report term-missing --cov-config=pyproject.toml --cov-fail-under=97 --cov=equine tests {posargs: -n auto --maxprocesses=4}
+
+
+[testenv:pyright]
+description = Ensure that the equine source code and test suite scan clean
+              under pyright and that the public API has a 100 percent
+              type-completeness score.
+usedevelop = true
+basepython = python3.10
+deps = pyright
+
+commands = pyright src/ --level=error
+           pyright --ignoreexternal --verifytypes --level=warning equine
+
+[testenv:format]
+description = Applies auto-flake (e.g. remove unsused imports), black, and isort 
+              in-place on source files and test suite. Running this can help fix a 
+              failing `enforce-format` run.
+skip_install=true
+deps =
+    autoflake
+    black
+    isort
+commands =
+    autoflake --recursive --in-place --remove-duplicate-keys --remove-unused-variables src/ tests/
+    isort src/ tests/
+    black src/ tests/
+
+[testenv:enforce-format]
+description = Ensures that source materials code and docs and test suite adhere to 
+              formatting and code-quality standards.
+skip_install=true
+basepython=python3.10
+deps=black
+     isort
+     Flake8-pyproject
+     codespell
+commands=
+    black src/ tests/ --diff --check
+    isort src/ tests/ --diff --check
+    flake8 src/ tests/
+    codespell src/ docs/
+
+[testenv:docs]
+description = Uses mkdocs to generate html for the docs. Stores the
+              results in `.tox/docs/build/html/`.
+basepython=python3.10
+deps=[docs]
+commands=
+    mkdocs build --clean --strict
+"""

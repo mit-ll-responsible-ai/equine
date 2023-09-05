@@ -2,13 +2,16 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from __future__ import annotations
+from typing import Any, TypeVar
+
 import torch
-from torch.utils.data import TensorDataset  # type: ignore
 from abc import ABC, abstractmethod
-from typing import Any
+from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput
+
+# A type variable for Equine objects
+AnyEquine = TypeVar("AnyEquine", bound="Equine")
 
 
 class Equine(torch.nn.Module, ABC):
@@ -41,11 +44,11 @@ class Equine(torch.nn.Module, ABC):
         If any of the abstract methods are not implemented.
     """
 
-    def __init__(self, embedding_model, head_layers=1) -> None:
+    def __init__(self, embedding_model: torch.nn.Module, head_layers: int = 1) -> None:
         super().__init__()
         self.embedding_model = embedding_model
         self.head_layers = head_layers
-        self.train_summary = {
+        self.train_summary: dict[str, Any] = {
             "numTrainExamples": 0,
             "dateTrained": "",
             "modelType": "",
@@ -89,7 +92,7 @@ class Equine(torch.nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def train_model(self, dataset: TensorDataset, **kwargs) -> dict[str, Any]:
+    def train_model(self, dataset: TensorDataset, **kwargs: Any) -> dict[str, Any]:
         """
         Upon implementation, train the model on the given dataset.
 
@@ -120,7 +123,7 @@ class Equine(torch.nn.Module, ABC):
         raise NotImplementedError
 
     @classmethod
-    def load(cls: Equine, path: str) -> Equine:  # noqa: F821 # type: ignore
+    def load(cls: AnyEquine, path: str) -> AnyEquine:  # noqa: F821 # type: ignore
         """
         Upon implementation, load the model from the given file path.
 

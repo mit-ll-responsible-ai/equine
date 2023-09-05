@@ -2,22 +2,23 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
-from typing import Callable, Any
-import io
-from enum import Enum
-from collections import OrderedDict
-from datetime import datetime
+
+from typing import Any, Callable
 
 import icontract
+import io
 import torch
-from torch.utils.data import TensorDataset
 from beartype import beartype
-from sklearn.model_selection import train_test_split
+from collections import OrderedDict
+from datetime import datetime
+from enum import Enum
 from scipy.stats import gaussian_kde
+from sklearn.model_selection import train_test_split
+from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_episode, generate_train_summary
+from .utils import generate_episode, generate_support, generate_train_summary
 
 
 #####################################
@@ -337,7 +338,7 @@ class Protonet(torch.nn.Module):
         Parameters
         ----------
         X : torch.Tensor
-            Input tensor of queires for generating predictions.
+            Input tensor of queries for generating predictions.
 
         Returns
         -------
@@ -784,9 +785,9 @@ class EquineProtonet(Equine):
             "init_temperature": self.temperature.item(),
         }
 
-        jit_model = torch.jit.script(self.model.embedding_model)
+        jit_model = torch.jit.script(self.model.embedding_model)  # type: ignore
         buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)
+        torch.jit.save(jit_model, buffer)  # type: ignore
         buffer.seek(0)
 
         save_data = {
@@ -801,7 +802,7 @@ class EquineProtonet(Equine):
         torch.save(save_data, path)  # TODO allow model checkpointing
 
     @classmethod
-    def load(cls, path: str) -> Equine:  # noqa: F821 TODO typehint doesnt want to work?
+    def load(cls, path: str) -> Equine:  # noqa: F821
         """
         Load a previously saved EquineProtonet model.
 
@@ -817,7 +818,7 @@ class EquineProtonet(Equine):
         """
         model_save = torch.load(path)
         support = model_save["support"]
-        jit_model = torch.jit.load(model_save["embed_jit_save"])
+        jit_model = torch.jit.load(model_save["embed_jit_save"])  # type: ignore
         eq_model = cls(jit_model, **model_save["settings"])
 
         eq_model.model.model_head.load_state_dict(model_save["model_head_save"])

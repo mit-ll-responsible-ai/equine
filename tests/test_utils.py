@@ -2,12 +2,12 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import equine as eq
-import torch
-from hypothesis import given
-from hypothesis import strategies as st
 import hypothesis.extra.numpy as hnp
 import pytest
+import torch
+from hypothesis import given, strategies as st
+
+import equine as eq
 
 
 @st.composite
@@ -88,11 +88,19 @@ def draw_two_tensors(draw):
 def test_brier_score(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.brier_score(yh, yt) >= 0.0
+    yt = (
+        yt.int()
+    )  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
+    assert eq.utils.brier_score(yh, yt) >= 0.0
 
 
 @given(draw_two_tensors())
 def test_brier_skill_score(two_tensors) -> None:
     yh, yt = two_tensors
+    assert eq.utils.brier_skill_score(yh, yt) <= 1.0
+    yt = (
+        yt.int()
+    )  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
     assert eq.utils.brier_skill_score(yh, yt) <= 1.0
 
 

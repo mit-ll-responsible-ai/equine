@@ -82,6 +82,42 @@ def test_train_episodes(random_dataset):
     model.update_support(X, Y, 0.5)
     assert len(model.model.support) == num_classes, "Support set is correct size"
 
+@given(random_dataset=random_dataset())
+@settings(deadline=None)
+def test_train_episodes_shared_reg(random_dataset):
+    dataset, num_classes, way = random_dataset
+    num_shot = 3
+    num_episodes = 10
+    episode_size = 512
+
+    X, Y = dataset.tensors
+    num_deep_features = 32
+    embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
+    model = eq.EquineProtonet(embed_model, num_deep_features, , cov_reg_type="shared")
+    model.train_model(
+        dataset,
+        way=way,
+        support_size=num_shot,
+        num_episodes=num_episodes,
+        episode_size=episode_size,
+    )
+
+    assert model.model.training is False, "Model leaves training mode"
+    assert len(model.model.support) == num_classes  # type: ignore
+    # Test on multiple predictions
+    eq_out = model.predict(X)
+    assert len(eq_out.classes) == len(X)
+    assert len(eq_out.ood_scores) == len(X)
+    # Test on single prediction
+    pred_out = model(X[0])
+    assert len(pred_out) == 1, "Single prediction works"
+    eq_out = model.predict(X[0])
+    assert len(eq_out.classes) == 1, "Single prediction works"
+
+    assert len(model.model.support) == num_classes, "Support set is correct size"
+    model.update_support(X, Y, 0.5)
+    assert len(model.model.support) == num_classes, "Support set is correct size"
+
 
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
@@ -94,7 +130,7 @@ def test_train_episodes_full_cov(random_dataset):
     X, Y = dataset.tensors
     num_deep_features = 4
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL)
+    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL, cov_reg_type='s)
     model.cov_reg_type = "epsilon"
     model.model.cov_reg_type = "epsilon"
     model.train_model(

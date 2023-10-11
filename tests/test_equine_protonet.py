@@ -93,7 +93,9 @@ def test_train_episodes_shared_reg(random_dataset):
     X, Y = dataset.tensors
     num_deep_features = 32
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, , cov_reg_type="shared")
+    model = eq.EquineProtonet(embed_model, num_deep_features)
+    model.cov_reg_type = "shared"
+    model.model.cov_reg_type = "shared"
     model.train_model(
         dataset,
         way=way,

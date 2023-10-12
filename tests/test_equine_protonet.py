@@ -132,7 +132,7 @@ def test_train_episodes_full_cov(random_dataset):
     X, Y = dataset.tensors
     num_deep_features = 4
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL, cov_reg_type='s)
+    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL)
     model.cov_reg_type = "epsilon"
     model.model.cov_reg_type = "epsilon"
     model.train_model(

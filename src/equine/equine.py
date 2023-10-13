@@ -87,7 +87,7 @@ class Equine(torch.nn.Module, ABC):
         Returns
         -------
         EquineOutput
-            An EquineOutput object containing the class probabilties and OOD scores.
+            An EquineOutput object containing the class probabilities and OOD scores.
         """
         raise NotImplementedError
 

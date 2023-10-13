@@ -8,6 +8,7 @@ from typing import Any, Callable
 import icontract
 import io
 import torch
+import warnings
 from beartype import beartype
 from collections import OrderedDict
 from datetime import datetime
@@ -16,7 +17,6 @@ from scipy.stats import gaussian_kde
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
-import warnings
 
 from .equine import Equine, EquineOutput
 from .utils import generate_episode, generate_support, generate_train_summary
@@ -37,6 +37,7 @@ COV_REG_TYPE = "epsilon"
 
 ###############################################
 
+
 def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
     """
     Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
@@ -49,10 +50,13 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
             covariance matrix, assumes first dimension is batch size (number of classes)
     """
     U, S, Vh = torch.linalg.svd(cov)
-    S_inv_sqrt = torch.stack([torch.diag(torch.sqrt(1.0/S[i])) for i in range(S.shape[0])],dim=0)
-    prod = torch.matmul(S_inv_sqrt,torch.transpose(U, 1, 2))
-    dist = torch.sum(torch.square(torch.matmul(prod,x)), dim=1)
+    S_inv_sqrt = torch.stack(
+        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
+    )
+    prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
+    dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
     return dist
+
 
 @beartype
 class Protonet(torch.nn.Module):
@@ -199,8 +203,7 @@ class Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: dict[float, torch.Tensor],
-        cov_type: CovType 
+        self, class_cov_dict: dict[float, torch.Tensor], cov_type: CovType
     ) -> dict[float, torch.Tensor]:
         """
         Method to add regularization to each class covariance matrix based on the selected regularization type.
@@ -256,8 +259,7 @@ class Protonet(torch.nn.Module):
         return class_cov_dict
 
     def compute_shared_covariance(
-        self, class_cov_dict: dict[float, torch.Tensor],
-        cov_type: CovType
+        self, class_cov_dict: dict[float, torch.Tensor], cov_type: CovType
     ) -> torch.Tensor:
         """
         Method to calculate a shared covariance matrix.
@@ -328,16 +330,14 @@ class Protonet(torch.nn.Module):
 
         if len(cov.shape) == 2:  # (diagonal covariance)
             # examples x classes x dimension
-            dist = torch.nan_to_num(torch.div(diff ** 2, cov))
+            dist = torch.nan_to_num(torch.div(diff**2, cov))
             dist = torch.sum(dist, dim=2)  # examples x classes
             dist = dist.squeeze(dim=1)
             dist = torch.sqrt(dist + self.epsilon)  # examples x classes
         else:  # len(cov.shape) == 3: (full covariance)
             diff = diff.permute(1, 2, 0)  # classes x dimension x examples
             dist = mahalanobis_distance_nosq(diff, cov)
-            dist = torch.sqrt(
-                dist.permute(1, 0) + self.epsilon
-            )  # examples x classes
+            dist = torch.sqrt(dist.permute(1, 0) + self.epsilon)  # examples x classes
             dist = dist.squeeze(dim=1)
         return dist
 

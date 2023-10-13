@@ -1,12 +1,12 @@
 # Copyright 2023, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
+import numpy as np
 import os
 import pytest
 import torch
 from conftest import BasicEmbeddingModel, random_dataset
 from hypothesis import given, settings, strategies as st
-import numpy as np
 
 import equine as eq
 from equine.equine_protonet import mahalanobis_distance_nosq
@@ -81,6 +81,7 @@ def test_train_episodes(random_dataset):
     assert len(model.model.support) == num_classes, "Support set is correct size"
     model.update_support(X, Y, 0.5)
     assert len(model.model.support) == num_classes, "Support set is correct size"
+
 
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
@@ -254,27 +255,30 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
 
+
 def test_mahalanobis():
-    eps = 10**(-4)
+    eps = 10 ** (-4)
 
-    cov = torch.eye(10)*(1+eps)
+    cov = torch.eye(10) * (1 + eps)
     cov = torch.unsqueeze(cov, 0)
     diff = torch.ones((10, 1))
 
     dist = mahalanobis_distance_nosq(diff, cov)
-    assert(np.isclose(dist.numpy()[0,0], 10*(1/(1+eps))))
+    assert np.isclose(dist.numpy()[0, 0], 10 * (1 / (1 + eps)))
 
-    cov = torch.eye(10)*eps
-    cov[0,0] = cov[0,0] + 1
+    cov = torch.eye(10) * eps
+    cov[0, 0] = cov[0, 0] + 1
     cov = torch.unsqueeze(cov, 0)
     diff = torch.ones((10, 1))
 
     dist = mahalanobis_distance_nosq(diff, cov)
-    assert(np.isclose(dist.numpy()[0,0], 9/eps + (1/(1+eps))))
+    assert np.isclose(dist.numpy()[0, 0], 9 / eps + (1 / (1 + eps)))
 
-    cov = torch.eye(10)*eps + torch.ones((10,10))
+    cov = torch.eye(10) * eps + torch.ones((10, 10))
     cov = torch.unsqueeze(cov, 0)
     diff = torch.ones((10, 1))
 
     dist = mahalanobis_distance_nosq(diff, cov)
-    assert(np.isclose(dist.numpy()[0,0], (1/eps)*10 - (100)/(eps**2+eps*10)))
+    assert np.isclose(
+        dist.numpy()[0, 0], (1 / eps) * 10 - (100) / (eps**2 + eps * 10)
+    )

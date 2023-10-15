@@ -8,6 +8,7 @@ from typing import Any, Callable
 import icontract
 import io
 import torch
+import warnings
 from beartype import beartype
 from collections import OrderedDict
 from datetime import datetime
@@ -35,6 +36,28 @@ COV_REG_TYPE = "epsilon"
 
 
 ###############################################
+
+
+def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
+    """
+    Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            vectors to compute distances for
+        cov : torch.Tensor
+            covariance matrix, assumes first dimension is batch size (number of classes)
+    """
+    U, S, Vh = torch.linalg.svd(cov)
+    S_inv_sqrt = torch.stack(
+        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
+    )
+    prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
+    dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
+    return dist
+
+
 @beartype
 class Protonet(torch.nn.Module):
     """
@@ -155,7 +178,7 @@ class Protonet(torch.nn.Module):
             )
             class_cov_dict[label] = class_covariance
 
-        reg_covariance_dict = self.regularize_covariance(class_cov_dict)
+        reg_covariance_dict = self.regularize_covariance(class_cov_dict, cov_type)
         reg_covariance = torch.stack(list(reg_covariance_dict.values()))
 
         return reg_covariance  # TODO try putting everything on GPU with .to() and see if faster
@@ -180,7 +203,7 @@ class Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: dict[float, torch.Tensor]
+        self, class_cov_dict: dict[float, torch.Tensor], cov_type: CovType
     ) -> dict[float, torch.Tensor]:
         """
         Method to add regularization to each class covariance matrix based on the selected regularization type.
@@ -189,28 +212,35 @@ class Protonet(torch.nn.Module):
         ----------
         class_cov_dict : dict[float, torch.Tensor]
             A dictionary containing each class and the corresponding covariance matrix.
+        cov_type : CovType
+            Type of covariance to use [unit, diag, full].
 
         Returns
         -------
         dict[float, torch.Tensor]
             Dictionary containing the regularized class covariance matrices.
         """
-        if self.cov_type == CovType.FULL:
+
+        if cov_type == CovType.FULL:
             regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim))
-        elif self.cov_type == CovType.DIAGONAL:
+        elif cov_type == CovType.DIAGONAL:
             regularization = self.epsilon * torch.ones(self.emb_out_dim)
-        elif self.cov_type == CovType.UNIT:
+        elif cov_type == CovType.UNIT:
             regularization = torch.zeros(self.emb_out_dim)
         else:
             raise ValueError("Unknown Covariance Type")
 
         if self.cov_reg_type == "shared":
-            if self.cov_type != CovType.FULL and self.cov_type != CovType.DIAGONAL:
-                raise ValueError(
-                    "Covariance type FULL and DIAGONAL are incompatible with shared regularization"
+            if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
+                for label in self.support_embeddings:
+                    class_cov_dict[label] = class_cov_dict[label] + regularization
+                warnings.warn(
+                    "Covariance type UNIT is incompatible with shared regularization, \
+                    reverting to epsilon regularization"
                 )
+                return class_cov_dict
 
-            shared_covariance = self.compute_shared_covariance(class_cov_dict)
+            shared_covariance = self.compute_shared_covariance(class_cov_dict, cov_type)
 
             for label in self.support_embeddings:
                 num_class_support = self.support_embeddings[label].shape[0]
@@ -229,7 +259,7 @@ class Protonet(torch.nn.Module):
         return class_cov_dict
 
     def compute_shared_covariance(
-        self, class_cov_dict: dict[float, torch.Tensor]
+        self, class_cov_dict: dict[float, torch.Tensor], cov_type: CovType
     ) -> torch.Tensor:
         """
         Method to calculate a shared covariance matrix.
@@ -242,6 +272,8 @@ class Protonet(torch.nn.Module):
         ----------
         class_cov_dict : dict[float, torch.Tensor]
             A dictionary containing each class and the corresponding covariance matrix.
+        cov_type : CovType
+            Type of covariance to use [unit, diag, full].
 
         Returns
         -------
@@ -250,9 +282,9 @@ class Protonet(torch.nn.Module):
         """
         total_support = sum([x.shape[0] for x in class_cov_dict.values()])
 
-        if self.cov_type == CovType.FULL:
+        if cov_type == CovType.FULL:
             shared_covariance = torch.zeros((self.emb_out_dim, self.emb_out_dim))
-        elif self.cov_type == CovType.DIAGONAL:
+        elif cov_type == CovType.DIAGONAL:
             shared_covariance = torch.zeros(self.emb_out_dim)
         else:
             raise ValueError(
@@ -294,24 +326,19 @@ class Protonet(torch.nn.Module):
             The calculated distances from each of the class prototypes for the given embeddings.
         """
         _queries = torch.unsqueeze(X_embed, 1)  # examples x 1 x dimension
-        diff = torch.sub(mu, _queries) ** 2  # examples x classes x dimension
+        diff = torch.sub(mu, _queries)  # examples x classes x dimension
 
         if len(cov.shape) == 2:  # (diagonal covariance)
             # examples x classes x dimension
-            dist = torch.nan_to_num(torch.div(diff, cov))
+            dist = torch.nan_to_num(torch.div(diff**2, cov))
             dist = torch.sum(dist, dim=2)  # examples x classes
             dist = dist.squeeze(dim=1)
             dist = torch.sqrt(dist + self.epsilon)  # examples x classes
         else:  # len(cov.shape) == 3: (full covariance)
             diff = diff.permute(1, 2, 0)  # classes x dimension x examples
-            sol = torch.linalg.lstsq(cov, diff, rcond=10 ** (-4))
-            sol = sol.solution  # classes x dimension x examples
-            dist = torch.sum(diff * sol, dim=1)  # classes x examples
-            dist = torch.sqrt(
-                torch.abs(dist.permute(1, 0)) + self.epsilon
-            )  # examples x classes
+            dist = mahalanobis_distance_nosq(diff, cov)
+            dist = torch.sqrt(dist.permute(1, 0) + self.epsilon)  # examples x classes
             dist = dist.squeeze(dim=1)
-
         return dist
 
     def compute_classes(self, distances: torch.Tensor) -> torch.Tensor:

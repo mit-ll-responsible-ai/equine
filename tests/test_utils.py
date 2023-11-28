@@ -5,7 +5,7 @@
 import hypothesis.extra.numpy as hnp
 import pytest
 import torch
-from hypothesis import given, strategies as st
+from hypothesis import given, settings, strategies as st
 
 import equine as eq
 

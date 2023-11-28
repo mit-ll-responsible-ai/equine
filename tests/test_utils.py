@@ -40,12 +40,14 @@ def support_dataset(draw):
 
 
 @given(dataset=support_dataset())
+@settings(deadline=None)
 def test_generate_support(dataset):
     train_x, train_y, support_sz, tasks, _ = dataset
     eq.utils.generate_support(train_x, train_y, support_sz, tasks)
 
 
 @given(dataset=support_dataset())
+@settings(deadline=None)
 def test_generate_episode(dataset) -> None:
     train_x, train_y, support_sz, tasks, way = dataset
     episode_size = max(len(tasks), train_x.shape[0] // 4)

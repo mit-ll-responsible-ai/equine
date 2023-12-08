@@ -564,6 +564,10 @@ class EquineGP(Equine):
 
         return prototypes
     
+    @icontract.require(lambda self: self.support is not None)
+    def get_support(self):
+        return self.support
+
     @icontract.require(lambda self: self.support_embeddings is not None)
     def get_support_embeddings(self):
         return self.support_embeddings
@@ -685,6 +689,7 @@ class EquineGP(Equine):
 
         save_data = {
             "settings": model_settings,
+            "support": self.support,
             "num_data": self.model.num_data,
             "train_batch_size": self.model.train_batch_size,
             "laplace_model_save": laplace_sd,
@@ -721,5 +726,16 @@ class EquineGP(Equine):
             model_save["num_data"], model_save["train_batch_size"]
         )
         eq_model.eval()
+
+        support = model_save["support"]
+        if support is not None:
+            eq_model.support = support
+            support_embeddings = OrderedDict().fromkeys(support.keys())
+            for label in support:
+                support_embeddings[label] = eq_model.compute_embeddings(support[label])
+
+            eq_model.support_embeddings = support_embeddings
+
+            eq_model.prototypes = eq_model.compute_prototypes()
 
         return eq_model

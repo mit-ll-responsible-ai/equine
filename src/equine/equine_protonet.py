@@ -792,6 +792,10 @@ class EquineProtonet(Equine):
 
         self._fit_outlier_scores(ood_dists, calib_y)
 
+    @icontract.require(lambda self: self.support is not None)
+    def get_support(self):
+        return self.model.support
+
     def get_support_embeddings(self):
         return self.model.support_embeddings
     

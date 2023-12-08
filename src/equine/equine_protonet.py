@@ -792,6 +792,12 @@ class EquineProtonet(Equine):
 
         self._fit_outlier_scores(ood_dists, calib_y)
 
+    def get_support_embeddings(self):
+        return self.model.support_embeddings
+    
+    def get_prototypes(self):
+        return self.model.prototypes
+
     def save(self, path: str) -> None:
         """
         Save all model parameters to a file.

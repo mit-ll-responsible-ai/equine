@@ -6,6 +6,8 @@ from typing import Any, TypeVar
 
 import torch
 from abc import ABC, abstractmethod
+
+from collections import OrderedDict
 from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput
@@ -53,6 +55,10 @@ class Equine(torch.nn.Module, ABC):
             "dateTrained": "",
             "modelType": "",
         }
+
+        self.support = None
+        self.support_embeddings = None
+        self.prototypes = None
 
     @abstractmethod
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -107,6 +113,36 @@ class Equine(torch.nn.Module, ABC):
         -------
         dict[str, Any]
             Dictionary containing summary training information.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_support_embeddings(self) -> OrderedDict:
+        """
+        Upon implementation, returns the support embeddings
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        OrderedDict
+            An OrderedDict object containing the support embeddings for each class
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_prototypes(self) -> torch.Tensor:
+        """
+        Upon implementation, returns the prototype embeddings
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        torch.Tensor
+            A torch tensor of the prototype embeddings
         """
         raise NotImplementedError
 

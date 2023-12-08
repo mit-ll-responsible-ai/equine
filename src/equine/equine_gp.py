@@ -9,13 +9,14 @@ import io
 import math
 import torch
 from beartype import beartype
+from collections import OrderedDict
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_train_summary
+from .utils import generate_support, generate_train_summary
 
 # -------------------------------------------------------------------------------
 # Note that the below code for
@@ -407,6 +408,8 @@ class EquineGP(Equine):
         calib_frac: float = 0.1,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
+        vis_support: bool = False,
+        support_size: int = 25,
     ) -> Tuple[dict[str, Any], Optional[DataLoader[Any]]]:
         """
         Train or fine-tune an EquineGP model.
@@ -471,6 +474,9 @@ class EquineGP(Equine):
                 epoch_loss += loss.item()
         self.model.eval()
 
+        if vis_support:
+            self.update_support(dataset.tensors[0], dataset.tensors[1], support_size)
+
         calibration_loader = None
         if self.use_temperature:
             dataset_calibration = TensorDataset(calib_x, calib_y)
@@ -489,6 +495,82 @@ class EquineGP(Equine):
         self.train_summary = generate_train_summary(self, train_y, date_trained)
 
         return self.train_summary, calibration_loader
+
+    def update_support(
+        self, support_x: torch.Tensor, support_y: torch.Tensor, support_size:int
+    ) -> None:
+        """Function to update protonet support examples with given examples.
+
+        Parameters
+        ----------
+        support_x : torch.Tensor
+            Tensor containing support examples for protonet.
+        support_y : torch.Tensor
+            Tensor containing labels for given support examples.
+        
+        Returns
+        -------
+        None
+        """
+
+        labels, counts = torch.unique(support_y, return_counts=True)
+        support = OrderedDict()
+        for label, count in list(zip(labels.tolist(), counts.tolist())):
+            class_support = generate_support(
+                support_x,
+                support_y,
+                support_size=min(count, support_size),
+                selected_labels=[label],
+            )
+            support.update(class_support)
+
+        self.support = support
+
+        support_embeddings = OrderedDict().fromkeys(support.keys())
+        for label in support:
+            support_embeddings[label] = self.compute_embeddings(support[label])
+
+        self.support_embeddings = support_embeddings
+
+        self.prototypes = self.compute_prototypes()
+
+    
+    def compute_embeddings(self,x):
+        f = self.model.feature_extractor(x)
+        f_reduc = self.model.jl(f)
+        if self.model.normalize_gp_features:
+            f_reduc = self.model.normalize(f_reduc)
+        
+        return self.model.rff(f_reduc)
+
+    @icontract.require(lambda self: self.support_embeddings is not None)
+    def compute_prototypes(self) -> torch.Tensor:
+        """
+        Method for computing class prototypes based on given support examples.
+        ``Prototypes'' in this context are the means of the support embeddings for each class.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensors of prototypes for each of the given classes in the support.
+        """
+        # Compute prototype for each class
+        proto_list = []
+        for label in self.support_embeddings:  # look at doing functorch
+            class_prototype = torch.mean(self.support_embeddings[label], dim=0)  # type: ignore
+            proto_list.append(class_prototype)
+
+        prototypes = torch.stack(proto_list)
+
+        return prototypes
+    
+    @icontract.require(lambda self: self.support_embeddings is not None)
+    def get_support_embeddings(self):
+        return self.support_embeddings
+    
+    @icontract.require(lambda self: self.prototypes is not None)
+    def get_prototypes(self):
+        return self.prototypes
 
     def calibrate_temperature(
         self,
@@ -565,8 +647,9 @@ class EquineGP(Equine):
         equiprobable = torch.ones(self.num_outputs) / self.num_outputs
         max_entropy = torch.sum(torch.special.entr(equiprobable))
         ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
+        embeddings = self.compute_embeddings(X)
         eq_out = EquineOutput(
-            classes=preds, ood_scores=ood_score, embeddings=torch.Tensor([])
+            classes=preds, ood_scores=ood_score, embeddings=embeddings
         )  # TODO return embeddings
         return eq_out
 

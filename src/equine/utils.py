@@ -200,7 +200,7 @@ def generate_support(
     return support
 
 
-@icontract.require(lambda train_x: len(train_x.shape) == 2)
+@icontract.require(lambda train_x: len(train_x.shape) >= 2)
 @icontract.require(lambda train_y: len(train_y.shape) == 1)
 @icontract.require(lambda support_size: support_size > 1)
 @icontract.require(lambda way: way > 0)
@@ -423,3 +423,24 @@ def generate_model_summary(
     summary.update(model.train_summary)  # union of train_summary and generated metrics
 
     return summary
+
+
+@icontract.require(lambda cov: cov.shape[-2] == cov.shape[-1])
+def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
+    """
+    Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            vectors to compute distances for
+        cov : torch.Tensor
+            covariance matrix, assumes first dimension is number of classes
+    """
+    U, S, _ = torch.linalg.svd(cov)
+    S_inv_sqrt = torch.stack(
+        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
+    )
+    prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
+    dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
+    return dist

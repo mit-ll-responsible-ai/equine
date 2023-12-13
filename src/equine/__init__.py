@@ -16,6 +16,7 @@ from .utils import (
     generate_model_summary,
     generate_support,
     generate_train_summary,
+    mahalanobis_distance_nosq,
 )
 
 if not TYPE_CHECKING:  # pragma: no cover
@@ -35,6 +36,7 @@ __all__ = [
     "brier_score",
     "brier_skill_score",
     "expected_calibration_error",
+    "mahalanobis_distance_nosq",
     "generate_support",
     "generate_episode",
     "generate_model_metrics",

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import hypothesis.extra.numpy as hnp
+import numpy as np
 import pytest
 import torch
 from hypothesis import given, settings, strategies as st
@@ -122,3 +123,31 @@ def test_metric_summary(two_tensors) -> None:
     assert "brierScore" in metrics
     assert "brierSkillScore" in metrics
     assert "expectedCalibrationError" in metrics
+
+
+def test_mahalanobis():
+    eps = 10 ** (-4)
+
+    cov = torch.eye(10) * (1 + eps)
+    cov = torch.unsqueeze(cov, 0)
+    diff = torch.ones((10, 1))
+
+    dist = eq.mahalanobis_distance_nosq(diff, cov)
+    assert np.isclose(dist.numpy()[0, 0], 10 * (1 / (1 + eps)))
+
+    cov = torch.eye(10) * eps
+    cov[0, 0] = cov[0, 0] + 1
+    cov = torch.unsqueeze(cov, 0)
+    diff = torch.ones((10, 1))
+
+    dist = eq.mahalanobis_distance_nosq(diff, cov)
+    assert np.isclose(dist.numpy()[0, 0], 9 / eps + (1 / (1 + eps)))
+
+    cov = torch.eye(10) * eps + torch.ones((10, 10))
+    cov = torch.unsqueeze(cov, 0)
+    diff = torch.ones((10, 1))
+
+    dist = eq.mahalanobis_distance_nosq(diff, cov)
+    assert np.isclose(
+        dist.numpy()[0, 0], (1 / eps) * 10 - (100) / (eps**2 + eps * 10)
+    )

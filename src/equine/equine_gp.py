@@ -497,7 +497,7 @@ class EquineGP(Equine):
         return self.train_summary, calibration_loader
 
     def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, support_size:int
+        self, support_x: torch.Tensor, support_y: torch.Tensor, support_size: int
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -507,7 +507,7 @@ class EquineGP(Equine):
             Tensor containing support examples for protonet.
         support_y : torch.Tensor
             Tensor containing labels for given support examples.
-        
+
         Returns
         -------
         None
@@ -534,13 +534,12 @@ class EquineGP(Equine):
 
         self.prototypes = self.compute_prototypes()
 
-    
-    def compute_embeddings(self,x):
+    def compute_embeddings(self, x):
         f = self.model.feature_extractor(x)
         f_reduc = self.model.jl(f)
         if self.model.normalize_gp_features:
             f_reduc = self.model.normalize(f_reduc)
-        
+
         return self.model.rff(f_reduc)
 
     @icontract.require(lambda self: self.support_embeddings is not None)
@@ -563,7 +562,7 @@ class EquineGP(Equine):
         prototypes = torch.stack(proto_list)
 
         return prototypes
-    
+
     @icontract.require(lambda self: self.support is not None)
     def get_support(self):
         return self.support
@@ -571,7 +570,7 @@ class EquineGP(Equine):
     @icontract.require(lambda self: self.support_embeddings is not None)
     def get_support_embeddings(self):
         return self.support_embeddings
-    
+
     @icontract.require(lambda self: self.prototypes is not None)
     def get_prototypes(self):
         return self.prototypes
@@ -674,9 +673,9 @@ class EquineGP(Equine):
             "device": self.device_type,
         }
 
-        jit_model = torch.jit.script(self.model.feature_extractor)  # type: ignore
+        jit_model = torch.jit.script(self.model.feature_extractor)
         buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)  # type: ignore
+        torch.jit.save(jit_model, buffer)
         buffer.seek(0)
 
         laplace_sd = self.model.state_dict()
@@ -715,7 +714,7 @@ class EquineGP(Equine):
             The reconstituted EquineGP object.
         """
         model_save = torch.load(path)
-        jit_model = torch.jit.load(model_save["embed_jit_save"])  # type: ignore
+        jit_model = torch.jit.load(model_save["embed_jit_save"])
         eq_model = cls(jit_model, **model_save["settings"])
 
         eq_model.train_summary = model_save["train_summary"]

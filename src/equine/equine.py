@@ -6,7 +6,6 @@ from typing import Any, TypeVar
 
 import torch
 from abc import ABC, abstractmethod
-
 from collections import OrderedDict
 from torch.utils.data import TensorDataset
 
@@ -115,7 +114,7 @@ class Equine(torch.nn.Module, ABC):
             Dictionary containing summary training information.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_support_embeddings(self) -> OrderedDict:
         """
@@ -130,7 +129,7 @@ class Equine(torch.nn.Module, ABC):
             An OrderedDict object containing the support embeddings for each class
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     def get_prototypes(self) -> torch.Tensor:
         """

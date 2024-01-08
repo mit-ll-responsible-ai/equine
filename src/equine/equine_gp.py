@@ -542,7 +542,7 @@ class EquineGP(Equine):
 
         return self.model.rff(f_reduc)
 
-    @icontract.require(lambda self: self.support_embeddings is not None)
+    @icontract.require(lambda self: self.support is not None)
     def compute_prototypes(self) -> torch.Tensor:
         """
         Method for computing class prototypes based on given support examples.
@@ -553,10 +553,15 @@ class EquineGP(Equine):
         torch.Tensor
             Tensors of prototypes for each of the given classes in the support.
         """
+        # Compute support embeddings
+        support_embeddings = OrderedDict().fromkeys(self.support.keys())
+        for label in self.support:
+            support_embeddings[label] = self.compute_embeddings(self.support[label])
+
         # Compute prototype for each class
         proto_list = []
-        for label in self.support_embeddings:  # look at doing functorch
-            class_prototype = torch.mean(self.support_embeddings[label], dim=0)  # type: ignore
+        for label in self.support:  # look at doing functorch
+            class_prototype = torch.mean(support_embeddings[label], dim=0)  # type: ignore
             proto_list.append(class_prototype)
 
         prototypes = torch.stack(proto_list)
@@ -566,10 +571,6 @@ class EquineGP(Equine):
     @icontract.require(lambda self: self.support is not None)
     def get_support(self):
         return self.support
-
-    @icontract.require(lambda self: self.support_embeddings is not None)
-    def get_support_embeddings(self):
-        return self.support_embeddings
 
     @icontract.require(lambda self: self.prototypes is not None)
     def get_prototypes(self):
@@ -729,12 +730,6 @@ class EquineGP(Equine):
         support = model_save["support"]
         if support is not None:
             eq_model.support = support
-            support_embeddings = OrderedDict().fromkeys(support.keys())
-            for label in support:
-                support_embeddings[label] = eq_model.compute_embeddings(support[label])
-
-            eq_model.support_embeddings = support_embeddings
-
             eq_model.prototypes = eq_model.compute_prototypes()
 
         return eq_model

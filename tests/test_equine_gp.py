@@ -46,6 +46,7 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
         weight_decay=0.0001,
     )
     _, cal_loader = model.train_model(dataset, loss_fn, optimizer, 10)
+    assert cal_loader is not None
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
 
@@ -141,5 +142,15 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
     assert (
         torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
     ), "Predictions changed on reload"
+    assert new_model.support is not None, "support was not saved"
+    assert new_model.prototypes is not None, "prototypes were not saved"
+    assert (
+        model.support.keys() == new_model.get_support().keys()
+    ), "Support keys changed on reload"
+    assert (
+        torch.nn.functional.mse_loss(model.prototypes, new_model.get_prototypes())
+        <= 1e-7
+    ), "Prototypes changed on reload"
+
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup

@@ -119,9 +119,6 @@ class Equine(torch.nn.Module, ABC):
         """
         Upon implementation, returns the prototype embeddings
 
-        Parameters
-        ----------
-
         Returns
         -------
         torch.Tensor

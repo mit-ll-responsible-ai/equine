@@ -19,7 +19,12 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_episode, generate_support, generate_train_summary
+from .utils import (
+    generate_episode,
+    generate_support,
+    generate_train_summary,
+    mahalanobis_distance_nosq,
+)
 
 
 #####################################
@@ -36,26 +41,6 @@ COV_REG_TYPE = "epsilon"
 
 
 ###############################################
-
-
-def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
-    """
-    Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            vectors to compute distances for
-        cov : torch.Tensor
-            covariance matrix, assumes first dimension is batch size (number of classes)
-    """
-    U, S, Vh = torch.linalg.svd(cov)
-    S_inv_sqrt = torch.stack(
-        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
-    )
-    prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
-    dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
-    return dist
 
 
 @beartype
@@ -791,6 +776,14 @@ class EquineProtonet(Equine):
         ood_dists = self._compute_ood_dist(X_embed, preds, dists)
 
         self._fit_outlier_scores(ood_dists, calib_y)
+
+    @icontract.require(lambda self: self.model.support is not None)
+    def get_support(self):
+        return self.model.support
+
+    @icontract.require(lambda self: self.model.prototypes is not None)
+    def get_prototypes(self):
+        return self.model.prototypes
 
     def save(self, path: str) -> None:
         """

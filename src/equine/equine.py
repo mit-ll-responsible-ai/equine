@@ -54,6 +54,10 @@ class Equine(torch.nn.Module, ABC):
             "modelType": "",
         }
 
+        self.support = None
+        self.support_embeddings = None
+        self.prototypes = None
+
     @abstractmethod
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -111,6 +115,18 @@ class Equine(torch.nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_prototypes(self) -> torch.Tensor:
+        """
+        Upon implementation, returns the prototype embeddings
+
+        Returns
+        -------
+        torch.Tensor
+            A torch tensor of the prototype embeddings
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def save(self, path: str) -> None:
         """
         Upon implementation, save the model to the given file path.
@@ -122,7 +138,7 @@ class Equine(torch.nn.Module, ABC):
         """
         raise NotImplementedError
 
-    @classmethod
+    @classmethod  # type: ignore
     def load(cls: AnyEquine, path: str) -> AnyEquine:  # noqa: F821 # type: ignore
         """
         Upon implementation, load the model from the given file path.

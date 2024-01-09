@@ -160,7 +160,7 @@ description = Runs test suite and measures test-coverage. Fails if coverage is
               below 100 prcnt. Run `tox -e coverage -- -n 0` to disable parallelization.
 setenv = NUMBA_DISABLE_JIT=1
 usedevelop = true
-basepython = python3.10
+basepython = python3.11
 deps = {[testenv]deps}
        coverage[toml]
        pytest-cov
@@ -172,7 +172,7 @@ description = Ensure that the equine source code and test suite scan clean
               under pyright and that the public API has a 100 percent
               type-completeness score.
 usedevelop = true
-basepython = python3.10
+basepython = python3.11
 deps = pyright
 
 commands = pyright src/ --level=error
@@ -196,7 +196,7 @@ commands =
 description = Ensures that source materials code and docs and test suite adhere to 
               formatting and code-quality standards.
 skip_install=true
-basepython=python3.10
+basepython=python3.11
 deps=black
      isort
      Flake8-pyproject
@@ -210,7 +210,7 @@ commands=
 [testenv:docs]
 description = Uses mkdocs to generate html for the docs. Stores the
               results in `.tox/docs/build/html/`.
-basepython=python3.10
+basepython=python3.11
 deps=[docs]
 commands=
     mkdocs build --clean --strict

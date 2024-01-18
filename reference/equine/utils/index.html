@@ -2789,14 +2789,16 @@
   <div class="doc doc-contents ">
   
       <p>Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite</p>
-<div class="language-text highlight"><pre><span></span><code>Parameters
-----------
-x : torch.Tensor
+
+<details class="----parameters" open>
+  <summary><div class="language-text highlight"><pre><span></span><code>Parameters
+</code></pre></div></summary>
+  <div class="language-text highlight"><pre><span></span><code>x : torch.Tensor
     vectors to compute distances for
 cov : torch.Tensor
     covariance matrix, assumes first dimension is number of classes
 </code></pre></div>
-
+</details>
           <details class="quote">
             <summary>Source code in <code>src/equine/utils.py</code></summary>
             <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">428</span>

@@ -397,6 +397,7 @@ class EquineGP(Equine):
         )
         self.device_type = device
         self.device = torch.device(self.device_type)
+        self.model.to(self.device)
 
     def train_model(
         self,

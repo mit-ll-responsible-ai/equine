@@ -625,8 +625,7 @@ class EquineGP(Equine):
             Output probabilities computed.
         """
         X = X.to(self.device)
-        with torch.no_grad():
-            preds = self.model(X)
+        preds = self.model(X)
         return preds / self.temperature
 
     @icontract.ensure(

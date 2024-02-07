@@ -140,10 +140,10 @@ def _get_shuffle_idxs_by_class(
 )
 @icontract.require(
     lambda selected_labels, shuffled_indexes: (
-        len(shuffled_indexes.keys()) == len(selected_labels)
+        (len(shuffled_indexes.keys()) == len(selected_labels))
+        if shuffled_indexes is not None
+        else True
     )
-    if shuffled_indexes is not None
-    else True
 )
 @icontract.ensure(
     lambda result, selected_labels: len(result.keys()) == len(selected_labels)

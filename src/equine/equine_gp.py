@@ -627,7 +627,7 @@ class EquineGP(Equine):
         """
         X = X.to(self.device)
         preds = self.model(X)
-        return preds / self.temperature
+        return preds / self.temperature.to(self.device)
 
     @icontract.ensure(
         lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))

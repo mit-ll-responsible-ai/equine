@@ -397,6 +397,7 @@ class EquineGP(Equine):
         )
         self.device_type = device
         self.device = torch.device(self.device_type)
+        self.model.to(self.device)
 
     def train_model(
         self,
@@ -625,9 +626,8 @@ class EquineGP(Equine):
             Output probabilities computed.
         """
         X = X.to(self.device)
-        with torch.no_grad():
-            preds = self.model(X)
-        return preds / self.temperature
+        preds = self.model(X)
+        return preds / self.temperature.to(self.device)
 
     @icontract.ensure(
         lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))

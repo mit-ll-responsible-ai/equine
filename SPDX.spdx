@@ -2,5 +2,5 @@ SPDXVersion: SPDX-2.1
 	PackageName: equine
 	PackageHomePage: https://github.com/mit-ll-responsible-ai/equine
 	PackageOriginator: MIT Lincoln Laboratory
-	PackageCopyrightText: 2023 Massachusetts Institute of Technology
+	PackageCopyrightText: 2024 Massachusetts Institute of Technology
 	PackageLicenseDeclared: MIT

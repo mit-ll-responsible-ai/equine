@@ -38,7 +38,7 @@ the class predictions and the extra OOD scores.
 
 DISTRIBUTION STATEMENT A. Approved for public release. Distribution is unlimited.
 
-© 2023 MASSACHUSETTS INSTITUTE OF TECHNOLOGY
+© 2024 MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 
 - Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014)
 - SPDX-License-Identifier: MIT

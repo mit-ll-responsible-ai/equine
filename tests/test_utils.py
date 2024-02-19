@@ -1,4 +1,4 @@
-# Copyright 2023, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
+# Copyright 2024, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
@@ -148,4 +148,6 @@ def test_mahalanobis():
     diff = torch.ones((10, 1))
 
     dist = eq.mahalanobis_distance_nosq(diff, cov)
-    assert np.isclose(dist.numpy()[0, 0], (1 / eps) * 10 - (100) / (eps**2 + eps * 10))
+    assert np.isclose(
+        dist.numpy()[0, 0], (1 / eps) * 10 - (100) / (eps**2 + eps * 10)
+    )

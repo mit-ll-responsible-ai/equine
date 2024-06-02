@@ -189,7 +189,7 @@ class _Laplace(torch.nn.Module):
                 "random_matrix",
                 torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
             )
-            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)  # type: ignore
+            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)
         else:
             self.num_gp_features = num_deep_features
             self.jl = torch.nn.Identity()
@@ -315,7 +315,7 @@ class _Laplace(torch.nn.Module):
                     )
                     u, info = torch.linalg.cholesky_ex(self.precision + jitter)
                     assert (info == 0).all(), "Precision matrix inversion failed!"
-                    torch.cholesky_inverse(u, out=self.covariance)  # type: ignore
+                    torch.cholesky_inverse(u, out=self.covariance)
 
                 self.recompute_covariance = False
 

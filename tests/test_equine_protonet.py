@@ -76,9 +76,13 @@ def test_train_episodes(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())
@@ -117,9 +121,13 @@ def test_train_episodes_shared_reg(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())
@@ -156,9 +164,13 @@ def test_train_episodes_full_cov(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())

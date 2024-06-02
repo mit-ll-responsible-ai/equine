@@ -155,7 +155,7 @@ def generate_support(
     support_size: int,
     selected_labels: List[Any],
     shuffled_indexes: Union[None, dict[Any, torch.Tensor]] = None,
-) -> dict[Any, torch.Tensor]:
+) -> OrderedDict[int, torch.Tensor]:
     """
     Randomly select `support_size` examples of `way` classes from the examples in
     `train_x` with corresponding labels in `train_y` and return them as a dictionary.
@@ -175,7 +175,7 @@ def generate_support(
 
     Returns
     -------
-    dict[Any, torch.Tensor]
+    OrderedDict[int, torch.Tensor]
         Ordered dictionary of class labels with corresponding support examples.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
@@ -187,7 +187,7 @@ def generate_support(
     else:
         shuffled_idxs = shuffled_indexes
 
-    support = OrderedDict()
+    support = OrderedDict[int, torch.Tensor]()
     for label in selected_labels:
         shuffled_x = train_x[shuffled_idxs[label]]
 
@@ -195,7 +195,7 @@ def generate_support(
             label
         ], "Not enough support for label " + str(label)
         selected_support = shuffled_x[:support_size]
-        support[label] = selected_support
+        support[int(label)] = selected_support
 
     return support
 

@@ -71,12 +71,12 @@ write_to = "src/equine/_version.py"
 equine = ["py.typed"]
 
 [tool.black]
-line-length = 88
+line-length = 130
 target-version = ['py310']
 include = '\.pyi?$'
 
 [tool.flake8]
-max-line-length = 88
+max-line-length = 130
 extend-ignore = ["E501"]
 exclude = "src/equine/_version.py"
 

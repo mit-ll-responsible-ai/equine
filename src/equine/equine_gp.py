@@ -76,9 +76,7 @@ def _random_ortho(n: int, m: int) -> torch.Tensor:
 
 @beartype
 class _RandomFourierFeatures(torch.nn.Module):
-    def __init__(
-        self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
-    ) -> None:
+    def __init__(self, in_dim: int, num_random_features: int, feature_scale: Optional[float]) -> None:
         """
         Initialize the _RandomFourierFeatures module, which generates random Fourier features
         for the embedding model.
@@ -189,7 +187,7 @@ class _Laplace(torch.nn.Module):
                 "random_matrix",
                 torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
             )
-            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)  # type: ignore
+            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)
         else:
             self.num_gp_features = num_deep_features
             self.jl = torch.nn.Identity()
@@ -198,9 +196,7 @@ class _Laplace(torch.nn.Module):
         if normalize_gp_features:
             self.normalize = torch.nn.LayerNorm(num_gp_features)
 
-        self.rff = _RandomFourierFeatures(
-            num_gp_features, num_random_features, feature_scale
-        )
+        self.rff = _RandomFourierFeatures(num_gp_features, num_random_features, feature_scale)
         self.beta = torch.nn.Linear(num_random_features, num_outputs)
 
         self.num_data = 0  # to be set later
@@ -223,9 +219,7 @@ class _Laplace(torch.nn.Module):
         self.recompute_covariance = True
 
     @icontract.require(lambda num_data: num_data > 0)
-    @icontract.require(
-        lambda num_data, batch_size: (0 < batch_size) & (batch_size <= num_data)
-    )
+    @icontract.require(lambda num_data, batch_size: (0 < batch_size) & (batch_size <= num_data))
     def set_training_params(self, num_data, batch_size) -> None:
         """
         Set the training parameters for the Laplace approximation.
@@ -298,13 +292,9 @@ class _Laplace(torch.nn.Module):
             self.precision += precision_minibatch
             self.seen_data += x.shape[0]
 
-            assert (
-                self.seen_data <= self.num_data
-            ), "Did not reset precision matrix at start of epoch"
+            assert self.seen_data <= self.num_data, "Did not reset precision matrix at start of epoch"
         else:
-            assert self.seen_data > (
-                self.num_data - self.train_batch_size
-            ), "Not seen sufficient data for precision matrix"
+            assert self.seen_data > (self.num_data - self.train_batch_size), "Not seen sufficient data for precision matrix"
 
             if self.recompute_covariance:
                 with torch.no_grad():
@@ -315,7 +305,7 @@ class _Laplace(torch.nn.Module):
                     )
                     u, info = torch.linalg.cholesky_ex(self.precision + jitter)
                     assert (info == 0).all(), "Precision matrix inversion failed!"
-                    torch.cholesky_inverse(u, out=self.covariance)  # type: ignore
+                    torch.cholesky_inverse(u, out=self.covariance)
 
                 self.recompute_covariance = False
 
@@ -381,9 +371,7 @@ class EquineGP(Equine):
         self.feature_scale = 2.0
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
-        self.register_buffer(
-            "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
-        )
+        self.register_buffer("temperature", torch.Tensor(self.init_temperature * torch.ones(1)))
         self.model = _Laplace(
             self.embedding_model,
             self.num_deep_features,
@@ -450,16 +438,10 @@ class EquineGP(Equine):
                 X, Y, test_size=calib_frac, stratify=Y
             )  # TODO: Replace sklearn with torch call
             dataset = TensorDataset(train_x, train_y)
-            self.temperature = torch.Tensor(
-                self.init_temperature * torch.ones(1)
-            ).type_as(self.temperature)
+            self.temperature = torch.Tensor(self.init_temperature * torch.ones(1)).type_as(self.temperature)
 
-        train_loader = DataLoader(
-            dataset, batch_size=batch_size, shuffle=True, drop_last=True
-        )
-        self.model.set_training_params(
-            len(train_loader.sampler), train_loader.batch_size
-        )
+        train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+        self.model.set_training_params(len(train_loader.sampler), train_loader.batch_size)
         self.model.train()
         for _ in tqdm(range(num_epochs)):
             self.model.reset_precision_matrix()
@@ -487,9 +469,7 @@ class EquineGP(Equine):
                 shuffle=True,
                 drop_last=False,
             )
-            self.calibrate_temperature(
-                calibration_loader, num_calibration_epochs, calibration_lr
-            )
+            self.calibrate_temperature(calibration_loader, num_calibration_epochs, calibration_lr)
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -497,9 +477,7 @@ class EquineGP(Equine):
 
         return self.train_summary, calibration_loader
 
-    def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, support_size: int
-    ) -> None:
+    def update_support(self, support_x: torch.Tensor, support_y: torch.Tensor, support_size: int) -> None:
         """Function to update protonet support examples with given examples.
 
         Parameters
@@ -629,9 +607,7 @@ class EquineGP(Equine):
         preds = self.model(X)
         return preds / self.temperature.to(self.device)
 
-    @icontract.ensure(
-        lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))
-    )
+    @icontract.ensure(lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0)))
     def predict(self, X: torch.Tensor) -> EquineOutput:
         """
         Predict function for EquineGP, inherited and implemented from Equine.
@@ -652,9 +628,7 @@ class EquineGP(Equine):
         max_entropy = torch.sum(torch.special.entr(equiprobable))
         ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
         embeddings = self.compute_embeddings(X)
-        eq_out = EquineOutput(
-            classes=preds, ood_scores=ood_score, embeddings=embeddings
-        )  # TODO return embeddings
+        eq_out = EquineOutput(classes=preds, ood_scores=ood_score, embeddings=embeddings)  # TODO return embeddings
         return eq_out
 
     def save(self, path: str) -> None:
@@ -722,9 +696,7 @@ class EquineGP(Equine):
         eq_model.model.load_state_dict(model_save["laplace_model_save"], strict=False)
         eq_model.model.seen_data = model_save["laplace_model_save"]["seen_data"]
 
-        eq_model.model.set_training_params(
-            model_save["num_data"], model_save["train_batch_size"]
-        )
+        eq_model.model.set_training_params(model_save["num_data"], model_save["train_batch_size"])
         eq_model.eval()
 
         support = model_save["support"]

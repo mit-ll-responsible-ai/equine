@@ -76,9 +76,13 @@ def test_train_episodes(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())
@@ -92,7 +96,9 @@ def test_train_episodes_shared_reg(random_dataset):
     X, Y = dataset.tensors
     num_deep_features = 32
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.DIAGONAL)
+    model = eq.EquineProtonet(
+        embed_model, num_deep_features, cov_type=eq.CovType.DIAGONAL
+    )
     model.cov_reg_type = "shared"
     model.model.cov_reg_type = "shared"
     model.train_model(
@@ -115,9 +121,13 @@ def test_train_episodes_shared_reg(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())
@@ -154,9 +164,13 @@ def test_train_episodes_full_cov(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
-    assert model.model.support is not None and len(model.model.support) == num_classes, "Support set is correct size"
+    assert (
+        model.model.support is not None and len(model.model.support) == num_classes
+    ), "Support set is correct size"
 
 
 @given(random_dataset=random_dataset())
@@ -223,7 +237,9 @@ def test_equine_protonet_save_load(random_dataset) -> None:
     model.save(tmp_filename)
     new_model = eq.EquineProtonet.load(tmp_filename)
     new_output = new_model.predict(X[1:10])
-    assert torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7, "Predictions changed on reload"
+    assert (
+        torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
+    ), "Predictions changed on reload"
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
 
@@ -245,6 +261,8 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     model.save(tmp_filename)
     new_model = eq.EquineProtonet.load(tmp_filename)
     new_output = new_model.predict(X[1:10])
-    assert torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7, "Predictions changed on reload"
+    assert (
+        torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
+    ), "Predictions changed on reload"
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup

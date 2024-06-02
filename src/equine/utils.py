@@ -92,10 +92,16 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     return ece
 
 
-@icontract.require(lambda train_y, selected_labels: len(selected_labels) <= len(train_y))
-@icontract.ensure(lambda result, selected_labels: set(result.keys()).issubset(set(selected_labels)))
+@icontract.require(
+    lambda train_y, selected_labels: len(selected_labels) <= len(train_y)
+)
+@icontract.ensure(
+    lambda result, selected_labels: set(result.keys()).issubset(set(selected_labels))
+)
 @beartype
-def _get_shuffle_idxs_by_class(train_y: torch.Tensor, selected_labels: List) -> dict[Any, torch.Tensor]:
+def _get_shuffle_idxs_by_class(
+    train_y: torch.Tensor, selected_labels: List
+) -> dict[Any, torch.Tensor]:
     """
     Internal helper function to randomly select indices of example classes for a given
     set of labels.
@@ -121,15 +127,27 @@ def _get_shuffle_idxs_by_class(train_y: torch.Tensor, selected_labels: List) -> 
 
 
 @icontract.require(lambda train_x, train_y: len(train_x) <= len(train_y))
-@icontract.require(lambda selected_labels, train_x: (0 < len(selected_labels)) & (len(selected_labels) < len(train_x)))
-@icontract.require(lambda support_size, train_x: (0 < support_size) & (support_size < len(train_x)))
-@icontract.require(lambda support_size, selected_labels, train_x: support_size * len(selected_labels) <= len(train_x))
+@icontract.require(
+    lambda selected_labels, train_x: (0 < len(selected_labels))
+    & (len(selected_labels) < len(train_x))
+)
+@icontract.require(
+    lambda support_size, train_x: (0 < support_size) & (support_size < len(train_x))
+)
+@icontract.require(
+    lambda support_size, selected_labels, train_x: support_size * len(selected_labels)
+    <= len(train_x)
+)
 @icontract.require(
     lambda selected_labels, shuffled_indexes: (
-        (len(shuffled_indexes.keys()) == len(selected_labels)) if shuffled_indexes is not None else True
+        (len(shuffled_indexes.keys()) == len(selected_labels))
+        if shuffled_indexes is not None
+        else True
     )
 )
-@icontract.ensure(lambda result, selected_labels: len(result.keys()) == len(selected_labels))
+@icontract.ensure(
+    lambda result, selected_labels: len(result.keys()) == len(selected_labels)
+)
 @beartype
 def generate_support(
     train_x: torch.Tensor,
@@ -173,7 +191,9 @@ def generate_support(
     for label in selected_labels:
         shuffled_x = train_x[shuffled_idxs[label]]
 
-        assert torch.unique(train_y[shuffled_idxs[label]]).tolist() == [label], "Not enough support for label " + str(label)
+        assert torch.unique(train_y[shuffled_idxs[label]]).tolist() == [
+            label
+        ], "Not enough support for label " + str(label)
         selected_support = shuffled_x[:support_size]
         support[int(label)] = selected_support
 
@@ -188,7 +208,11 @@ def generate_support(
 @icontract.ensure(lambda result: len(result) == 3)
 @icontract.ensure(lambda result: result[1].shape[0] == result[2].shape[0])
 @icontract.ensure(lambda way, result: len(result[0]) == way)
-@icontract.ensure(lambda support_size, result: all(len(support) == support_size for support in result[0].values()))
+@icontract.ensure(
+    lambda support_size, result: all(
+        len(support) == support_size for support in result[0].values()
+    )
+)
 @beartype
 def generate_episode(
     train_x: torch.Tensor,
@@ -220,16 +244,22 @@ def generate_episode(
     """
     labels, counts = torch.unique(train_y, return_counts=True)
     if way > len(labels):
-        raise ValueError(f"The way (#classes in each episode), {way}, must be <= number of labels, {len(labels)}")
+        raise ValueError(
+            f"The way (#classes in each episode), {way}, must be <= number of labels, {len(labels)}"
+        )
 
-    selected_labels = sorted(labels[torch.randperm(labels.shape[0])][:way].tolist())  # need to be in same order every time
+    selected_labels = sorted(
+        labels[torch.randperm(labels.shape[0])][:way].tolist()
+    )  # need to be in same order every time
 
     for label, count in list(zip(labels, counts)):
         if (label in selected_labels) and (count < support_size):
             raise ValueError(f"Not enough support examples in class {label}")
     shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
 
-    support = generate_support(train_x, train_y, support_size, selected_labels, shuffled_idxs)
+    support = generate_support(
+        train_x, train_y, support_size, selected_labels, shuffled_idxs
+    )
 
     examples_per_task = episode_size // way
 
@@ -238,7 +268,9 @@ def generate_episode(
     episode_support = OrderedDict()
     for episode_label, label in enumerate(selected_labels):
         shuffled_x = train_x[shuffled_idxs[label]]
-        shuffled_y = torch.Tensor([episode_label] * len(shuffled_idxs[label]))  # need sequential labels for episode
+        shuffled_y = torch.Tensor(
+            [episode_label] * len(shuffled_idxs[label])
+        )  # need sequential labels for episode
 
         num_remaining_examples = shuffled_x.shape[0] - support_size
         assert num_remaining_examples > 0, (
@@ -263,9 +295,13 @@ def generate_episode(
     return episode_support, episode_x, episode_y.squeeze().to(torch.long)
 
 
-@icontract.require(lambda eq_preds, true_y: eq_preds.classes.size(dim=0) == true_y.size(dim=0))
+@icontract.require(
+    lambda eq_preds, true_y: eq_preds.classes.size(dim=0) == true_y.size(dim=0)
+)
 @beartype
-def generate_model_metrics(eq_preds: EquineOutput, true_y: torch.Tensor) -> dict[str, Any]:
+def generate_model_metrics(
+    eq_preds: EquineOutput, true_y: torch.Tensor
+) -> dict[str, Any]:
     """
     Generate various metrics for evaluating a model's performance.
 
@@ -288,13 +324,17 @@ def generate_model_metrics(eq_preds: EquineOutput, true_y: torch.Tensor) -> dict
         "confusionMatrix": confusion_matrix(true_y, pred_y).tolist(),
         "brierScore": brier_score(eq_preds.classes, true_y),
         "brierSkillScore": brier_skill_score(eq_preds.classes, true_y),
-        "expectedCalibrationError": expected_calibration_error(eq_preds.classes, true_y),
+        "expectedCalibrationError": expected_calibration_error(
+            eq_preds.classes, true_y
+        ),
     }
     return metrics
 
 
 @icontract.require(lambda Y: len(Y.shape) == 1)
-@icontract.ensure(lambda result: all("label" in d and "numExamples" in d for d in result))
+@icontract.ensure(
+    lambda result: all("label" in d and "numExamples" in d for d in result)
+)
 @icontract.ensure(lambda result: all(d["numExamples"] >= 0 for d in result))
 @beartype
 def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
@@ -315,14 +355,18 @@ def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
 
     examples_per_label = []
     for i, label in enumerate(tensor_labels):
-        examples_per_label.append({"label": label.item(), "numExamples": tensor_counts[i].item()})
+        examples_per_label.append(
+            {"label": label.item(), "numExamples": tensor_counts[i].item()}
+        )
 
     return examples_per_label
 
 
 @icontract.require(lambda train_y: train_y.shape[0] > 0)
 @beartype
-def generate_train_summary(model: Equine, train_y: torch.Tensor, date_trained: str) -> dict[str, Any]:
+def generate_train_summary(
+    model: Equine, train_y: torch.Tensor, date_trained: str
+) -> dict[str, Any]:
     """
     Generate a summary of the training data.
 
@@ -348,7 +392,9 @@ def generate_train_summary(model: Equine, train_y: torch.Tensor, date_trained: s
     return train_summary
 
 
-@icontract.require(lambda eq_preds, test_y: test_y.shape[0] == eq_preds.classes.shape[0])
+@icontract.require(
+    lambda eq_preds, test_y: test_y.shape[0] == eq_preds.classes.shape[0]
+)
 @beartype
 def generate_model_summary(
     model: Equine,
@@ -392,7 +438,9 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
             covariance matrix, assumes first dimension is number of classes
     """
     U, S, _ = torch.linalg.svd(cov)
-    S_inv_sqrt = torch.stack([torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0)
+    S_inv_sqrt = torch.stack(
+        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
+    )
     prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
     dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
     return dist

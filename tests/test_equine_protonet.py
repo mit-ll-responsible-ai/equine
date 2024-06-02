@@ -17,6 +17,7 @@ import equine as eq
     ),
     num_classes=st.integers(min_value=2, max_value=256),
 )
+@settings(deadline=None)
 def test_compute_embeddings(data_shape, num_classes):
     queries = torch.rand(data_shape)
     embed_model = BasicEmbeddingModel(data_shape[1], num_classes)

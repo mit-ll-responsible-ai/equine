@@ -6,7 +6,7 @@
 2. Install virtual environment (the below example assumes conda)
 
     ```shell
-    conda create --name equine python==3.10
+    conda create --name equine python==3.11
     conda activate equine
     ```
     We currently support python versions >= 3.9

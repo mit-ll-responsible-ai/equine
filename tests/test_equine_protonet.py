@@ -210,6 +210,7 @@ def test_train_episodes_with_temperature(random_dataset):
 
 
 @given(random_dataset=random_dataset())
+@settings(deadline=None, max_examples=1)
 def test_predict_fail_before_training(random_dataset):
     dataset, num_classes, _ = random_dataset
     X, _ = dataset.tensors

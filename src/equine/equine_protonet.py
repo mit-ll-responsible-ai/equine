@@ -17,6 +17,7 @@ from scipy.stats import gaussian_kde
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
+import numpy as np
 
 from .equine import Equine, EquineOutput
 from .utils import (
@@ -217,7 +218,7 @@ class Protonet(torch.nn.Module):
 
         if self.cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
-                for label in self.support_embeddings:
+                for label in class_cov_dict.keys():
                     class_cov_dict[label] = class_cov_dict[label] + regularization
                 warnings.warn(
                     "Covariance type UNIT is incompatible with shared regularization, \
@@ -238,7 +239,7 @@ class Protonet(torch.nn.Module):
                 )
 
         elif self.cov_reg_type == "epsilon":
-            for label in self.support_embeddings:
+            for label in class_cov_dict.keys():
                 class_cov_dict[label] = class_cov_dict[label] + regularization
 
         return class_cov_dict
@@ -405,6 +406,9 @@ class Protonet(torch.nn.Module):
         self.global_covariance = torch.unsqueeze(
             self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
         )
+        global_reg_input = OrderedDict().fromkeys([0])
+        global_reg_input[0] = self.global_covariance
+        self.global_covariance = self.regularize_covariance(global_reg_input, OOD_COV_TYPE)[0]
         self.global_mean = torch.mean(embeddings, dim=0)
 
 
@@ -665,9 +669,9 @@ class EquineProtonet(Equine):
             # Use KDE and RMD corresponding to the predicted class
             predicted_class = int(torch.argmax(predictions[i, :]))
             p_value = self.outlier_score_kde[int(predicted_class)].integrate_box_1d(
-                ood_dists[i].detach().numpy(), torch.inf
+                ood_dists[i].detach().numpy(), np.inf
             )
-            ood_scores[i] = 1.0 - p_value
+            ood_scores[i] = 1.0 - np.clip(p_value,0.0,1.0)
 
         return ood_scores
 

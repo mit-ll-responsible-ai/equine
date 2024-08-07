@@ -405,9 +405,6 @@ class Protonet(torch.nn.Module):
         embeddings = torch.cat(list(self.support_embeddings.values()))
         self.global_covariance = torch.unsqueeze(
             self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
-        global_reg_input = OrderedDict().fromkeys([0])
-        global_reg_input[0] = self.global_covariance
-        self.global_covariance = self.regularize_covariance(global_reg_input, OOD_COV_TYPE)[0]
         )
         global_reg_input = OrderedDict().fromkeys([0])
         global_reg_input[0] = self.global_covariance

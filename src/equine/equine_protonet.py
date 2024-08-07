@@ -807,6 +807,7 @@ class EquineProtonet(Equine):
             "emb_out_dim": self.emb_out_dim,
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
+            "relative_mahal": self.relative_mahal,
         }
 
         jit_model = torch.jit.script(self.model.embedding_model)  # type: ignore

@@ -164,7 +164,7 @@ class Protonet(torch.nn.Module):
             )
             class_cov_dict[label] = class_covariance
 
-        reg_covariance_dict = self.regularize_covariance(class_cov_dict, cov_type)
+        reg_covariance_dict = self.regularize_covariance(class_cov_dict, cov_type, self.cov_reg_type)
         reg_covariance = torch.stack(list(reg_covariance_dict.values()))
 
         return reg_covariance  # TODO try putting everything on GPU with .to() and see if faster
@@ -189,7 +189,7 @@ class Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: OrderedDict[int, torch.Tensor], cov_type: CovType
+        self, class_cov_dict: OrderedDict[int, torch.Tensor], cov_type: CovType, cov_reg_type: str
     ) -> OrderedDict[int, torch.Tensor]:
         """
         Method to add regularization to each class covariance matrix based on the selected regularization type.
@@ -216,9 +216,9 @@ class Protonet(torch.nn.Module):
         else:
             raise ValueError("Unknown Covariance Type")
 
-        if self.cov_reg_type == "shared":
+        if cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
-                for label in class_cov_dict.keys():
+                for label in self.support_embeddings:
                     class_cov_dict[label] = class_cov_dict[label] + regularization
                 warnings.warn(
                     "Covariance type UNIT is incompatible with shared regularization, \
@@ -238,7 +238,7 @@ class Protonet(torch.nn.Module):
                     + regularization
                 )
 
-        elif self.cov_reg_type == "epsilon":
+        elif cov_reg_type == "epsilon":
             for label in class_cov_dict.keys():
                 class_cov_dict[label] = class_cov_dict[label] + regularization
 
@@ -408,7 +408,7 @@ class Protonet(torch.nn.Module):
         )
         global_reg_input = OrderedDict().fromkeys([0])
         global_reg_input[0] = self.global_covariance
-        self.global_covariance = self.regularize_covariance(global_reg_input, OOD_COV_TYPE)[0]
+        self.global_covariance = self.regularize_covariance(global_reg_input, OOD_COV_TYPE, "epsilon")[0]
         self.global_mean = torch.mean(embeddings, dim=0)
 
 

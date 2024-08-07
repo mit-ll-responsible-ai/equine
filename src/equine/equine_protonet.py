@@ -164,7 +164,9 @@ class Protonet(torch.nn.Module):
             )
             class_cov_dict[label] = class_covariance
 
-        reg_covariance_dict = self.regularize_covariance(class_cov_dict, cov_type, self.cov_reg_type)
+        reg_covariance_dict = self.regularize_covariance(
+            class_cov_dict, cov_type, self.cov_reg_type
+        )
         reg_covariance = torch.stack(list(reg_covariance_dict.values()))
 
         return reg_covariance  # TODO try putting everything on GPU with .to() and see if faster
@@ -189,7 +191,10 @@ class Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: OrderedDict[int, torch.Tensor], cov_type: CovType, cov_reg_type: str
+        self,
+        class_cov_dict: OrderedDict[int, torch.Tensor],
+        cov_type: CovType,
+        cov_reg_type: str,
     ) -> OrderedDict[int, torch.Tensor]:
         """
         Method to add regularization to each class covariance matrix based on the selected regularization type.
@@ -408,7 +413,9 @@ class Protonet(torch.nn.Module):
         )
         global_reg_input = OrderedDict().fromkeys([0])
         global_reg_input[0] = self.global_covariance
-        self.global_covariance = self.regularize_covariance(global_reg_input, OOD_COV_TYPE, "epsilon")[0]
+        self.global_covariance = self.regularize_covariance(
+            global_reg_input, OOD_COV_TYPE, "epsilon"
+        )[0]
         self.global_mean = torch.mean(embeddings, dim=0)
 
 
@@ -671,7 +678,7 @@ class EquineProtonet(Equine):
             p_value = self.outlier_score_kde[int(predicted_class)].integrate_box_1d(
                 ood_dists[i].detach().numpy(), np.inf
             )
-            ood_scores[i] = 1.0 - np.clip(p_value,0.0,1.0)
+            ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
 
         return ood_scores
 

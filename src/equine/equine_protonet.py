@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import icontract
 import io
+import numpy as np
 import torch
 import warnings
 from beartype import beartype
@@ -17,7 +18,6 @@ from scipy.stats import gaussian_kde
 from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
-import numpy as np
 
 from .equine import Equine, EquineOutput
 from .utils import (

@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import icontract
 import io
+import numpy as np
 import torch
 import warnings
 from beartype import beartype
@@ -163,7 +164,9 @@ class Protonet(torch.nn.Module):
             )
             class_cov_dict[label] = class_covariance
 
-        reg_covariance_dict = self.regularize_covariance(class_cov_dict, cov_type)
+        reg_covariance_dict = self.regularize_covariance(
+            class_cov_dict, cov_type, self.cov_reg_type
+        )
         reg_covariance = torch.stack(list(reg_covariance_dict.values()))
 
         return reg_covariance  # TODO try putting everything on GPU with .to() and see if faster
@@ -188,7 +191,10 @@ class Protonet(torch.nn.Module):
         return class_covariance
 
     def regularize_covariance(
-        self, class_cov_dict: OrderedDict[int, torch.Tensor], cov_type: CovType
+        self,
+        class_cov_dict: OrderedDict[int, torch.Tensor],
+        cov_type: CovType,
+        cov_reg_type: str,
     ) -> OrderedDict[int, torch.Tensor]:
         """
         Method to add regularization to each class covariance matrix based on the selected regularization type.
@@ -215,7 +221,7 @@ class Protonet(torch.nn.Module):
         else:
             raise ValueError("Unknown Covariance Type")
 
-        if self.cov_reg_type == "shared":
+        if cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
                 for label in self.support_embeddings:
                     class_cov_dict[label] = class_cov_dict[label] + regularization
@@ -237,8 +243,8 @@ class Protonet(torch.nn.Module):
                     + regularization
                 )
 
-        elif self.cov_reg_type == "epsilon":
-            for label in self.support_embeddings:
+        elif cov_reg_type == "epsilon":
+            for label in class_cov_dict.keys():
                 class_cov_dict[label] = class_cov_dict[label] + regularization
 
         return class_cov_dict
@@ -405,6 +411,11 @@ class Protonet(torch.nn.Module):
         self.global_covariance = torch.unsqueeze(
             self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
         )
+        global_reg_input = OrderedDict().fromkeys([0])
+        global_reg_input[0] = self.global_covariance
+        self.global_covariance = self.regularize_covariance(
+            global_reg_input, OOD_COV_TYPE, "epsilon"
+        )[0]
         self.global_mean = torch.mean(embeddings, dim=0)
 
 
@@ -665,9 +676,9 @@ class EquineProtonet(Equine):
             # Use KDE and RMD corresponding to the predicted class
             predicted_class = int(torch.argmax(predictions[i, :]))
             p_value = self.outlier_score_kde[int(predicted_class)].integrate_box_1d(
-                ood_dists[i].detach().numpy(), torch.inf
+                ood_dists[i].detach().numpy(), np.inf
             )
-            ood_scores[i] = 1.0 - p_value
+            ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
 
         return ood_scores
 
@@ -803,6 +814,7 @@ class EquineProtonet(Equine):
             "emb_out_dim": self.emb_out_dim,
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
+            "relative_mahal": self.relative_mahal,
         }
 
         jit_model = torch.jit.script(self.model.embedding_model)  # type: ignore

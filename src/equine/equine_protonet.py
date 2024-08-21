@@ -56,6 +56,7 @@ class Protonet(torch.nn.Module):
         cov_type: CovType,
         cov_reg_type: str,
         epsilon: float,
+        device: str = "cpu"
     ) -> None:
         """
         Protonet class constructor.
@@ -79,10 +80,13 @@ class Protonet(torch.nn.Module):
         self.cov_reg_type = cov_reg_type
         self.epsilon = epsilon
         self.emb_out_dim = emb_out_dim
+        self.to(device)
+        self.device = device
 
         self.support = None
         # self.support_embeddings = None
         self.model_head = self.create_model_head(emb_out_dim)
+        self.model_head.to(device)
 
     def create_model_head(self, emb_out_dim: int):
         """
@@ -115,7 +119,7 @@ class Protonet(torch.nn.Module):
         torch.Tensor
             Fully computed embedding tensors for the given X tensor.
         """
-        model_embeddings = self.embedding_model(X)
+        model_embeddings = self.embedding_model(X.to(self.device))
         head_embeddings = self.model_head(model_embeddings)
         return head_embeddings
 
@@ -207,11 +211,11 @@ class Protonet(torch.nn.Module):
         """
 
         if cov_type == CovType.FULL:
-            regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim))
+            regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim)).to(self.device)
         elif cov_type == CovType.DIAGONAL:
-            regularization = self.epsilon * torch.ones(self.emb_out_dim)
+            regularization = self.epsilon * torch.ones(self.emb_out_dim).to(self.device)
         elif cov_type == CovType.UNIT:
-            regularization = torch.zeros(self.emb_out_dim)
+            regularization = torch.zeros(self.emb_out_dim).to(self.device)
         else:
             raise ValueError("Unknown Covariance Type")
 
@@ -239,7 +243,7 @@ class Protonet(torch.nn.Module):
 
         elif self.cov_reg_type == "epsilon":
             for label in self.support_embeddings:
-                class_cov_dict[label] = class_cov_dict[label] + regularization
+                class_cov_dict[label] = class_cov_dict[label].to(self.device) + regularization
 
         return class_cov_dict
 
@@ -311,11 +315,13 @@ class Protonet(torch.nn.Module):
             The calculated distances from each of the class prototypes for the given embeddings.
         """
         _queries = torch.unsqueeze(X_embed, 1)  # examples x 1 x dimension
-        diff = torch.sub(mu, _queries)  # examples x classes x dimension
+        diff = torch.sub(mu, _queries)
 
         if len(cov.shape) == 2:  # (diagonal covariance)
             # examples x classes x dimension
-            dist = torch.nan_to_num(torch.div(diff**2, cov))
+            sq_diff = diff**2
+            div = torch.div(sq_diff.to(self.device), cov.to(self.device))
+            dist = torch.nan_to_num(div)
             dist = torch.sum(dist, dim=2)  # examples x classes
             dist = dist.squeeze(dim=1)
             dist = torch.sqrt(dist + self.epsilon)  # examples x classes
@@ -440,8 +446,9 @@ class EquineProtonet(Equine):
         relative_mahal: bool = True,
         use_temperature: bool = False,
         init_temperature: float = 1.0,
+        device: str = "cpu"
     ) -> None:
-        super().__init__(embedding_model)
+        super().__init__(embedding_model, device=device)
         self.cov_type = cov_type
         self.cov_reg_type = COV_REG_TYPE
         self.relative_mahal = relative_mahal
@@ -461,6 +468,7 @@ class EquineProtonet(Equine):
             self.cov_type,
             self.cov_reg_type,
             self.epsilon,
+            device=device
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -538,6 +546,11 @@ class EquineProtonet(Equine):
             X, Y, test_size=calib_frac, stratify=Y
         )  # TODO: Replace sklearn with torch call
         optimizer = opt_class(self.parameters())
+        
+        train_x.to(self.device)
+        train_y.to(self.device)
+        calib_x.to(self.device)
+        calib_y.to(self.device)
 
         for i in tqdm(range(num_episodes)):
             optimizer.zero_grad()
@@ -548,7 +561,7 @@ class EquineProtonet(Equine):
             self.model.update_support(support)
 
             _, dists = self.model(episode_x)
-            loss_value = loss_fn(torch.neg(dists), episode_y)
+            loss_value = loss_fn(torch.neg(dists).to(self.device), episode_y.to(self.device))
             loss_value.backward()
             optimizer.step()
 
@@ -609,9 +622,9 @@ class EquineProtonet(Equine):
             optimizer.zero_grad()
             with torch.no_grad():
                 pred_probs, dists = self.model(calib_x)
-            dists = dists / self.temperature
+            dists = dists.to(self.device) / self.temperature.to(self.device)
             loss = torch.nn.functional.cross_entropy(
-                torch.neg(dists), calib_y.to(torch.long)
+                torch.neg(dists).to(self.device), calib_y.to(torch.long).to(self.device)
             )
             loss.backward()
             optimizer.step()
@@ -640,7 +653,7 @@ class EquineProtonet(Equine):
         )
 
         for label in self.outlier_score_kde:
-            class_ood_dists = ood_dists[calib_y == int(label)].detach().numpy()
+            class_ood_dists = ood_dists[calib_y == int(label)].cpu().detach().numpy()
             class_kde = gaussian_kde(class_ood_dists)  # TODO convert to torch func
             self.outlier_score_kde[label] = class_kde
 
@@ -768,6 +781,7 @@ class EquineProtonet(Equine):
                 selected_labels=[label],
             )
             support.update(class_support)
+            support.to(self.device)
 
         self.model.update_support(support)
 

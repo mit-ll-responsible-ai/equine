@@ -28,6 +28,8 @@ class Equine(torch.nn.Module, ABC):
         The embedding model to use.
     head_layers : int, optional
         The number of layers to use in the model head, by default 1.
+    device : str, optional
+        The device to train the equine model on (defaults to cpu).
 
     Attributes
     ----------

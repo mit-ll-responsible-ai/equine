@@ -73,6 +73,8 @@ class Protonet(torch.nn.Module):
             Type of regularization to use when generating the covariance matrix [epsilon, shared].
         epsilon : float
             Epsilon value to use for covariance regularization.
+        device : str, optional
+        The device to train the protonet model on (defaults to cpu).
         """
         super().__init__()
         self.embedding_model = embedding_model
@@ -436,6 +438,8 @@ class EquineProtonet(Equine):
         Whether to use temperature scaling after training, by default False.
     init_temperature : float, optional
         What to use as the initial temperature (1.0 has no effect), by default 1.0.
+    device : str, optional
+        The device to train the equine model on (defaults to cpu).
     """
 
     def __init__(

@@ -22,7 +22,7 @@ requires-python = ">=3.9"
 dependencies = [
         "torch >= 1.10.0",
         "torchmetrics >= 0.6.0",
-        "numpy < 2.0.0",
+        "numpy >=1.22.0, <= 2.1.0",
         "tqdm",
         "beartype",
         "icontract",
@@ -43,7 +43,7 @@ classifiers = [
 [project.optional-dependencies]
 tests = [
     "pytest >= 3.8",
-    "hypothesis >= 6.105.0, < 6.109.0",
+    "hypothesis >= 6.105.0, < 6.112.0",
     "pre-commit >= 2.19",
     "codespell"
 ]

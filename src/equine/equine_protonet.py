@@ -75,7 +75,7 @@ class Protonet(torch.nn.Module):
         epsilon : float
             Epsilon value to use for covariance regularization.
         device : str, optional
-        The device to train the protonet model on (defaults to cpu).
+            The device to train the protonet model on (defaults to cpu).
         """
         super().__init__()
         self.embedding_model = embedding_model

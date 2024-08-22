@@ -2385,14 +2385,16 @@ class EmbeddingModel(torch.nn.Module):
                     <span class="n">way</span><span class="o">=</span><span class="n">num_classes</span><span class="p">,</span>   <span class="c1"># Number of classes to train each episode</span>
                     <span class="n">support_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>   <span class="c1"># Number of support examples per class each episode</span>
                     <span class="n">num_episodes</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="c1"># Number of episodes (like epochs)</span>
-                    <span class="n">episode_size</span><span class="o">=</span><span class="mi">250</span><span class="p">)</span>  <span class="c1"># Number of examples per episode (like batch size)</span>
+                    <span class="n">episode_size</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>  <span class="c1"># Number of examples per episode (like batch size)</span>
+                    <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">)</span>      <span class="c1"># Device to train model on (CUDA:# or CPU)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-10">model = eq.EquineProtonet(EmbeddingModel(train_means, train_deviations),  num_deep_features)
 res = model.train_model(torch.utils.data.TensorDataset(train_x,train_y),
                     way=num_classes,   # Number of classes to train each episode
                     support_size=20,   # Number of support examples per class each episode
                     num_episodes=1000, # Number of episodes (like epochs)
-                    episode_size=250)  # Number of examples per episode (like batch size)</div>
+                    episode_size=250,  # Number of examples per episode (like batch size)
+                    device="cpu")      # Device to train model on (CUDA:# or CPU)</div>
 </div>
 </div>
 </div>

@@ -2152,7 +2152,7 @@ Brier skill score is: 0.75
 <span class="n">embedding_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">embedding_layers</span><span class="p">)</span> <span class="c1"># Rebuild the NN</span>
 
 <span class="c1"># Create the EQUINE model, support examples, and pointers to those examples </span>
-<span class="n">model</span> <span class="o">=</span> <span class="n">eq</span><span class="o">.</span><span class="n">EquineProtonet</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">use_temperature</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">eq</span><span class="o">.</span><span class="n">EquineProtonet</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">use_temperature</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">)</span>
 <span class="c1">#model = eq.EquineProtonet(EmbeddingModel(), emb_out_dim=4) # Uncomment to restart "from scratch"</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-8"># Load weights from the trained model
@@ -2166,7 +2166,7 @@ embedding_layers = all_layers[0][:-1] # Remove the last layer
 embedding_model = torch.nn.Sequential(*embedding_layers) # Rebuild the NN
 
 # Create the EQUINE model, support examples, and pointers to those examples 
-model = eq.EquineProtonet(embedding_model, emb_out_dim=16, use_temperature=True)
+model = eq.EquineProtonet(embedding_model, emb_out_dim=16, use_temperature=True, device="cpu")
 #model = eq.EquineProtonet(EmbeddingModel(), emb_out_dim=4) # Uncomment to restart "from scratch"</div>
 </div>
 </div>

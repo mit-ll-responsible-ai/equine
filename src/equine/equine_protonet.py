@@ -57,7 +57,7 @@ class Protonet(torch.nn.Module):
         cov_type: CovType,
         cov_reg_type: str,
         epsilon: float,
-        device: str = "cpu"
+        device: str = "cpu",
     ) -> None:
         """
         Protonet class constructor.
@@ -219,7 +219,9 @@ class Protonet(torch.nn.Module):
         """
 
         if cov_type == CovType.FULL:
-            regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim)).to(self.device)
+            regularization = torch.diag(self.epsilon * torch.ones(self.emb_out_dim)).to(
+                self.device
+            )
         elif cov_type == CovType.DIAGONAL:
             regularization = self.epsilon * torch.ones(self.emb_out_dim).to(self.device)
         elif cov_type == CovType.UNIT:
@@ -251,8 +253,9 @@ class Protonet(torch.nn.Module):
 
         elif cov_reg_type == "epsilon":
             for label in class_cov_dict.keys():
-                class_cov_dict[label] = class_cov_dict[label].to(self.device) + regularization
-
+                class_cov_dict[label] = (
+                    class_cov_dict[label].to(self.device) + regularization
+                )
 
         return class_cov_dict
 
@@ -462,7 +465,7 @@ class EquineProtonet(Equine):
         relative_mahal: bool = True,
         use_temperature: bool = False,
         init_temperature: float = 1.0,
-        device: str = "cpu"
+        device: str = "cpu",
     ) -> None:
         super().__init__(embedding_model, device=device)
         self.cov_type = cov_type
@@ -484,7 +487,7 @@ class EquineProtonet(Equine):
             self.cov_type,
             self.cov_reg_type,
             self.epsilon,
-            device=device
+            device=device,
         )
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -562,7 +565,7 @@ class EquineProtonet(Equine):
             X, Y, test_size=calib_frac, stratify=Y
         )  # TODO: Replace sklearn with torch call
         optimizer = opt_class(self.parameters())
-        
+
         train_x.to(self.device)
         train_y.to(self.device)
         calib_x.to(self.device)
@@ -577,7 +580,9 @@ class EquineProtonet(Equine):
             self.model.update_support(support)
 
             _, dists = self.model(episode_x)
-            loss_value = loss_fn(torch.neg(dists).to(self.device), episode_y.to(self.device))
+            loss_value = loss_fn(
+                torch.neg(dists).to(self.device), episode_y.to(self.device)
+            )
             loss_value.backward()
             optimizer.step()
 
@@ -797,7 +802,6 @@ class EquineProtonet(Equine):
                 selected_labels=[label],
             )
             support.update(class_support)
-            support.to(self.device)
 
         self.model.update_support(support)
 

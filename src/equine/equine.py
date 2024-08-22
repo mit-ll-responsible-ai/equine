@@ -46,7 +46,12 @@ class Equine(torch.nn.Module, ABC):
         If any of the abstract methods are not implemented.
     """
 
-    def __init__(self, embedding_model: torch.nn.Module, head_layers: int = 1, device: str = "cpu") -> None:
+    def __init__(
+        self,
+        embedding_model: torch.nn.Module,
+        head_layers: int = 1,
+        device: str = "cpu",
+    ) -> None:
         super().__init__()
         self.embedding_model = embedding_model
         self.head_layers = head_layers

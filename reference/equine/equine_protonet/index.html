@@ -1401,7 +1401,7 @@
               Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
 
 
-      <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
+        <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
 to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
 and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
 
@@ -2447,7 +2447,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
+        <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2637,7 +2637,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generates logits for classification based on the input tensor.</p>
+        <p>Generates logits for classification based on the input tensor.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2745,7 +2745,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Load a previously saved EquineProtonet model.</p>
+        <p>Load a previously saved EquineProtonet model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2871,7 +2871,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
+        <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2991,7 +2991,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Save all model parameters to a file.</p>
+        <p>Save all model parameters to a file.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3135,7 +3135,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Train or fine-tune an EquineProtonet model.</p>
+        <p>Train or fine-tune an EquineProtonet model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3541,7 +3541,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Function to update protonet support examples with given examples.</p>
+        <p>Function to update protonet support examples with given examples.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3736,7 +3736,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               Bases: <code><span title="torch.nn.Module">Module</span></code></p>
 
 
-      <p>Private class that implements a prototypical neural network for use in EQUINE.</p>
+        <p>Private class that implements a prototypical neural network for use in EQUINE.</p>
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
@@ -4535,7 +4535,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Protonet class constructor.</p>
+        <p>Protonet class constructor.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4734,7 +4734,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Method to compute predicted classes from distances via a softmax function.</p>
+        <p>Method to compute predicted classes from distances via a softmax function.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4838,7 +4838,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.
+        <p>Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.
 Note that this method is only called once per episode, and the resulting tensor is used for all queries.</p>
 
 
@@ -4969,7 +4969,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method to select appropriate covariance matrix type based on cov_type
+        <p>Method to select appropriate covariance matrix type based on cov_type
 :param cov_type: Type of covariance to use [unit, diag, full]
 :param embedding: embedding tensor to use when generating the covariance matrix
 :return torch.Tensor: Tensor containing the requested covariance matrix</p>
@@ -5028,7 +5028,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method to compute the distances to class prototypes for the given embeddings.</p>
+        <p>Method to compute the distances to class prototypes for the given embeddings.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5206,7 +5206,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method for calculating model embeddings using both the given embedding model and the added model head.</p>
+        <p>Method for calculating model embeddings using both the given embedding model and the added model head.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5312,7 +5312,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method to calculate the global moments of the support embeddings for use in OOD score generation</p>
+        <p>Method to calculate the global moments of the support embeddings for use in OOD score generation</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
@@ -5358,7 +5358,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method for computing class prototypes based on given support examples.
+        <p>Method for computing class prototypes based on given support examples.
 ``Prototypes'' in this context are the means of the support embeddings for each class.</p>
 
 
@@ -5442,7 +5442,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 
     <div class="doc doc-contents ">
 
-      <p>Method to calculate a shared covariance matrix.</p>
+        <p>Method to calculate a shared covariance matrix.</p>
 <p>The shared covariance matrix is calculated as the weighted average of the class covariance matrices,
 where the weights are the number of support examples for each class. This is useful when the number of
 support examples for each class is small.</p>
@@ -5619,7 +5619,7 @@ support examples for each class is small.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Method for adding a PyTorch layer on top of the given embedding model. This layer
+        <p>Method for adding a PyTorch layer on top of the given embedding model. This layer
 is intended to offer extra degrees of freedom for distance learning in the embedding space.</p>
 
 
@@ -5724,7 +5724,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 
     <div class="doc doc-contents ">
 
-      <p>Protonet forward function, generates class probability predictions and distances from prototypes.</p>
+        <p>Protonet forward function, generates class probability predictions and distances from prototypes.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5850,7 +5850,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 
     <div class="doc doc-contents ">
 
-      <p>Method to add regularization to each class covariance matrix based on the selected regularization type.</p>
+        <p>Method to add regularization to each class covariance matrix based on the selected regularization type.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6060,7 +6060,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 
     <div class="doc doc-contents ">
 
-      <p>Method to update the support examples, and all the calculations that rely on them.</p>
+        <p>Method to update the support examples, and all the calculations that rely on them.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

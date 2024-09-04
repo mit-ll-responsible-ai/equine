@@ -1260,7 +1260,7 @@
               Bases: <code><span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
 
 
-      <p>EQUINE Abstract Base Class (ABC):
+        <p>EQUINE Abstract Base Class (ABC):
 EQUINE is set up to extend torch's nn.Module to enrich it with
 a method that enables uncertainty quantification and visualization. Most
 importantly, the <code>.predict()</code> method must be outfitted to return an
@@ -1725,7 +1725,7 @@ EquineOutput object that contains both the class probabilities
 
     <div class="doc doc-contents ">
 
-      <p>Forward pass of the model. This is to preserve the usual behavior
+        <p>Forward pass of the model. This is to preserve the usual behavior
 of torch.nn.Module.</p>
 
 
@@ -1838,7 +1838,7 @@ of torch.nn.Module.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Upon implementation, returns the prototype embeddings</p>
+        <p>Upon implementation, returns the prototype embeddings</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -1907,7 +1907,7 @@ of torch.nn.Module.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Upon implementation, load the model from the given file path.</p>
+        <p>Upon implementation, load the model from the given file path.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2015,7 +2015,7 @@ of torch.nn.Module.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
+        <p>Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
 given input data.</p>
 
 
@@ -2126,7 +2126,7 @@ given input data.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Upon implementation, save the model to the given file path.</p>
+        <p>Upon implementation, save the model to the given file path.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2201,7 +2201,7 @@ given input data.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Upon implementation, train the model on the given dataset.</p>
+        <p>Upon implementation, train the model on the given dataset.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2336,7 +2336,7 @@ given input data.</p>
               Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
 
 
-      <p>An example of an EQUINE model that builds upon the approach in "Spectral Norm
+        <p>An example of an EQUINE model that builds upon the approach in "Spectral Norm
 Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides
 the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
 
@@ -3275,7 +3275,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</p>
+        <p>Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3418,7 +3418,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Method for computing class prototypes based on given support examples.
+        <p>Method for computing class prototypes based on given support examples.
 ``Prototypes'' in this context are the means of the support embeddings for each class.</p>
 
 
@@ -3512,7 +3512,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>EquineGP forward function, generates logits for classification.</p>
+        <p>EquineGP forward function, generates logits for classification.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3622,7 +3622,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Function to load previously saved EquineGP model.</p>
+        <p>Function to load previously saved EquineGP model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3762,7 +3762,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Predict function for EquineGP, inherited and implemented from Equine.</p>
+        <p>Predict function for EquineGP, inherited and implemented from Equine.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3888,7 +3888,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Function to save all model parameters to a file.</p>
+        <p>Function to save all model parameters to a file.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4019,7 +4019,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Train or fine-tune an EquineGP model.</p>
+        <p>Train or fine-tune an EquineGP model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4391,7 +4391,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <div class="doc doc-contents ">
 
-      <p>Function to update protonet support examples with given examples.</p>
+        <p>Function to update protonet support examples with given examples.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4566,7 +4566,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <div class="doc doc-contents ">
 
 
-      <p>Output object containing prediction probabilities, OOD scores, and embeddings, which can be used for visualization.</p>
+        <p>Output object containing prediction probabilities, OOD scores, and embeddings, which can be used for visualization.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -4691,7 +4691,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
               Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
 
 
-      <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
+        <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
 to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
 and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>load</code> methods required by Equine.</p>
 
@@ -5737,7 +5737,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
+        <p>Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5927,7 +5927,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generates logits for classification based on the input tensor.</p>
+        <p>Generates logits for classification based on the input tensor.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6035,7 +6035,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Load a previously saved EquineProtonet model.</p>
+        <p>Load a previously saved EquineProtonet model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6161,7 +6161,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
+        <p>Predict function for EquineProtonet, inherited and implemented from Equine.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6281,7 +6281,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Save all model parameters to a file.</p>
+        <p>Save all model parameters to a file.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6425,7 +6425,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Train or fine-tune an EquineProtonet model.</p>
+        <p>Train or fine-tune an EquineProtonet model.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6831,7 +6831,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Function to update protonet support examples with given examples.</p>
+        <p>Function to update protonet support examples with given examples.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7022,7 +7022,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Compute the Brier score for a multiclass problem.</p>
+        <p>Compute the Brier score for a multiclass problem.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7154,7 +7154,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Compute the Brier skill score as compared to randomly guessing.</p>
+        <p>Compute the Brier skill score as compared to randomly guessing.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7290,7 +7290,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Compute the expected calibration error (ECE) for a multiclass problem.</p>
+        <p>Compute the expected calibration error (ECE) for a multiclass problem.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7422,7 +7422,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generate a single episode of data for a few-shot learning task.</p>
+        <p>Generate a single episode of data for a few-shot learning task.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7736,7 +7736,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generate various metrics for evaluating a model's performance.</p>
+        <p>Generate various metrics for evaluating a model's performance.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7890,7 +7890,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generate a summary of the model's performance.</p>
+        <p>Generate a summary of the model's performance.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -8052,7 +8052,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Randomly select <code>support_size</code> examples of <code>way</code> classes from the examples in
+        <p>Randomly select <code>support_size</code> examples of <code>way</code> classes from the examples in
 <code>train_x</code> with corresponding labels in <code>train_y</code> and return them as a dictionary.</p>
 
 
@@ -8325,7 +8325,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Generate a summary of the training data.</p>
+        <p>Generate a summary of the training data.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -8481,7 +8481,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
 
-      <p>Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite</p>
+        <p>Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite</p>
 
 
 <details class="----parameters" open>

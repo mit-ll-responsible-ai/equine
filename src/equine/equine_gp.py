@@ -353,6 +353,10 @@ class EquineGP(Equine):
         What to use as the initial temperature (1.0 has no effect).
     device : str, optional
         Either 'cuda' or 'cpu'.
+    feature_names : list[str], optional
+        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
+    label_names : list[str], optional
+        List of strings of the names of the labels (ex ["streaming", "voip", ...])
 
     Notes
     -----
@@ -369,8 +373,10 @@ class EquineGP(Equine):
         use_temperature: bool = False,
         init_temperature: float = 1.0,
         device: str = "cpu",
+        feature_names: Optional[list[str]] = None,
+        label_names: Optional[list[str]] = None,
     ) -> None:
-        super().__init__(embedding_model)
+        super().__init__(embedding_model, feature_names=feature_names, label_names=label_names)
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
         self.normalize_gp_features = True
@@ -688,12 +694,14 @@ class EquineGP(Equine):
             del laplace_sd[key]
 
         save_data = {
+            "embed_jit_save": buffer,
+            "feature_names": self.feature_names,
+            "label_names": self.label_names,
+            "laplace_model_save": laplace_sd,
+            "num_data": self.model.num_data,
             "settings": model_settings,
             "support": self.support,
-            "num_data": self.model.num_data,
             "train_batch_size": self.model.train_batch_size,
-            "laplace_model_save": laplace_sd,
-            "embed_jit_save": buffer,
             "train_summary": self.train_summary,
         }
 
@@ -701,7 +709,7 @@ class EquineGP(Equine):
 
     @classmethod
     def load(cls, path: str) -> Equine:
-        """
+        """z`
         Function to load previously saved EquineGP model.
 
         Parameters
@@ -715,19 +723,21 @@ class EquineGP(Equine):
             The reconstituted EquineGP object.
         """
         model_save = torch.load(path)
-        jit_model = torch.jit.load(model_save["embed_jit_save"])
-        eq_model = cls(jit_model, **model_save["settings"])
+        jit_model = torch.jit.load(model_save.get("embed_jit_save"))
+        eq_model = cls(jit_model, **model_save.get("settings"))
 
-        eq_model.train_summary = model_save["train_summary"]
-        eq_model.model.load_state_dict(model_save["laplace_model_save"], strict=False)
-        eq_model.model.seen_data = model_save["laplace_model_save"]["seen_data"]
+        eq_model.train_summary = model_save.get("train_summary")
+        eq_model.feature_names = model_save.get("feature_names")
+        eq_model.label_names = model_save.get("label_names")
+        eq_model.model.load_state_dict(model_save.get("laplace_model_save"), strict=False)
+        eq_model.model.seen_data = model_save.get("laplace_model_save").get("seen_data")
 
         eq_model.model.set_training_params(
-            model_save["num_data"], model_save["train_batch_size"]
+            model_save.get("num_data"), model_save.get("train_batch_size")
         )
         eq_model.eval()
 
-        support = model_save["support"]
+        support = model_save.get("support")
         if support is not None:
             eq_model.support = support
             eq_model.prototypes = eq_model.compute_prototypes()

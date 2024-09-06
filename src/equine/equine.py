@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 import torch
 from abc import ABC, abstractmethod
@@ -30,13 +30,23 @@ class Equine(torch.nn.Module, ABC):
         The number of layers to use in the model head, by default 1.
     device : str, optional
         The device to train the equine model on (defaults to cpu).
+    feature_names : list[str], optional
+        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
+    label_names : list[str], optional
+        List of strings of the names of the labels (ex ["streaming", "voip", ...])
 
     Attributes
     ----------
+    device : str
+        The device to train the equine model on (defaults to cpu).
     embedding_model : torch.nn.Module
         The neural embedding model to enrich with uncertainty quantification.
+    feature_names : list[str], optional
+        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
     head_layers : int
         The number of linear layers to append to the embedding model (default 1, not always used).
+    label_names : list[str], optional
+        List of strings of the names of the labels (ex ["streaming", "voip", ...])
     train_summary : dict[str, Any]
         A dictionary containing information about the model training.
 
@@ -51,6 +61,8 @@ class Equine(torch.nn.Module, ABC):
         embedding_model: torch.nn.Module,
         head_layers: int = 1,
         device: str = "cpu",
+        feature_names: Optional[list[str]] = None,
+        label_names: Optional[list[str]] = None,
     ) -> None:
         super().__init__()
         self.embedding_model = embedding_model
@@ -63,6 +75,8 @@ class Equine(torch.nn.Module, ABC):
         self.device = device
         self.to(device)
         self.embedding_model.to(device)
+        self.feature_names = feature_names
+        self.label_names = label_names
 
         self.support = None
         self.support_embeddings = None

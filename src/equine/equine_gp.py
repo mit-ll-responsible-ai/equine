@@ -726,9 +726,10 @@ class EquineGP(Equine):
         jit_model = torch.jit.load(model_save.get("embed_jit_save"))
         eq_model = cls(jit_model, **model_save.get("settings"))
 
-        eq_model.train_summary = model_save.get("train_summary")
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
+        eq_model.train_summary = model_save.get("train_summary")
+        
         eq_model.model.load_state_dict(model_save.get("laplace_model_save"), strict=False)
         eq_model.model.seen_data = model_save.get("laplace_model_save").get("seen_data")
 

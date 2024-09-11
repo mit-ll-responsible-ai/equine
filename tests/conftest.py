@@ -2,8 +2,13 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import os
 import torch
 from hypothesis import strategies as st
+from random import choice
+from string import ascii_lowercase, digits
+
+import equine as eq
 
 
 class BasicEmbeddingModel(torch.nn.Module):
@@ -43,3 +48,46 @@ def random_dataset(draw):
     dataset = torch.utils.data.TensorDataset(dataset_x, dataset_y)  # type: ignore
 
     return dataset, num_classes, way
+
+
+def use_basic_embedding_model(random_dataset):
+    dataset, num_classes, _ = random_dataset
+    X, _ = dataset.tensors
+    embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
+    return dataset, num_classes, X, embedding_model
+
+def use_save_load_model_tests(model, X, tmp_filename:str="tmp_eq.pt"):
+    old_output = model.predict(X[1:10])
+    if os.path.exists(tmp_filename):
+        os.remove(tmp_filename)
+    model.save(tmp_filename)
+    new_model = load_equine_model(tmp_filename)
+    new_output = new_model.predict(X[1:10])
+    assert (
+        torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
+    ), "Class predictions changed on reload"
+    assert (
+        torch.nn.functional.mse_loss(old_output.ood_scores, new_output.ood_scores) <= 1e-7
+    ), "OOD predictions changed on reload"
+
+    return new_model, tmp_filename
+
+# based off https://stackoverflow.com/a/34485032
+def generate_random_string_list(length:int):
+    chars = ascii_lowercase + digits
+    str_list = [''.join(choice(chars) for _ in range(2)) for _ in range(length)]
+    print("str_list",str_list)
+    return str_list
+
+
+def load_equine_model(model_path):
+    model_type = torch.load(model_path)["train_summary"]["modelType"]
+
+    if model_type == "EquineProtonet":
+        model = eq.EquineProtonet.load(model_path)
+    elif model_type == "EquineGP":
+        model = eq.EquineGP.load(model_path)
+    else:
+        raise ValueError(f"Unknown model type '{model_type}'")
+    
+    return model

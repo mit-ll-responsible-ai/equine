@@ -893,9 +893,10 @@ class EquineProtonet(Equine):
         eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))
         eq_model.eval()
         eq_model.model.update_support(support)
-        eq_model.outlier_score_kde = model_save.get("outlier_kde")
-        eq_model.train_summary = model_save.get("train_summary")
+
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
+        eq_model.outlier_score_kde = model_save.get("outlier_kde")
+        eq_model.train_summary = model_save.get("train_summary")
 
         return eq_model

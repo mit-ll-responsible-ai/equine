@@ -140,8 +140,8 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
 
     new_model, tmp_filename = use_save_load_model_tests(model, X)
 
-    assert ( new_model.feature_names is None ), "feature_names changed on reload"
-    assert ( new_model.label_names is None ), "label_names changed on reload"
+    assert ( new_model.get_feature_names() is None ), "feature_names changed on reload"
+    assert ( new_model.get_label_names() is None ), "label_names changed on reload"
 
     # with feature and label names
     feature_names = generate_random_string_list(X.shape[1])
@@ -159,8 +159,8 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
 
     new_model, tmp_filename = use_save_load_model_tests(model, X)
 
-    assert ( new_model.feature_names == feature_names ), "feature_names changed on reload"
-    assert ( new_model.label_names == label_names ), "label_names changed on reload"
+    assert ( new_model.get_feature_names() == feature_names ), "feature_names changed on reload"
+    assert ( new_model.get_label_names() == label_names ), "label_names changed on reload"
 
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup

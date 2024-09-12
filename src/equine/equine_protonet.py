@@ -567,6 +567,8 @@ class EquineProtonet(Equine):
 
         X, Y = dataset[:]
 
+        self.validate_feature_label_names(X.shape[-1], torch.unique(Y).shape[0])
+
         train_x, calib_x, train_y, calib_y = train_test_split(
             X, Y, test_size=calib_frac, stratify=Y
         )  # TODO: Replace sklearn with torch call
@@ -773,6 +775,8 @@ class EquineProtonet(Equine):
         ood_dist = self._compute_ood_dist(X_embed, preds, dists)
         ood_scores = self._compute_outlier_scores(ood_dist, preds)
 
+        self.validate_feature_label_names(X.shape[-1], preds.shape[-1])
+
         return EquineOutput(classes=preds, ood_scores=ood_scores, embeddings=X_embed)
 
     @icontract.require(lambda calib_frac: (calib_frac > 0.0) and (calib_frac < 1.0))
@@ -824,12 +828,6 @@ class EquineProtonet(Equine):
     @icontract.require(lambda self: self.model.prototypes is not None)
     def get_prototypes(self):
         return self.model.prototypes
-    
-    def get_label_names(self):
-        return self.label_names
-    
-    def get_feature_names(self):
-        return self.feature_names
 
     def save(self, path: str) -> None:
         """

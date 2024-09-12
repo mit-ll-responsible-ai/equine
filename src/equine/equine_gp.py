@@ -450,8 +450,8 @@ class EquineGP(Equine):
         - If `use_temperature` is True, temperature scaling will be used after training.
         - The calibration data is used to calibrate the temperature scaling.
         """
+        X, Y = dataset[:]
         if self.use_temperature:
-            X, Y = dataset[:]
             train_x, calib_x, train_y, calib_y = train_test_split(
                 X, Y, test_size=calib_frac, stratify=Y
             )  # TODO: Replace sklearn with torch call
@@ -459,6 +459,8 @@ class EquineGP(Equine):
             self.temperature = torch.Tensor(
                 self.init_temperature * torch.ones(1)
             ).type_as(self.temperature)
+
+        self.validate_feature_label_names(X.shape[-1], self.num_outputs)
 
         train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
@@ -661,6 +663,10 @@ class EquineGP(Equine):
         eq_out = EquineOutput(
             classes=preds, ood_scores=ood_score, embeddings=embeddings
         )  # TODO return embeddings
+
+
+        self.validate_feature_label_names(X.shape[-1], self.num_outputs)
+
         return eq_out
 
     def save(self, path: str) -> None:

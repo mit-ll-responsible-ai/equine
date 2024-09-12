@@ -72,12 +72,11 @@ def use_save_load_model_tests(model, X, tmp_filename:str="tmp_eq.pt"):
 
     return new_model, tmp_filename
 
+# return a list of random strings
 # based off https://stackoverflow.com/a/34485032
-def generate_random_string_list(length:int):
+def generate_random_string_list(list_length:int, str_length:int=3):
     chars = ascii_lowercase + digits
-    str_list = [''.join(choice(chars) for _ in range(2)) for _ in range(length)]
-    print("str_list",str_list)
-    return str_list
+    return [''.join(choice(chars) for _ in range(str_length)) for _ in range(list_length)]
 
 
 def load_equine_model(model_path):

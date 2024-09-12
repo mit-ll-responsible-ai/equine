@@ -5,6 +5,7 @@
 from typing import Any, Optional, TypeVar
 
 import torch
+import warnings
 from abc import ABC, abstractmethod
 from torch.utils.data import TensorDataset
 
@@ -178,3 +179,25 @@ class Equine(torch.nn.Module, ABC):
             Loaded model object.
         """
         raise NotImplementedError
+
+
+
+    def get_label_names(self):
+        if hasattr(self, 'label_names'):
+            return self.label_names
+        return None
+    
+    def get_feature_names(self):
+        if hasattr(self, 'feature_names'):
+            return self.feature_names
+        return None
+        
+    
+    def validate_feature_label_names(self, num_features:int, num_classes:int) -> None:
+        feature_names = self.get_feature_names()
+        if feature_names is not None and len(feature_names)!=num_features:
+            warnings.warn(f"The length of feature_names ({len(feature_names)}) does not match the number of data features {num_features}.")
+
+        label_names = self.get_label_names()
+        if label_names is not None and len(label_names)!=num_classes:
+            warnings.warn(f"The length of label_names ({len(label_names)}) does not match the number of classes {num_classes}.")

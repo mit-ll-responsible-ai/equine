@@ -196,8 +196,8 @@ class Equine(torch.nn.Module, ABC):
     def validate_feature_label_names(self, num_features:int, num_classes:int) -> None:
         feature_names = self.get_feature_names()
         if feature_names is not None and len(feature_names)!=num_features:
-            warnings.warn(f"The length of feature_names ({len(feature_names)}) does not match the number of data features {num_features}.")
+            raise ValueError(f"The length of feature_names ({len(feature_names)}) does not match the number of data features {num_features}. Update feature_names or set feature_names to None.")
 
         label_names = self.get_label_names()
         if label_names is not None and len(label_names)!=num_classes:
-            warnings.warn(f"The length of label_names ({len(label_names)}) does not match the number of classes {num_classes}.")
+            raise ValueError(f"The length of label_names ({len(label_names)}) does not match the number of classes {num_classes}. Update label_names or set label_names to None.")

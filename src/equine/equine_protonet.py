@@ -781,7 +781,7 @@ class EquineProtonet(Equine):
 
     @icontract.require(lambda calib_frac: (calib_frac > 0.0) and (calib_frac < 1.0))
     def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, calib_frac: float
+        self, support_x: torch.Tensor, support_y: torch.Tensor, calib_frac: float, label_names: Optional[list[str]] = None
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -793,6 +793,8 @@ class EquineProtonet(Equine):
             Tensor containing labels for given support examples.
         calib_frac : float
             Fraction of given support data to use for OOD calibration.
+        label_names : list[str], optional
+            List of strings of the names of the labels (ex ["streaming", "voip", ...])
 
         Returns
         -------
@@ -803,6 +805,11 @@ class EquineProtonet(Equine):
             support_x, support_y, test_size=calib_frac, stratify=support_y
         )
         labels, counts = torch.unique(support_y, return_counts=True)
+        if label_names is not None:
+            self.label_names = label_names
+        self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
+
+
         support = OrderedDict()
         for label, count in list(zip(labels.tolist(), counts.tolist())):
             class_support = generate_support(
@@ -820,6 +827,7 @@ class EquineProtonet(Equine):
         ood_dists = self._compute_ood_dist(X_embed, preds, dists)
 
         self._fit_outlier_scores(ood_dists, calib_y)
+
 
     @icontract.require(lambda self: self.model.support is not None)
     def get_support(self):

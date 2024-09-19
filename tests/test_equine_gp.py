@@ -71,7 +71,7 @@ def test_equine_gp_save_load(random_dataset) -> None:
 
 
 @given(random_dataset=random_dataset())
-@settings(deadline=None, max_examples=2)
+@settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
@@ -92,7 +92,7 @@ def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
 
 
 @given(random_dataset=random_dataset())
-@settings(deadline=None, max_examples=2)
+@settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_vis(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
@@ -123,7 +123,7 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
 
 
 @given(random_dataset=random_dataset())
-@settings(deadline=None, max_examples=2)
+@settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 

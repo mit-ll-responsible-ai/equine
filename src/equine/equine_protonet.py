@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import icontract
 import io
@@ -455,6 +455,10 @@ class EquineProtonet(Equine):
         What to use as the initial temperature (1.0 has no effect), by default 1.0.
     device : str, optional
         The device to train the equine model on (defaults to cpu).
+    feature_names : list[str], optional
+        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
+    label_names : list[str], optional
+        List of strings of the names of the labels (ex ["streaming", "voip", ...])
     """
 
     def __init__(
@@ -466,8 +470,15 @@ class EquineProtonet(Equine):
         use_temperature: bool = False,
         init_temperature: float = 1.0,
         device: str = "cpu",
+        feature_names: Optional[list[str]] = None,
+        label_names: Optional[list[str]] = None,
     ) -> None:
-        super().__init__(embedding_model, device=device)
+        super().__init__(
+            embedding_model,
+            device=device,
+            feature_names=feature_names,
+            label_names=label_names,
+        )
         self.cov_type = cov_type
         self.cov_reg_type = COV_REG_TYPE
         self.relative_mahal = relative_mahal
@@ -560,6 +571,8 @@ class EquineProtonet(Equine):
             ).type_as(self.temperature)
 
         X, Y = dataset[:]
+
+        self.validate_feature_label_names(X.shape[-1], torch.unique(Y).shape[0])
 
         train_x, calib_x, train_y, calib_y = train_test_split(
             X, Y, test_size=calib_frac, stratify=Y
@@ -767,11 +780,17 @@ class EquineProtonet(Equine):
         ood_dist = self._compute_ood_dist(X_embed, preds, dists)
         ood_scores = self._compute_outlier_scores(ood_dist, preds)
 
+        self.validate_feature_label_names(X.shape[-1], preds.shape[-1])
+
         return EquineOutput(classes=preds, ood_scores=ood_scores, embeddings=X_embed)
 
     @icontract.require(lambda calib_frac: (calib_frac > 0.0) and (calib_frac < 1.0))
     def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, calib_frac: float
+        self,
+        support_x: torch.Tensor,
+        support_y: torch.Tensor,
+        calib_frac: float,
+        label_names: Optional[list[str]] = None,
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -783,6 +802,8 @@ class EquineProtonet(Equine):
             Tensor containing labels for given support examples.
         calib_frac : float
             Fraction of given support data to use for OOD calibration.
+        label_names : list[str], optional
+            List of strings of the names of the labels (ex ["streaming", "voip", ...])
 
         Returns
         -------
@@ -793,6 +814,10 @@ class EquineProtonet(Equine):
             support_x, support_y, test_size=calib_frac, stratify=support_y
         )
         labels, counts = torch.unique(support_y, return_counts=True)
+        if label_names is not None:
+            self.label_names = label_names
+        self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
+
         support = OrderedDict()
         for label, count in list(zip(labels.tolist(), counts.tolist())):
             class_support = generate_support(
@@ -846,11 +871,13 @@ class EquineProtonet(Equine):
         buffer.seek(0)
 
         save_data = {
+            "embed_jit_save": buffer,
+            "feature_names": self.feature_names,
+            "label_names": self.label_names,
+            "model_head_save": self.model.model_head.state_dict(),
+            "outlier_kde": self.outlier_score_kde,
             "settings": model_settings,
             "support": self.model.support,
-            "outlier_kde": self.outlier_score_kde,
-            "model_head_save": self.model.model_head.state_dict(),
-            "embed_jit_save": buffer,
             "train_summary": self.train_summary,
         }
 
@@ -872,14 +899,17 @@ class EquineProtonet(Equine):
             The reconstituted EquineProtonet object.
         """
         model_save = torch.load(path)
-        support = model_save["support"]
-        jit_model = torch.jit.load(model_save["embed_jit_save"])  # type: ignore
-        eq_model = cls(jit_model, **model_save["settings"])
+        support = model_save.get("support")
+        jit_model = torch.jit.load(model_save.get("embed_jit_save"))  # type: ignore
+        eq_model = cls(jit_model, **model_save.get("settings"))
 
-        eq_model.model.model_head.load_state_dict(model_save["model_head_save"])
+        eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))
         eq_model.eval()
         eq_model.model.update_support(support)
-        eq_model.outlier_score_kde = model_save["outlier_kde"]
-        eq_model.train_summary = model_save["train_summary"]
+
+        eq_model.feature_names = model_save.get("feature_names")
+        eq_model.label_names = model_save.get("label_names")
+        eq_model.outlier_score_kde = model_save.get("outlier_kde")
+        eq_model.train_summary = model_save.get("train_summary")
 
         return eq_model

@@ -4,7 +4,13 @@
 import os
 import pytest
 import torch
-from conftest import BasicEmbeddingModel, random_dataset, use_basic_embedding_model, use_save_load_model_tests, generate_random_string_list
+from conftest import (
+    BasicEmbeddingModel,
+    generate_random_string_list,
+    random_dataset,
+    use_basic_embedding_model,
+    use_save_load_model_tests,
+)
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
@@ -227,9 +233,11 @@ def test_equine_protonet_save_load(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
     model = eq.EquineProtonet(embedding_model, num_classes)
-    model.train_model(dataset, num_episodes=10)
+    model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(model, X)
+    new_model, tmp_filename = use_save_load_model_tests(
+        model, X, tmp_filename="protonet_save_load.eq"
+    )
 
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
@@ -241,9 +249,11 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
     model = eq.EquineProtonet(embedding_model, num_classes, use_temperature=True)
-    model.train_model(dataset, num_episodes=10)
+    model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(model, X)
+    new_model, tmp_filename = use_save_load_model_tests(
+        model, X, tmp_filename="protonet_save_load_with_temperature.eq"
+    )
 
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
@@ -256,25 +266,35 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
 
     # without feature and label names
     model = eq.EquineProtonet(embedding_model, num_classes)
-    model.train_model(dataset, num_episodes=10)
+    model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(model, X)
+    new_model, tmp_filename = use_save_load_model_tests(
+        model, X, tmp_filename="protonet_save_load_no_feature_and_label_names.eq"
+    )
 
-    assert ( new_model.get_feature_names() is None ), "feature_names changed on reload"
-    assert ( new_model.get_label_names() is None ), "label_names changed on reload"
+    assert new_model.get_feature_names() is None, "feature_names changed on reload"
+    assert new_model.get_label_names() is None, "label_names changed on reload"
 
     # with feature and label names
     feature_names = generate_random_string_list(X.shape[1])
     label_names = generate_random_string_list(num_classes)
 
-    model = eq.EquineProtonet(embedding_model, num_classes, feature_names=feature_names,label_names=label_names)
-    model.train_model(dataset, num_episodes=10)
+    model = eq.EquineProtonet(
+        embedding_model,
+        num_classes,
+        feature_names=feature_names,
+        label_names=label_names,
+    )
+    model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(model, X)
+    new_model, tmp_filename = use_save_load_model_tests(
+        model, X, tmp_filename="protonet_save_load_with_feature_and_label_names.eq"
+    )
 
-    assert ( new_model.get_feature_names() == feature_names ), "feature_names changed on reload"
-    assert ( new_model.get_label_names() == label_names ), "label_names changed on reload"
+    assert (
+        new_model.get_feature_names() == feature_names
+    ), "feature_names changed on reload"
+    assert new_model.get_label_names() == label_names, "label_names changed on reload"
 
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
-

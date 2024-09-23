@@ -376,7 +376,9 @@ class EquineGP(Equine):
         feature_names: Optional[list[str]] = None,
         label_names: Optional[list[str]] = None,
     ) -> None:
-        super().__init__(embedding_model, feature_names=feature_names, label_names=label_names)
+        super().__init__(
+            embedding_model, feature_names=feature_names, label_names=label_names
+        )
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
         self.normalize_gp_features = True
@@ -664,7 +666,6 @@ class EquineGP(Equine):
             classes=preds, ood_scores=ood_score, embeddings=embeddings
         )  # TODO return embeddings
 
-
         self.validate_feature_label_names(X.shape[-1], self.num_outputs)
 
         return eq_out
@@ -735,8 +736,10 @@ class EquineGP(Equine):
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
         eq_model.train_summary = model_save.get("train_summary")
-        
-        eq_model.model.load_state_dict(model_save.get("laplace_model_save"), strict=False)
+
+        eq_model.model.load_state_dict(
+            model_save.get("laplace_model_save"), strict=False
+        )
         eq_model.model.seen_data = model_save.get("laplace_model_save").get("seen_data")
 
         eq_model.model.set_training_params(

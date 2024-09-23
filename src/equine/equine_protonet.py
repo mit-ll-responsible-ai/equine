@@ -473,7 +473,12 @@ class EquineProtonet(Equine):
         feature_names: Optional[list[str]] = None,
         label_names: Optional[list[str]] = None,
     ) -> None:
-        super().__init__(embedding_model, device=device, feature_names=feature_names, label_names=label_names)
+        super().__init__(
+            embedding_model,
+            device=device,
+            feature_names=feature_names,
+            label_names=label_names,
+        )
         self.cov_type = cov_type
         self.cov_reg_type = COV_REG_TYPE
         self.relative_mahal = relative_mahal
@@ -781,7 +786,11 @@ class EquineProtonet(Equine):
 
     @icontract.require(lambda calib_frac: (calib_frac > 0.0) and (calib_frac < 1.0))
     def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, calib_frac: float, label_names: Optional[list[str]] = None
+        self,
+        support_x: torch.Tensor,
+        support_y: torch.Tensor,
+        calib_frac: float,
+        label_names: Optional[list[str]] = None,
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -809,7 +818,6 @@ class EquineProtonet(Equine):
             self.label_names = label_names
         self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
 
-
         support = OrderedDict()
         for label, count in list(zip(labels.tolist(), counts.tolist())):
             class_support = generate_support(
@@ -827,7 +835,6 @@ class EquineProtonet(Equine):
         ood_dists = self._compute_ood_dist(X_embed, preds, dists)
 
         self._fit_outlier_scores(ood_dists, calib_y)
-
 
     @icontract.require(lambda self: self.model.support is not None)
     def get_support(self):

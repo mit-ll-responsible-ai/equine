@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from .equine import Equine, EquineOutput
 from .equine_gp import EquineGP
 from .equine_protonet import CovType, EquineProtonet
+from .load_equine_model import load_equine_model
 from .utils import (
     brier_score,
     brier_skill_score,
@@ -36,10 +37,11 @@ __all__ = [
     "brier_score",
     "brier_skill_score",
     "expected_calibration_error",
-    "mahalanobis_distance_nosq",
+    "load_equine_model",
     "generate_support",
     "generate_episode",
     "generate_model_metrics",
     "generate_train_summary",
     "generate_model_summary",
+    "mahalanobis_distance_nosq",
 ]

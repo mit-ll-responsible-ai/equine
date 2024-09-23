@@ -56,37 +56,29 @@ def use_basic_embedding_model(random_dataset):
     embedding_model = BasicEmbeddingModel(X.shape[1], num_classes)
     return dataset, num_classes, X, embedding_model
 
-def use_save_load_model_tests(model, X, tmp_filename:str="tmp_eq.pt"):
+
+def use_save_load_model_tests(model, X, tmp_filename: str = "tmp.eq"):
     old_output = model.predict(X[1:10])
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)
     model.save(tmp_filename)
-    new_model = load_equine_model(tmp_filename)
+    new_model = eq.load_equine_model(tmp_filename)
     new_output = new_model.predict(X[1:10])
     assert (
         torch.nn.functional.mse_loss(old_output.classes, new_output.classes) <= 1e-7
     ), "Class predictions changed on reload"
     assert (
-        torch.nn.functional.mse_loss(old_output.ood_scores, new_output.ood_scores) <= 1e-7
+        torch.nn.functional.mse_loss(old_output.ood_scores, new_output.ood_scores)
+        <= 1e-7
     ), "OOD predictions changed on reload"
 
     return new_model, tmp_filename
 
+
 # return a list of random strings
 # based off https://stackoverflow.com/a/34485032
-def generate_random_string_list(list_length:int, str_length:int=3):
+def generate_random_string_list(list_length: int, str_length: int = 3):
     chars = ascii_lowercase + digits
-    return [''.join(choice(chars) for _ in range(str_length)) for _ in range(list_length)]
-
-
-def load_equine_model(model_path):
-    model_type = torch.load(model_path)["train_summary"]["modelType"]
-
-    if model_type == "EquineProtonet":
-        model = eq.EquineProtonet.load(model_path)
-    elif model_type == "EquineGP":
-        model = eq.EquineGP.load(model_path)
-    else:
-        raise ValueError(f"Unknown model type '{model_type}'")
-    
-    return model
+    return [
+        "".join(choice(chars) for _ in range(str_length)) for _ in range(list_length)
+    ]

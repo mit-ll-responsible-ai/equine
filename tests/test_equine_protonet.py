@@ -275,6 +275,9 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
     assert new_model.get_feature_names() is None, "feature_names changed on reload"
     assert new_model.get_label_names() is None, "label_names changed on reload"
 
+    if os.path.exists(tmp_filename):
+        os.remove(tmp_filename)  # Cleanup
+
     # with feature and label names
     feature_names = generate_random_string_list(X.shape[1])
     label_names = generate_random_string_list(num_classes)

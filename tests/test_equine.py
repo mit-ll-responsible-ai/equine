@@ -14,6 +14,10 @@ def test_get_feature_names():
 
     model = eq.EquineProtonet(embed_model, num_classes)
     assert eq.Equine.get_feature_names(model) is None
+
+    del model.feature_names
+    assert eq.Equine.get_feature_names(model) is None
+
     model = eq.EquineProtonet(embed_model, num_classes, feature_names=["123", "456"])
     assert eq.Equine.get_feature_names(model) == ["123", "456"]
 
@@ -25,6 +29,10 @@ def test_get_label_names():
 
     model = eq.EquineProtonet(embed_model, num_classes)
     assert eq.Equine.get_label_names(model) is None
+
+    del model.label_names
+    assert eq.Equine.get_label_names(model) is None
+
     model = eq.EquineProtonet(embed_model, num_classes, label_names=["123", "456"])
     assert eq.Equine.get_label_names(model) == ["123", "456"]
 

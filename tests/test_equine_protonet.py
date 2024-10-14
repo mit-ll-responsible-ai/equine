@@ -237,10 +237,10 @@ def test_predict_fail_before_training(random_dataset):
 def test_equine_protonet_save_load(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
-    model = eq.EquineProtonet(embedding_model, num_classes)
+    model = eq.EquineProtonet(embedding_model, num_classes, relative_mahal=False)
     model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(
+    _, tmp_filename = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load.eq"
     )
 

@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.39">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.40">
     
     
       
@@ -1397,6 +1397,11 @@
 
 
 
+
+
+
+
+
   <div class="doc doc-children">
 
 
@@ -1419,7 +1424,7 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="../equine/#equine.equine.Equine">Equine</a></code></p>
+              Bases: <code>Equine</code></p>
 
 
         <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
@@ -1439,9 +1444,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>embedding_model</code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1453,7 +1460,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>emb_out_dim</code></td>
+            <td>
+                <code>emb_out_dim</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -1467,9 +1476,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1477,11 +1488,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType.UNIT">UNIT</span></code>
+                  <code>UNIT</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>relative_mahal</code></td>
+            <td>
+                <code>relative_mahal</code>
+            </td>
             <td>
                   <code>bool</code>
             </td>
@@ -1495,7 +1508,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>use_temperature</code></td>
+            <td>
+                <code>use_temperature</code>
+            </td>
             <td>
                   <code>bool</code>
             </td>
@@ -1509,7 +1524,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>init_temperature</code></td>
+            <td>
+                <code>init_temperature</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -1523,7 +1540,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>device</code></td>
+            <td>
+                <code>device</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -1537,7 +1556,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>feature_names</code></td>
+            <td>
+                <code>feature_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -1551,7 +1572,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -1566,6 +1589,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
           </tr>
       </tbody>
     </table>
+
+
+
+
+
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
@@ -2571,9 +2599,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>calib_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>calib_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2585,9 +2615,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>calib_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2599,7 +2631,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -2613,7 +2647,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -2761,9 +2797,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2789,7 +2827,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2869,7 +2907,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -2897,7 +2937,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_protonet.EquineProtonet" href="#equine.equine_protonet.EquineProtonet">EquineProtonet</a></code>
+                  <code>EquineProtonet</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3001,9 +3041,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3029,7 +3071,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="../equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3125,7 +3167,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -3273,9 +3317,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>dataset</code></td>
             <td>
-                  <code><span title="torch.utils.data.TensorDataset">TensorDataset</span></code>
+                <code>dataset</code>
+            </td>
+            <td>
+                  <code>TensorDataset</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3287,7 +3333,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_episodes</code></td>
+            <td>
+                <code>num_episodes</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3301,7 +3349,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_frac</code></td>
+            <td>
+                <code>calib_frac</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -3315,7 +3365,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_size</code></td>
+            <td>
+                <code>support_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3329,7 +3381,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>way</code></td>
+            <td>
+                <code>way</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3343,7 +3397,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>episode_size</code></td>
+            <td>
+                <code>episode_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3357,9 +3413,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>loss_fn</code></td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                <code>loss_fn</code>
+            </td>
+            <td>
+                  <code>Callable</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3367,13 +3425,15 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="torch.nn.functional.cross_entropy">cross_entropy</span></code>
+                  <code>cross_entropy</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>opt_class</code></td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                <code>opt_class</code>
+            </td>
+            <td>
+                  <code>Callable</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3381,11 +3441,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="torch.optim.Adam">Adam</span></code>
+                  <code>Adam</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3399,7 +3461,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -3427,7 +3491,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>tuple[dict[str, <span title="typing.Any">Any</span>], <span title="torch.Tensor">Tensor</span>, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>tuple[dict[str, Any], Tensor, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3683,9 +3747,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>support_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3697,9 +3763,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3711,7 +3779,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_frac</code></td>
+            <td>
+                <code>calib_frac</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -3725,7 +3795,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -3894,10 +3966,15 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="torch.nn.Module">Module</span></code></p>
+              Bases: <code>Module</code></p>
 
 
         <p>Private class that implements a prototypical neural network for use in EQUINE.</p>
+
+
+
+
+
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
@@ -4711,9 +4788,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>embedding_model</code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4725,7 +4804,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>emb_out_dim</code></td>
+            <td>
+                <code>emb_out_dim</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -4739,9 +4820,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4753,7 +4836,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_reg_type</code></td>
+            <td>
+                <code>cov_reg_type</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -4767,7 +4852,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>epsilon</code></td>
+            <td>
+                <code>epsilon</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -4781,7 +4868,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>device</code></td>
+            <td>
+                <code>device</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -4910,9 +4999,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>distances</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>distances</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4938,7 +5029,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5015,9 +5106,11 @@ Note that this method is only called once per episode, and the resulting tensor 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5043,7 +5136,7 @@ Note that this method is only called once per episode, and the resulting tensor 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5204,9 +5297,11 @@ Note that this method is only called once per episode, and the resulting tensor 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X_embed</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X_embed</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5218,9 +5313,11 @@ Note that this method is only called once per episode, and the resulting tensor 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>mu</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>mu</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5232,9 +5329,11 @@ Note that this method is only called once per episode, and the resulting tensor 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>cov</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5260,7 +5359,7 @@ Note that this method is only called once per episode, and the resulting tensor 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5382,9 +5481,11 @@ Note that this method is only called once per episode, and the resulting tensor 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5410,7 +5511,7 @@ Note that this method is only called once per episode, and the resulting tensor 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5534,7 +5635,7 @@ Note that this method is only called once per episode, and the resulting tensor 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5621,9 +5722,11 @@ support examples for each class is small.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>class_cov_dict</code></td>
             <td>
-                  <code><span title="collections.OrderedDict">OrderedDict</span>[int, <span title="torch.Tensor">Tensor</span>]</code>
+                <code>class_cov_dict</code>
+            </td>
+            <td>
+                  <code>OrderedDict[int, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5635,9 +5738,11 @@ support examples for each class is small.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5663,7 +5768,7 @@ support examples for each class is small.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5796,7 +5901,9 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>emb_out_dim</code></td>
+            <td>
+                <code>emb_out_dim</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -5824,7 +5931,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.nn.Linear">Linear</span></code>
+                  <code>Linear</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5900,9 +6007,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -5928,7 +6037,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>tuple[<span title="torch.Tensor">Tensor</span>, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>tuple[Tensor, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6026,9 +6135,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>class_cov_dict</code></td>
             <td>
-                  <code><span title="collections.OrderedDict">OrderedDict</span>[int, <span title="torch.Tensor">Tensor</span>]</code>
+                <code>class_cov_dict</code>
+            </td>
+            <td>
+                  <code>OrderedDict[int, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6040,9 +6151,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6068,7 +6181,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>dict[float, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>dict[float, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6236,9 +6349,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>support</code></td>
             <td>
-                  <code><span title="collections.OrderedDict">OrderedDict</span></code>
+                <code>support</code>
+            </td>
+            <td>
+                  <code>OrderedDict</code>
             </td>
             <td>
               <div class="doc-md-description">

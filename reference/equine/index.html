@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.39">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.40">
     
     
       
@@ -1256,6 +1256,11 @@
 
 
 
+
+
+
+
+
   <div class="doc doc-children">
 
 
@@ -1278,7 +1283,7 @@
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><span title="torch.nn.Module">Module</span></code>, <code><span title="abc.ABC">ABC</span></code></p>
+              Bases: <code>Module</code>, <code>ABC</code></p>
 
 
         <p>EQUINE Abstract Base Class (ABC):
@@ -1301,9 +1306,11 @@ EquineOutput object that contains both the class probabilities
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>embedding_model</code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1315,7 +1322,9 @@ EquineOutput object that contains both the class probabilities
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>head_layers</code></td>
+            <td>
+                <code>head_layers</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -1329,7 +1338,9 @@ EquineOutput object that contains both the class probabilities
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>device</code></td>
+            <td>
+                <code>device</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -1343,7 +1354,9 @@ EquineOutput object that contains both the class probabilities
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>feature_names</code></td>
+            <td>
+                <code>feature_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -1357,7 +1370,9 @@ EquineOutput object that contains both the class probabilities
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -1398,7 +1413,7 @@ EquineOutput object that contains both the class probabilities
           <tr class="doc-section-item">
             <td><code><span title="equine.Equine.embedding_model">embedding_model</span></code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1442,7 +1457,7 @@ EquineOutput object that contains both the class probabilities
           <tr class="doc-section-item">
             <td><code><span title="equine.Equine.train_summary">train_summary</span></code></td>
             <td>
-                  <code>dict[str, <span title="typing.Any">Any</span>]</code>
+                  <code>dict[str, Any]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1475,6 +1490,11 @@ EquineOutput object that contains both the class probabilities
           </tr>
       </tbody>
     </table>
+
+
+
+
+
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine.py</code></summary>
@@ -1897,9 +1917,11 @@ of torch.nn.Module.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1925,7 +1947,7 @@ of torch.nn.Module.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2008,7 +2030,7 @@ of torch.nn.Module.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2078,7 +2100,9 @@ of torch.nn.Module.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -2106,7 +2130,7 @@ of torch.nn.Module.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code>
+                  <code>Equine</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2187,9 +2211,11 @@ given input data.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2215,7 +2241,7 @@ given input data.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_output.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2297,7 +2323,9 @@ given input data.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -2372,9 +2400,11 @@ given input data.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>dataset</code></td>
             <td>
-                  <code><span title="torch.utils.data.TensorDataset">TensorDataset</span></code>
+                <code>dataset</code>
+            </td>
+            <td>
+                  <code>TensorDataset</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2386,9 +2416,11 @@ given input data.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
             <td>
-                  <code><span title="typing.Any">Any</span></code>
+                <code>**kwargs</code>
+            </td>
+            <td>
+                  <code>Any</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2414,7 +2446,7 @@ given input data.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>dict[str, <span title="typing.Any">Any</span>]</code>
+                  <code>dict[str, Any]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2489,7 +2521,7 @@ given input data.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
+              Bases: <code>Equine</code></p>
 
 
         <p>An example of an EQUINE model that builds upon the approach in "Spectral Norm
@@ -2509,9 +2541,11 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>embedding_model</code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2523,7 +2557,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>emb_out_dim</code></td>
+            <td>
+                <code>emb_out_dim</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -2537,7 +2573,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_classes</code></td>
+            <td>
+                <code>num_classes</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -2551,7 +2589,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>use_temperature</code></td>
+            <td>
+                <code>use_temperature</code>
+            </td>
             <td>
                   <code>bool</code>
             </td>
@@ -2565,7 +2605,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>init_temperature</code></td>
+            <td>
+                <code>init_temperature</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -2579,7 +2621,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>device</code></td>
+            <td>
+                <code>device</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -2593,7 +2637,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>feature_names</code></td>
+            <td>
+                <code>feature_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -2607,7 +2653,9 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -2630,6 +2678,11 @@ the <code>forward</code>, <code>predict</code>, <code>save</code>, and <code>loa
 and ResNet architecture required for SNGP. Instead, it is a simple wrapper around
 any pytorch embedding neural network. Your mileage may vary.</p>
 </details>
+
+
+
+
+
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
                 <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
@@ -3514,9 +3567,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>calibration_loader</code></td>
             <td>
-                  <code><span title="torch.utils.data.DataLoader">DataLoader</span></code>
+                <code>calibration_loader</code>
+            </td>
+            <td>
+                  <code>DataLoader</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3528,7 +3583,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -3542,7 +3599,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -3657,7 +3716,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3751,9 +3810,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3779,7 +3840,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3862,7 +3923,9 @@ Function to load previously saved EquineGP model.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -3890,7 +3953,7 @@ Function to load previously saved EquineGP model.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_gp.EquineGP" href="equine_gp/#equine.equine_gp.EquineGP">EquineGP</a></code>
+                  <code>EquineGP</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4012,9 +4075,11 @@ Function to load previously saved EquineGP model.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4040,7 +4105,7 @@ Function to load previously saved EquineGP model.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4144,7 +4209,9 @@ Function to load previously saved EquineGP model.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -4279,9 +4346,11 @@ Function to load previously saved EquineGP model.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>dataset</code></td>
             <td>
-                  <code><span title="torch.utils.data.TensorDataset">TensorDataset</span></code>
+                <code>dataset</code>
+            </td>
+            <td>
+                  <code>TensorDataset</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4293,9 +4362,11 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>loss_fn</code></td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                <code>loss_fn</code>
+            </td>
+            <td>
+                  <code>Callable</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4307,9 +4378,11 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>opt</code></td>
             <td>
-                  <code><span title="torch.optim.Optimizer">Optimizer</span></code>
+                <code>opt</code>
+            </td>
+            <td>
+                  <code>Optimizer</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4321,7 +4394,9 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_epochs</code></td>
+            <td>
+                <code>num_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -4335,7 +4410,9 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>batch_size</code></td>
+            <td>
+                <code>batch_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -4349,7 +4426,9 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_frac</code></td>
+            <td>
+                <code>calib_frac</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -4363,7 +4442,9 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -4377,7 +4458,9 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -4405,7 +4488,7 @@ Function to load previously saved EquineGP model.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Tuple">Tuple</span>[dict[str, <span title="typing.Any">Any</span>], <span title="torch.utils.data.DataLoader">DataLoader</span>]</code>
+                  <code>Tuple[dict[str, Any], DataLoader]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4655,9 +4738,11 @@ Function to load previously saved EquineGP model.</p>
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>support_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4669,9 +4754,11 @@ Function to load previously saved EquineGP model.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4831,7 +4918,7 @@ Function to load previously saved EquineGP model.</p>
           <tr class="doc-section-item">
             <td><code><span title="equine.EquineOutput.classes">classes</span></code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4842,7 +4929,7 @@ Function to load previously saved EquineGP model.</p>
           <tr class="doc-section-item">
             <td><code><span title="equine.EquineOutput.ood_scores">ood_scores</span></code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4853,7 +4940,7 @@ Function to load previously saved EquineGP model.</p>
           <tr class="doc-section-item">
             <td><code><span title="equine.EquineOutput.embeddings">embeddings</span></code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4863,6 +4950,11 @@ Function to load previously saved EquineGP model.</p>
           </tr>
       </tbody>
     </table>
+
+
+
+
+
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_output.py</code></summary>
@@ -4937,7 +5029,7 @@ Function to load previously saved EquineGP model.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code></p>
+              Bases: <code>Equine</code></p>
 
 
         <p>A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
@@ -4957,9 +5049,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>embedding_model</code></td>
             <td>
-                  <code><span title="torch.nn.Module">Module</span></code>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code>Module</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4971,7 +5065,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>emb_out_dim</code></td>
+            <td>
+                <code>emb_out_dim</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -4985,9 +5081,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>cov_type</code></td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType">CovType</span></code>
+                <code>cov_type</code>
+            </td>
+            <td>
+                  <code>CovType</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -4995,11 +5093,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="equine.equine_protonet.CovType.UNIT">UNIT</span></code>
+                  <code>UNIT</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>relative_mahal</code></td>
+            <td>
+                <code>relative_mahal</code>
+            </td>
             <td>
                   <code>bool</code>
             </td>
@@ -5013,7 +5113,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>use_temperature</code></td>
+            <td>
+                <code>use_temperature</code>
+            </td>
             <td>
                   <code>bool</code>
             </td>
@@ -5027,7 +5129,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>init_temperature</code></td>
+            <td>
+                <code>init_temperature</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -5041,7 +5145,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>device</code></td>
+            <td>
+                <code>device</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -5055,7 +5161,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>feature_names</code></td>
+            <td>
+                <code>feature_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -5069,7 +5177,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -5084,6 +5194,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
           </tr>
       </tbody>
     </table>
+
+
+
+
+
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
@@ -6089,9 +6204,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>calib_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>calib_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6103,9 +6220,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>calib_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6117,7 +6236,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6131,7 +6252,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -6279,9 +6402,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6307,7 +6432,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6387,7 +6512,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -6415,7 +6542,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_protonet.EquineProtonet" href="equine_protonet/#equine.equine_protonet.EquineProtonet">EquineProtonet</a></code>
+                  <code>EquineProtonet</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6519,9 +6646,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>X</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>X</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6547,7 +6676,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6643,7 +6772,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>path</code></td>
+            <td>
+                <code>path</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -6791,9 +6922,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>dataset</code></td>
             <td>
-                  <code><span title="torch.utils.data.TensorDataset">TensorDataset</span></code>
+                <code>dataset</code>
+            </td>
+            <td>
+                  <code>TensorDataset</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6805,7 +6938,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_episodes</code></td>
+            <td>
+                <code>num_episodes</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6819,7 +6954,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_frac</code></td>
+            <td>
+                <code>calib_frac</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -6833,7 +6970,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_size</code></td>
+            <td>
+                <code>support_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6847,7 +6986,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>way</code></td>
+            <td>
+                <code>way</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6861,7 +7002,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>episode_size</code></td>
+            <td>
+                <code>episode_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6875,9 +7018,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>loss_fn</code></td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                <code>loss_fn</code>
+            </td>
+            <td>
+                  <code>Callable</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6885,13 +7030,15 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="torch.nn.functional.cross_entropy">cross_entropy</span></code>
+                  <code>cross_entropy</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>opt_class</code></td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                <code>opt_class</code>
+            </td>
+            <td>
+                  <code>Callable</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -6899,11 +7046,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
               </div>
             </td>
             <td>
-                  <code><span title="torch.optim.Adam">Adam</span></code>
+                  <code>Adam</code>
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>num_calibration_epochs</code></td>
+            <td>
+                <code>num_calibration_epochs</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -6917,7 +7066,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calibration_lr</code></td>
+            <td>
+                <code>calibration_lr</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -6945,7 +7096,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>tuple[dict[str, <span title="typing.Any">Any</span>], <span title="torch.Tensor">Tensor</span>, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>tuple[dict[str, Any], Tensor, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7201,9 +7352,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>support_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7215,9 +7368,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>support_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7229,7 +7384,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>calib_frac</code></td>
+            <td>
+                <code>calib_frac</code>
+            </td>
             <td>
                   <code>float</code>
             </td>
@@ -7243,7 +7400,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>label_names</code></td>
+            <td>
+                <code>label_names</code>
+            </td>
             <td>
                   <code>list[str]</code>
             </td>
@@ -7426,9 +7585,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>y_hat</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_hat</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7440,9 +7601,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>y_test</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_test</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7558,9 +7721,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>y_hat</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_hat</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7572,9 +7737,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>y_test</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_test</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7694,9 +7861,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>y_hat</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_hat</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7708,9 +7877,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>y_test</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>y_test</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7826,9 +7997,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>train_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>train_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7840,9 +8013,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>train_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>train_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -7854,7 +8029,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_size</code></td>
+            <td>
+                <code>support_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -7868,7 +8045,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>way</code></td>
+            <td>
+                <code>way</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -7882,7 +8061,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>episode_size</code></td>
+            <td>
+                <code>episode_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -7910,7 +8091,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Tuple">Tuple</span>[dict[<span title="typing.Any">Any</span>, <span title="torch.Tensor">Tensor</span>], <span title="torch.Tensor">Tensor</span>, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>Tuple[dict[Any, Tensor], Tensor, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8140,9 +8321,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>eq_preds</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_output.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                <code>eq_preds</code>
+            </td>
+            <td>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8154,9 +8337,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>true_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>true_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8182,7 +8367,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>dict[str, <span title="typing.Any">Any</span>]</code>
+                  <code>dict[str, Any]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8294,9 +8479,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>model</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code>
+                <code>model</code>
+            </td>
+            <td>
+                  <code>Equine</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8308,9 +8495,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>eq_preds</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine_output.EquineOutput" href="equine_output/#equine.equine_output.EquineOutput">EquineOutput</a></code>
+                <code>eq_preds</code>
+            </td>
+            <td>
+                  <code>EquineOutput</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8322,9 +8511,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>test_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>test_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8350,7 +8541,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>dict[str, <span title="typing.Any">Any</span>]</code>
+                  <code>dict[str, Any]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8457,9 +8648,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>train_x</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>train_x</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8471,9 +8664,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>train_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>train_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8485,7 +8680,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>support_size</code></td>
+            <td>
+                <code>support_size</code>
+            </td>
             <td>
                   <code>int</code>
             </td>
@@ -8499,9 +8696,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>selected_labels</code></td>
             <td>
-                  <code><span title="typing.List">List</span></code>
+                <code>selected_labels</code>
+            </td>
+            <td>
+                  <code>List</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8513,9 +8712,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>shuffled_indexes</code></td>
             <td>
-                  <code><span title="typing.Union">Union</span>[None, dict[<span title="typing.Any">Any</span>, <span title="torch.Tensor">Tensor</span>]]</code>
+                <code>shuffled_indexes</code>
+            </td>
+            <td>
+                  <code>Union[None, dict[Any, Tensor]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8541,7 +8742,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="collections.OrderedDict">OrderedDict</span>[int, <span title="torch.Tensor">Tensor</span>]</code>
+                  <code>OrderedDict[int, Tensor]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8729,9 +8930,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       </thead>
       <tbody>
           <tr class="doc-section-item">
-            <td><code>model</code></td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="equine.equine.Equine" href="equine/#equine.equine.Equine">Equine</a></code>
+                <code>model</code>
+            </td>
+            <td>
+                  <code>Equine</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8743,9 +8946,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>train_y</code></td>
             <td>
-                  <code><span title="torch.Tensor">Tensor</span></code>
+                <code>train_y</code>
+            </td>
+            <td>
+                  <code>Tensor</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -8757,7 +8962,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             </td>
           </tr>
           <tr class="doc-section-item">
-            <td><code>date_trained</code></td>
+            <td>
+                <code>date_trained</code>
+            </td>
             <td>
                   <code>str</code>
             </td>
@@ -8785,7 +8992,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code>dict[str, <span title="typing.Any">Any</span>]</code>
+                  <code>dict[str, Any]</code>
             </td>
             <td>
               <div class="doc-md-description">

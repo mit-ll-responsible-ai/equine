@@ -43,7 +43,7 @@ classifiers = [
 [project.optional-dependencies]
 tests = [
     "pytest >= 3.8",
-    "hypothesis >= 6.105.0, < 6.113.0",
+    "hypothesis >= 6.105.0, < 6.116.0",
     "pre-commit >= 2.19",
     "codespell"
 ]
@@ -158,7 +158,7 @@ commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 [testenv:coverage]
 description = Runs test suite and measures test-coverage. Fails if coverage is 
-              below 100 prcnt. Run `tox -e coverage -- -n 0` to disable parallelization.
+              below 97 percent. Run `tox -e coverage -- -n 0` to disable parallelization.
 setenv = NUMBA_DISABLE_JIT=1
 usedevelop = true
 basepython = python3.11

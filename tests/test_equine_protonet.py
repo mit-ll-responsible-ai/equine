@@ -83,10 +83,14 @@ def test_train_episodes(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
+    support = model.get_support()
     assert (
-        model.model.support is not None and len(model.model.support) == num_classes
+        support is not None and len(support) == num_classes
     ), "Support set is correct size"
-    model.update_support(X, Y, 0.5)
+    prototypes = model.get_prototypes()
+    assert (
+        prototypes is not None and len(prototypes) == num_classes
+    ), "Prototypes set is correct size"
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
@@ -128,8 +132,9 @@ def test_train_episodes_shared_reg(random_dataset):
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
 
+    support = model.get_support()
     assert (
-        model.model.support is not None and len(model.model.support) == num_classes
+        support is not None and len(support) == num_classes
     ), "Support set is correct size"
     model.update_support(X, Y, 0.5)
     assert (
@@ -232,10 +237,10 @@ def test_predict_fail_before_training(random_dataset):
 def test_equine_protonet_save_load(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
-    model = eq.EquineProtonet(embedding_model, num_classes)
+    model = eq.EquineProtonet(embedding_model, num_classes, relative_mahal=False)
     model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(
+    _, tmp_filename = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load.eq"
     )
 

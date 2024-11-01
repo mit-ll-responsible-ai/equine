@@ -1,1 +1,0 @@
-::: equine.equine_gp

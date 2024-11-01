@@ -1,1 +1,0 @@
-::: equine.load_equine_model

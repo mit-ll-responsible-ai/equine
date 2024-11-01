@@ -1,8 +1,0 @@
-* [equine](equine/index.md)
-    * [\_version](equine/_version.md)
-    * [equine](equine/equine.md)
-    * [equine_gp](equine/equine_gp.md)
-    * [equine_output](equine/equine_output.md)
-    * [equine_protonet](equine/equine_protonet.md)
-    * [load_equine_model](equine/load_equine_model.md)
-    * [utils](equine/utils.md)

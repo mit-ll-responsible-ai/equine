@@ -220,7 +220,7 @@ def generate_episode(
     support_size: int,
     way: int,
     episode_size: int,
-) -> Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]:
+) -> Tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]:
     """
     Generate a single episode of data for a few-shot learning task.
 

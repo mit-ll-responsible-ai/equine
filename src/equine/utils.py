@@ -9,8 +9,8 @@ import torch
 from beartype import beartype
 from collections import OrderedDict
 from torchmetrics.classification import (
-    MulticlassCalibrationError,
     MulticlassAccuracy,
+    MulticlassCalibrationError,
     MulticlassConfusionMatrix,
     MulticlassF1Score,
 )

@@ -8,8 +8,12 @@ import icontract
 import torch
 from beartype import beartype
 from collections import OrderedDict
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
-from torchmetrics.classification import MulticlassCalibrationError
+from torchmetrics.classification import (
+    MulticlassCalibrationError,
+    MulticlassAccuracy,
+    MulticlassConfusionMatrix,
+    MulticlassF1Score,
+)
 
 from .equine import Equine
 from .equine_output import EquineOutput
@@ -318,9 +322,12 @@ def generate_model_metrics(
         Dictionary of model metrics.
     """
     pred_y = torch.argmax(eq_preds.classes, dim=1)
+    accuracy = MulticlassAccuracy(num_classes=eq_preds.classes.shape[1])
+    f1_score = MulticlassF1Score(num_classes=eq_preds.classes.shape[1], average="micro")
+    confusion_matrix = MulticlassConfusionMatrix(num_classes=eq_preds.classes.shape[1])
     metrics = {
-        "accuracy": accuracy_score(true_y, pred_y),
-        "microF1Score": f1_score(true_y, pred_y, average="micro"),
+        "accuracy": accuracy(true_y, pred_y),
+        "microF1Score": f1_score(true_y, pred_y),
         "confusionMatrix": confusion_matrix(true_y, pred_y).tolist(),
         "brierScore": brier_score(eq_preds.classes, true_y),
         "brierSkillScore": brier_skill_score(eq_preds.classes, true_y),
@@ -444,3 +451,28 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
     prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
     dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
     return dist
+
+
+def stratified_train_test_split(X: torch.Tensor, Y: torch.Tensor, test_size: float):
+    unique_classes, class_counts = torch.unique(Y, return_counts=True)
+    test_counts = (class_counts.float() * test_size).round().long()
+    train_indices = []
+    test_indices = []
+
+    for cls, test_count in zip(unique_classes, test_counts):
+        cls_indices = torch.where(Y == cls)[0]
+        cls_indices = cls_indices[torch.randperm(len(cls_indices))]
+        test_idx = cls_indices[:test_count]
+        train_idx = cls_indices[test_count:]
+        train_indices.append(train_idx)
+        test_indices.append(test_idx)
+
+    train_indices = torch.cat(train_indices)
+    test_indices = torch.cat(test_indices)
+
+    train_x = X[train_indices]
+    train_y = Y[train_indices]
+    calib_x = X[test_indices]
+    calib_y = Y[test_indices]
+
+    return train_x, calib_x, train_y, calib_y

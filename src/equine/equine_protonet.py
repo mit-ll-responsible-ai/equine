@@ -15,7 +15,6 @@ from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
 from scipy.stats import gaussian_kde
-from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
@@ -25,6 +24,7 @@ from .utils import (
     generate_support,
     generate_train_summary,
     mahalanobis_distance_nosq,
+    stratified_train_test_split,
 )
 
 
@@ -531,7 +531,7 @@ class EquineProtonet(Equine):
         opt_class: Callable = torch.optim.Adam,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
+    ) -> dict[str, Any]:
         """
         Train or fine-tune an EquineProtonet model.
 
@@ -574,9 +574,9 @@ class EquineProtonet(Equine):
 
         self.validate_feature_label_names(X.shape[-1], torch.unique(Y).shape[0])
 
-        train_x, calib_x, train_y, calib_y = train_test_split(
-            X, Y, test_size=calib_frac, stratify=Y
-        )  # TODO: Replace sklearn with torch call
+        train_x, calib_x, train_y, calib_y = stratified_train_test_split(
+            X, Y, test_size=calib_frac
+        )
         optimizer = opt_class(self.parameters())
 
         train_x.to(self.device)
@@ -623,7 +623,11 @@ class EquineProtonet(Equine):
 
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
-        return self.train_summary, calib_x, calib_y
+        return_dict: dict[str, Any] = dict()
+        return_dict["train_summary"] = self.train_summary
+        return_dict["calib_x"] = calib_x
+        return_dict["calib_y"] = calib_y
+        return return_dict
 
     def calibrate_temperature(
         self,
@@ -806,8 +810,8 @@ class EquineProtonet(Equine):
         None
         """
 
-        support_x, calib_x, support_y, calib_y = train_test_split(
-            support_x, support_y, test_size=calib_frac, stratify=support_y
+        support_x, calib_x, support_y, calib_y = stratified_train_test_split(
+            support_x, support_y, test_size=calib_frac
         )
         labels, counts = torch.unique(support_y, return_counts=True)
         if label_names is not None:

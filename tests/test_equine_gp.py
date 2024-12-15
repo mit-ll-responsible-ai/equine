@@ -46,12 +46,14 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    _, cal_loader = model.train_model(dataset, loss_fn, optimizer, num_epochs=10)
-    assert cal_loader is not None
-
-    model.predict(X[1:10])  # Contracts should fire asserts on errors
+    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=10)
+    assert "calibration_loader" in train_dict
+    assert train_dict["calibration_loader"] is not None
+    cal_loader = train_dict["calibration_loader"]
 
     model.calibrate_temperature(cal_loader, 1, 0.01)
+
+    model.predict(X[1:10])  # Contracts should fire asserts on errors
 
 
 @given(random_dataset=random_dataset())

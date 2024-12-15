@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, Optional
 
 import icontract
 import io
@@ -11,12 +11,11 @@ import torch
 from beartype import beartype
 from collections import OrderedDict
 from datetime import datetime
-from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_train_summary
+from .utils import generate_support, generate_train_summary, stratified_train_test_split
 
 # -------------------------------------------------------------------------------
 # Note that the below code for
@@ -419,7 +418,7 @@ class EquineGP(Equine):
         calibration_lr: float = 0.01,
         vis_support: bool = False,
         support_size: int = 25,
-    ) -> Tuple[dict[str, Any], Optional[DataLoader[Any]]]:
+    ) -> dict[str, Any]:
         """
         Train or fine-tune an EquineGP model.
 
@@ -444,8 +443,8 @@ class EquineGP(Equine):
 
         Returns
         -------
-        Tuple[dict[str, Any], DataLoader]
-            A tuple containing the training history and a dataloader for the calibration data.
+        dict[str, Any]
+            A dict containing a dict of summary stats and a dataloader for the calibration data.
 
         Notes
         -------
@@ -453,11 +452,13 @@ class EquineGP(Equine):
         - The calibration data is used to calibrate the temperature scaling.
         """
         X, Y = dataset[:]
+        calib_x = torch.Tensor()
+        calib_y = torch.Tensor()
         if self.use_temperature:
-            train_x, calib_x, train_y, calib_y = train_test_split(
-                X, Y, test_size=calib_frac, stratify=Y
-            )  # TODO: Replace sklearn with torch call
-            dataset = TensorDataset(train_x, train_y)
+            train_x, calib_x, train_y, calib_y = stratified_train_test_split(
+                X, Y, test_size=calib_frac
+            )
+            dataset = TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y))
             self.temperature = torch.Tensor(
                 self.init_temperature * torch.ones(1)
             ).type_as(self.temperature)
@@ -467,9 +468,7 @@ class EquineGP(Equine):
         train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
         )
-        self.model.set_training_params(
-            len(train_loader.sampler), train_loader.batch_size
-        )
+        self.model.set_training_params(len(dataset), train_loader.batch_size)
         self.model.train()
         for _ in tqdm(range(num_epochs)):
             self.model.reset_precision_matrix()
@@ -490,7 +489,9 @@ class EquineGP(Equine):
 
         calibration_loader = None
         if self.use_temperature:
-            dataset_calibration = TensorDataset(calib_x, calib_y)
+            dataset_calibration = TensorDataset(
+                torch.Tensor(calib_x), torch.Tensor(calib_y)
+            )
             calibration_loader = DataLoader(
                 dataset_calibration,
                 batch_size=batch_size,
@@ -505,7 +506,11 @@ class EquineGP(Equine):
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
 
-        return self.train_summary, calibration_loader
+        return_dict: dict[str, Any] = dict()
+        return_dict["train_summary"] = self.train_summary
+        return_dict["calibration_loader"] = calibration_loader
+
+        return return_dict
 
     def update_support(
         self, support_x: torch.Tensor, support_y: torch.Tensor, support_size: int

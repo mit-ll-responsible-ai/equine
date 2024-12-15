@@ -120,7 +120,9 @@ class Equine(torch.nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def train_model(self, dataset: TensorDataset, **kwargs: Any) -> dict[str, Any]:
+    def train_model(
+        self, dataset: TensorDataset, *args: Any, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Upon implementation, train the model on the given dataset.
 
@@ -134,7 +136,8 @@ class Equine(torch.nn.Module, ABC):
         Returns
         -------
         dict[str, Any]
-            Dictionary containing summary training information.
+            Dictionary containing summary training information and any other data
+            Note that at least one key should be 'train_summary'
         """
         raise NotImplementedError
 

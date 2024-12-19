@@ -7,8 +7,8 @@ from typing import Any, Optional, TypeVar
 import icontract
 import torch
 from abc import ABC, abstractmethod
-from torch.utils.data import TensorDataset
 from collections import OrderedDict
+from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput
 

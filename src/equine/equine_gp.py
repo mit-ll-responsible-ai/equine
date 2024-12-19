@@ -558,7 +558,7 @@ class EquineGP(Equine):
 
         return self.model.rff(f_reduc)
 
-    @icontract.require(lambda self: self.support is not None)
+    @icontract.require(lambda self: len(self.support) > 0)
     def compute_prototypes(self) -> torch.Tensor:
         """
         Method for computing class prototypes based on given support examples.
@@ -753,7 +753,7 @@ class EquineGP(Equine):
         eq_model.eval()
 
         support = model_save.get("support")
-        if support is not None:
+        if len(support) > 0:
             eq_model.support = support
             eq_model.prototypes = eq_model.compute_prototypes()
 

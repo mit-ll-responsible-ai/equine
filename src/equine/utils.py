@@ -453,7 +453,59 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
     return dist
 
 
-def stratified_train_test_split(X: torch.Tensor, Y: torch.Tensor, test_size: float):
+@icontract.require(
+    lambda X, Y: X.shape[0] == Y.shape[0],
+    "X and Y must have the same number of samples.",
+)
+@icontract.require(
+    lambda test_size: 0.0 < test_size < 1.0, "test_size must be between 0 and 1."
+)
+@icontract.ensure(
+    lambda result: len(result) == 4, "Function must return four elements."
+)
+@icontract.ensure(
+    lambda X, result: result[0].shape[0] + result[1].shape[0] == X.shape[0],
+    "Total samples must be preserved.",
+)
+@icontract.ensure(
+    lambda Y, result: result[2].shape[0] + result[3].shape[0] == Y.shape[0],
+    "Total labels must be preserved.",
+)
+@icontract.ensure(
+    lambda result: result[0].shape[0] == result[2].shape[0],
+    "Train features and labels must match in size.",
+)
+@icontract.ensure(
+    lambda result: result[1].shape[0] == result[3].shape[0],
+    "Test features and labels must match in size.",
+)
+@beartype
+def stratified_train_test_split(
+    X: torch.Tensor, Y: torch.Tensor, test_size: float
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    A pytorch-ified version of sklearn's train_test_split with data stratification
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        Input features tensor of shape (n_samples, n_features).
+    Y : torch.Tensor
+        Labels tensor of shape (n_samples,).
+    test_size : float
+        Proportion of the dataset to include in the test split (between 0.0 and 1.0).
+
+    Returns
+    -------
+    train_x : torch.Tensor
+        Training set features.
+    calib_x : torch.Tensor
+        Test set features.
+    train_y : torch.Tensor
+        Training set labels.
+    calib_y : torch.Tensor
+        Test set labels.
+    """
     unique_classes, class_counts = torch.unique(Y, return_counts=True)
     test_counts = (class_counts.float() * test_size).round().long()
     train_indices = []

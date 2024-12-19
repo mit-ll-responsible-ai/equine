@@ -4,9 +4,11 @@
 
 from typing import Any, Optional, TypeVar
 
+import icontract
 import torch
 from abc import ABC, abstractmethod
 from torch.utils.data import TensorDataset
+from collections import OrderedDict
 
 from .equine_output import EquineOutput
 
@@ -78,9 +80,9 @@ class Equine(torch.nn.Module, ABC):
         self.feature_names = feature_names
         self.label_names = label_names
 
-        self.support = None
-        self.support_embeddings = None
-        self.prototypes = None
+        self.support: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.prototypes: torch.Tensor = torch.Tensor()
 
     @abstractmethod
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -182,17 +184,52 @@ class Equine(torch.nn.Module, ABC):
         """
         raise NotImplementedError
 
-    def get_label_names(self):
+    def get_label_names(self) -> Optional[list[str]]:
+        """
+        Retrieve the label names used in the model.
+
+        Returns
+        -------
+        Optional[list[str]]
+            A list of label names if available; otherwise, None.
+        """
         if hasattr(self, "label_names"):
             return self.label_names
         return None
 
-    def get_feature_names(self):
+    def get_feature_names(self) -> Optional[list[str]]:
+        """
+        Retrieve the feature names used in the model.
+
+        Returns
+        -------
+        Optional[list[str]]
+            A list of feature names if available; otherwise, None.
+        """
         if hasattr(self, "feature_names"):
             return self.feature_names
         return None
 
+    @icontract.require(
+        lambda num_features, num_classes: num_features > 0 and num_classes > 0
+    )
     def validate_feature_label_names(self, num_features: int, num_classes: int) -> None:
+        """
+        Validate that the feature names and label names, if provided, match the expected counts.
+
+        Parameters
+        ----------
+        num_features : int
+            The expected number of features.
+        num_classes : int
+            The expected number of classes.
+
+        Raises
+        ------
+        ValueError
+            If the length of `feature_names` does not match `num_features`, or
+            if the length of `label_names` does not match `num_classes`.
+        """
         feature_names = self.get_feature_names()
         if feature_names is not None and len(feature_names) != num_features:
             raise ValueError(

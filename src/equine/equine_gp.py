@@ -542,7 +542,7 @@ class EquineGP(Equine):
 
         self.support = support
 
-        support_embeddings = OrderedDict().fromkeys(support.keys())
+        support_embeddings = OrderedDict().fromkeys(self.support.keys(), torch.Tensor())
         for label in support:
             support_embeddings[label] = self.compute_embeddings(support[label])
 
@@ -584,11 +584,11 @@ class EquineGP(Equine):
 
         return prototypes
 
-    @icontract.require(lambda self: self.support is not None)
+    @icontract.require(lambda self: len(self.support) > 0)
     def get_support(self):
         return self.support
 
-    @icontract.require(lambda self: self.prototypes is not None)
+    @icontract.require(lambda self: len(self.prototypes) > 0)
     def get_prototypes(self):
         return self.prototypes
 

@@ -176,7 +176,7 @@ basepython = python3.11
 deps = pyright
 
 commands = pyright src/ --level=error
-           # pyright --ignoreexternal --level=warning --verifytypes equine
+           pyright --ignoreexternal --level=warning --verifytypes equine
 
 [testenv:format]
 description = Applies auto-flake (e.g. remove unsused imports), black, and isort 

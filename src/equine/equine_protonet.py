@@ -15,7 +15,6 @@ from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
 from scipy.stats import gaussian_kde
-from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
@@ -25,6 +24,7 @@ from .utils import (
     generate_support,
     generate_train_summary,
     mahalanobis_distance_nosq,
+    stratified_train_test_split,
 )
 
 
@@ -87,7 +87,7 @@ class Protonet(torch.nn.Module):
         self.device = device
 
         self.support = None
-        # self.support_embeddings = None
+        self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
         self.model_head = self.create_model_head(emb_out_dim)
         self.model_head.to(device)
 
@@ -126,7 +126,7 @@ class Protonet(torch.nn.Module):
         head_embeddings = self.model_head(model_embeddings)
         return head_embeddings
 
-    @icontract.require(lambda self: self.support_embeddings is not None)
+    @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_prototypes(self) -> torch.Tensor:
         """
         Method for computing class prototypes based on given support examples.
@@ -140,7 +140,7 @@ class Protonet(torch.nn.Module):
         # Compute prototype for each class
         proto_list = []
         for label in self.support_embeddings:  # look at doing functorch
-            class_prototype = torch.mean(self.support_embeddings[label], dim=0)  # type: ignore
+            class_prototype = torch.mean(self.support_embeddings[label], dim=0)
             proto_list.append(class_prototype)
 
         prototypes = torch.stack(proto_list)
@@ -163,7 +163,9 @@ class Protonet(torch.nn.Module):
         torch.Tensor
             Tensor containing the generated regularized covariance matrix.
         """
-        class_cov_dict = OrderedDict().fromkeys(self.support_embeddings.keys())
+        class_cov_dict = OrderedDict().fromkeys(
+            self.support_embeddings.keys(), torch.Tensor()
+        )
         for label in self.support_embeddings.keys():
             class_covariance = self.compute_covariance_by_type(
                 cov_type, self.support_embeddings[label]
@@ -226,8 +228,6 @@ class Protonet(torch.nn.Module):
             regularization = self.epsilon * torch.ones(self.emb_out_dim).to(self.device)
         elif cov_type == CovType.UNIT:
             regularization = torch.zeros(self.emb_out_dim).to(self.device)
-        else:
-            raise ValueError("Unknown Covariance Type")
 
         if cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
@@ -375,7 +375,7 @@ class Protonet(torch.nn.Module):
         tuple[torch.Tensor, torch.Tensor]
             Tuple containing class probability predictions, and class distances from prototypes.
         """
-        if self.support is None or self.support_embeddings is None:
+        if self.support is None or len(self.support_embeddings) == 0:
             raise ValueError(
                 "No support examples found. Protonet Model requires model support to \
                     be set with the 'update_support()' method before calling forward."
@@ -400,7 +400,7 @@ class Protonet(torch.nn.Module):
         """
         self.support = support  # TODO torch.nn.ParameterDict(support)
 
-        support_embs = OrderedDict().fromkeys(support.keys())
+        support_embs = OrderedDict().fromkeys(support.keys(), torch.Tensor())
         for label in support:
             support_embs[label] = self.compute_embeddings(support[label])
 
@@ -416,14 +416,14 @@ class Protonet(torch.nn.Module):
         else:
             self.covariance = self.compute_covariance(cov_type=self.cov_type)
 
-    @icontract.require(lambda self: self.support_embeddings is not None)
+    @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_global_moments(self) -> None:
         """Method to calculate the global moments of the support embeddings for use in OOD score generation"""
         embeddings = torch.cat(list(self.support_embeddings.values()))
         self.global_covariance = torch.unsqueeze(
             self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
         )
-        global_reg_input = OrderedDict().fromkeys([0])
+        global_reg_input = OrderedDict().fromkeys([0], torch.Tensor())
         global_reg_input[0] = self.global_covariance
         self.global_covariance = self.regularize_covariance(
             global_reg_input, OOD_COV_TYPE, "epsilon"
@@ -484,7 +484,7 @@ class EquineProtonet(Equine):
         self.relative_mahal = relative_mahal
         self.emb_out_dim = emb_out_dim
         self.epsilon = DEFAULT_EPSILON
-        self.outlier_score_kde = None
+        self.outlier_score_kde: OrderedDict[int, gaussian_kde] = OrderedDict()
         self.model_summary = None
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
@@ -531,7 +531,7 @@ class EquineProtonet(Equine):
         opt_class: Callable = torch.optim.Adam,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
+    ) -> dict[str, Any]:
         """
         Train or fine-tune an EquineProtonet model.
 
@@ -574,9 +574,9 @@ class EquineProtonet(Equine):
 
         self.validate_feature_label_names(X.shape[-1], torch.unique(Y).shape[0])
 
-        train_x, calib_x, train_y, calib_y = train_test_split(
-            X, Y, test_size=calib_frac, stratify=Y
-        )  # TODO: Replace sklearn with torch call
+        train_x, calib_x, train_y, calib_y = stratified_train_test_split(
+            X, Y, test_size=calib_frac
+        )
         optimizer = opt_class(self.parameters())
 
         train_x.to(self.device)
@@ -623,7 +623,11 @@ class EquineProtonet(Equine):
 
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary = generate_train_summary(self, train_y, date_trained)
-        return self.train_summary, calib_x, calib_y
+        return_dict: dict[str, Any] = dict()
+        return_dict["train_summary"] = self.train_summary
+        return_dict["calib_x"] = calib_x
+        return_dict["calib_y"] = calib_y
+        return return_dict
 
     def calibrate_temperature(
         self,
@@ -664,7 +668,7 @@ class EquineProtonet(Equine):
             optimizer.step()
         self.temperature.requires_grad = False
 
-    @icontract.ensure(lambda self: self.model.support_embeddings is not None)
+    @icontract.ensure(lambda self: len(self.model.support_embeddings) > 0)
     def _fit_outlier_scores(
         self, ood_dists: torch.Tensor, calib_y: torch.Tensor
     ) -> None:
@@ -682,11 +686,7 @@ class EquineProtonet(Equine):
         -------
         None
         """
-        self.outlier_score_kde = OrderedDict.fromkeys(
-            self.model.support_embeddings.keys()
-        )
-
-        for label in self.outlier_score_kde:
+        for label in self.model.support_embeddings.keys():
             class_ood_dists = ood_dists[calib_y == int(label)].cpu().detach().numpy()
             class_kde = gaussian_kde(class_ood_dists)  # TODO convert to torch func
             self.outlier_score_kde[label] = class_kde
@@ -810,8 +810,8 @@ class EquineProtonet(Equine):
         None
         """
 
-        support_x, calib_x, support_y, calib_y = train_test_split(
-            support_x, support_y, test_size=calib_frac, stratify=support_y
+        support_x, calib_x, support_y, calib_y = stratified_train_test_split(
+            support_x, support_y, test_size=calib_frac
         )
         labels, counts = torch.unique(support_y, return_counts=True)
         if label_names is not None:
@@ -865,9 +865,9 @@ class EquineProtonet(Equine):
             "relative_mahal": self.relative_mahal,
         }
 
-        jit_model = torch.jit.script(self.model.embedding_model)  # type: ignore
+        jit_model = torch.jit.script(self.model.embedding_model)
         buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)  # type: ignore
+        torch.jit.save(jit_model, buffer)
         buffer.seek(0)
 
         save_data = {
@@ -900,7 +900,7 @@ class EquineProtonet(Equine):
         """
         model_save = torch.load(path)
         support = model_save.get("support")
-        jit_model = torch.jit.load(model_save.get("embed_jit_save"))  # type: ignore
+        jit_model = torch.jit.load(model_save.get("embed_jit_save"))
         eq_model = cls(jit_model, **model_save.get("settings"))
 
         eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))

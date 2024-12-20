@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple, Union
 
 import icontract
 import io
@@ -117,7 +117,7 @@ class _RandomFourierFeatures(torch.nn.Module):
         b = torch.empty(num_random_features).uniform_(0, 2 * math.pi)
         self.register_buffer("b", b)
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Compute the forward pass of the _RandomFourierFeatures module.
 
@@ -190,17 +190,17 @@ class _Laplace(torch.nn.Module):
             )
             self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)
         else:
-            self.num_gp_features = num_deep_features
+            self.num_gp_features: int = num_deep_features
             self.jl = torch.nn.Identity()
 
         self.normalize_gp_features = normalize_gp_features
         if normalize_gp_features:
-            self.normalize = torch.nn.LayerNorm(num_gp_features)
+            self.normalize: torch.nn.LayerNorm = torch.nn.LayerNorm(num_gp_features)
 
-        self.rff = _RandomFourierFeatures(
+        self.rff: _RandomFourierFeatures = _RandomFourierFeatures(
             num_gp_features, num_random_features, feature_scale
         )
-        self.beta = torch.nn.Linear(num_random_features, num_outputs)
+        self.beta: torch.nn.Linear = torch.nn.Linear(num_random_features, num_outputs)
 
         self.num_data = 0  # to be set later
         self.register_buffer("seen_data", torch.tensor(0))
@@ -212,20 +212,20 @@ class _Laplace(torch.nn.Module):
         self.register_buffer("covariance", torch.eye(num_random_features))
         self.training_parameters_set = False
 
-    def reset_precision_matrix(self):
+    def reset_precision_matrix(self) -> None:
         """
         Reset the precision matrix to the identity matrix times the ridge penalty.
         """
         identity = torch.eye(self.precision.shape[0], device=self.precision.device)
-        self.precision = identity * self.ridge_penalty
-        self.seen_data = torch.tensor(0)
+        self.precision: torch.Tensor = identity * self.ridge_penalty
+        self.seen_data: torch.Tensor = torch.tensor(0)
         self.recompute_covariance = True
 
     @icontract.require(lambda num_data: num_data > 0)
     @icontract.require(
         lambda num_data, batch_size: (0 < batch_size) & (batch_size <= num_data)
     )
-    def set_training_params(self, num_data, batch_size) -> None:
+    def set_training_params(self, num_data: int, batch_size: int) -> None:
         """
         Set the training parameters for the Laplace approximation.
 
@@ -236,12 +236,14 @@ class _Laplace(torch.nn.Module):
         batch_size : int
             The batch size to use during training.
         """
-        self.num_data = num_data
-        self.train_batch_size = batch_size
-        self.training_parameters_set = True
+        self.num_data: int = num_data
+        self.train_batch_size: int = batch_size
+        self.training_parameters_set: bool = True
 
     @icontract.require(lambda self: self.mean_field_factor is not None)
-    def mean_field_logits(self, logits, pred_cov):
+    def mean_field_logits(
+        self, logits: torch.Tensor, pred_cov: torch.Tensor
+    ) -> torch.Tensor:
         """
         Compute the mean-field logits for the Gaussian-Softmax approximation.
 
@@ -267,7 +269,9 @@ class _Laplace(torch.nn.Module):
         return logits
 
     @icontract.require(lambda self: self.training_parameters_set)
-    def forward(self, x):
+    def forward(
+        self, x: torch.Tensor
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Compute the forward pass of the Laplace approximation to the Gaussian Process.
 
@@ -316,7 +320,7 @@ class _Laplace(torch.nn.Module):
                     assert (info == 0).all(), "Precision matrix inversion failed!"
                     torch.cholesky_inverse(u, out=self.covariance)
 
-                self.recompute_covariance = False
+                self.recompute_covariance: bool = False
 
             with torch.no_grad():
                 pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
@@ -385,13 +389,13 @@ class EquineGP(Equine):
         self.num_outputs = num_classes
         self.mean_field_factor = 25
         self.ridge_penalty = 1
-        self.feature_scale = 2.0
+        self.feature_scale: float = 2.0
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
         self.register_buffer(
             "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
         )
-        self.model = _Laplace(
+        self.model: _Laplace = _Laplace(
             self.embedding_model,
             self.num_deep_features,
             self.num_gp_features,
@@ -403,7 +407,7 @@ class EquineGP(Equine):
             self.ridge_penalty,
         )
         self.device_type = device
-        self.device = torch.device(self.device_type)
+        self.device: torch.device = torch.device(self.device_type)
         self.model.to(self.device)
 
     def train_model(
@@ -459,7 +463,7 @@ class EquineGP(Equine):
                 X, Y, test_size=calib_frac
             )
             dataset = TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y))
-            self.temperature = torch.Tensor(
+            self.temperature: torch.Tensor = torch.Tensor(
                 self.init_temperature * torch.ones(1)
             ).type_as(self.temperature)
 
@@ -468,7 +472,7 @@ class EquineGP(Equine):
         train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=True
         )
-        self.model.set_training_params(len(dataset), train_loader.batch_size)
+        self.model.set_training_params(len(dataset), batch_size)
         self.model.train()
         for _ in tqdm(range(num_epochs)):
             self.model.reset_precision_matrix()
@@ -504,7 +508,9 @@ class EquineGP(Equine):
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-        self.train_summary = generate_train_summary(self, train_y, date_trained)
+        self.train_summary: dict[str, Any] = generate_train_summary(
+            self, train_y, date_trained
+        )
 
         return_dict: dict[str, Any] = dict()
         return_dict["train_summary"] = self.train_summary
@@ -547,10 +553,9 @@ class EquineGP(Equine):
             support_embeddings[label] = self.compute_embeddings(support[label])
 
         self.support_embeddings = support_embeddings
+        self.prototypes: torch.Tensor = self.compute_prototypes()
 
-        self.prototypes = self.compute_prototypes()
-
-    def compute_embeddings(self, x):
+    def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
         f = self.model.feature_extractor(x)
         f_reduc = self.model.jl(f)
         if self.model.normalize_gp_features:
@@ -585,13 +590,15 @@ class EquineGP(Equine):
         return prototypes
 
     @icontract.require(lambda self: len(self.support) > 0)
-    def get_support(self):
+    def get_support(self) -> OrderedDict[int, torch.Tensor]:
         return self.support
 
     @icontract.require(lambda self: len(self.prototypes) > 0)
-    def get_prototypes(self):
+    def get_prototypes(self) -> torch.Tensor:
         return self.prototypes
 
+    @icontract.require(lambda num_calibration_epochs: 0 < num_calibration_epochs)
+    @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
     def calibrate_temperature(
         self,
         calibration_loader: DataLoader,
@@ -721,7 +728,7 @@ class EquineGP(Equine):
 
     @classmethod
     def load(cls, path: str) -> Equine:
-        """z`
+        """
         Function to load previously saved EquineGP model.
 
         Parameters

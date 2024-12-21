@@ -17,6 +17,7 @@ from tqdm import tqdm
 from .equine import Equine, EquineOutput
 from .utils import generate_support, generate_train_summary, stratified_train_test_split
 
+BatchType = Tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
 # Note that the below code for
 # * `_random_ortho`,
@@ -188,10 +189,12 @@ class _Laplace(torch.nn.Module):
                 "random_matrix",
                 torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
             )
-            self.jl = lambda x: torch.nn.functional.linear(x, self.random_matrix)
+            self.jl: Callable = lambda x: torch.nn.functional.linear(
+                x, self.random_matrix
+            )
         else:
             self.num_gp_features: int = num_deep_features
-            self.jl = torch.nn.Identity()
+            self.jl: Callable = lambda x: x  # Identity
 
         self.normalize_gp_features = normalize_gp_features
         if normalize_gp_features:
@@ -601,7 +604,7 @@ class EquineGP(Equine):
     @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
     def calibrate_temperature(
         self,
-        calibration_loader: DataLoader,
+        calibration_loader: DataLoader[BatchType],
         num_calibration_epochs: int = 1,
         calibration_lr: float = 0.01,
     ) -> None:

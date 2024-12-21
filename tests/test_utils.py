@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import hypothesis.extra.numpy as hnp
+import icontract
 import numpy as np
 import pytest
 import torch
@@ -149,3 +150,56 @@ def test_mahalanobis():
 
     dist = eq.mahalanobis_distance_nosq(diff, cov)
     assert np.isclose(dist.numpy()[0, 0], (1 / eps) * 10 - (100) / (eps**2 + eps * 10))
+
+
+def test_stratified_split_invalid_test_size():
+    X = torch.arange(10).float().unsqueeze(1)
+    Y = torch.randint(0, 2, (10,))
+
+    with pytest.raises(
+        icontract.ViolationError, match="test_size must be between 0 and 1."
+    ):
+        eq.utils.stratified_train_test_split(X, Y, test_size=1.5)
+
+    with pytest.raises(
+        icontract.ViolationError, match="test_size must be between 0 and 1."
+    ):
+        eq.utils.stratified_train_test_split(X, Y, test_size=0)
+
+
+def test_stratified_split_mismatched_lengths():
+    X = torch.arange(10).float().unsqueeze(1)
+    Y = torch.randint(0, 2, (8,))  # Mismatched length
+
+    with pytest.raises(
+        icontract.ViolationError, match="X and Y must have the same number of samples."
+    ):
+        eq.utils.stratified_train_test_split(X, Y, test_size=0.3)
+
+
+def test_stratified_split_imbalanced_classes():
+    X = torch.arange(50).float().unsqueeze(1)
+    Y = torch.cat(
+        [torch.zeros(45, dtype=torch.long), torch.ones(5, dtype=torch.long)]
+    )  # Imbalanced
+
+    _, _, train_y, test_y = eq.utils.stratified_train_test_split(X, Y, test_size=0.2)
+
+    # Check that minority class is present in both splits
+    assert (train_y == 1).sum().item() > 0
+    assert (test_y == 1).sum().item() > 0
+
+    # Verify counts
+    total_counts = torch.tensor([(Y == cls).sum().item() for cls in torch.unique(Y)])
+    expected_test_counts = (total_counts.float() * 0.2).round().long()
+    expected_train_counts = total_counts - expected_test_counts
+
+    actual_train_counts = torch.tensor(
+        [(train_y == cls).sum().item() for cls in torch.unique(Y)]
+    )
+    actual_test_counts = torch.tensor(
+        [(test_y == cls).sum().item() for cls in torch.unique(Y)]
+    )
+
+    assert torch.all(actual_train_counts == expected_train_counts)
+    assert torch.all(actual_test_counts == expected_test_counts)

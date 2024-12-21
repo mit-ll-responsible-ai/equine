@@ -70,12 +70,31 @@ BatchType = Tuple[torch.Tensor, ...]
 
 @beartype
 def _random_ortho(n: int, m: int) -> torch.Tensor:
+    """
+     Generate a random orthonormal matrix.
+
+     Parameters
+     ----------
+     n : int
+         The number of rows.
+    m : int
+         The number of columns.
+
+     Returns
+     -------
+     torch.Tensor
+         The random orthonormal matrix.
+    """
     q, _ = torch.linalg.qr(torch.randn(n, m))
     return q
 
 
 @beartype
 class _RandomFourierFeatures(torch.nn.Module):
+    """
+    A private class to generate random Fourier features for the embedding model.
+    """
+
     def __init__(
         self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
     ) -> None:
@@ -139,6 +158,10 @@ class _RandomFourierFeatures(torch.nn.Module):
 
 
 class _Laplace(torch.nn.Module):
+    """
+    A private class to compute a Laplace approximation to a Gaussian Process (GP)
+    """
+
     def __init__(
         self,
         feature_extractor: torch.nn.Module,
@@ -152,8 +175,7 @@ class _Laplace(torch.nn.Module):
         ridge_penalty: float = 1.0,
     ) -> None:
         """
-        A private class to compute a Laplace approximation to a Gaussian Process (GP)
-        in the .
+        Initialize the _Laplace module.
 
         Parameters
         ----------
@@ -345,25 +367,6 @@ class EquineGP(Equine):
     Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides
     the `forward`, `predict`, `save`, and `load` methods required by Equine.
 
-    Parameters
-    ----------
-    embedding_model : torch.nn.Module
-        Neural Network feature embedding.
-    emb_out_dim : int
-        The number of deep features from the feature embedding.
-    num_classes : int
-        The number of output classes this model predicts.
-    use_temperature : bool, optional
-        Whether to use temperature scaling after training.
-    init_temperature : float, optional
-        What to use as the initial temperature (1.0 has no effect).
-    device : str, optional
-        Either 'cuda' or 'cpu'.
-    feature_names : list[str], optional
-        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
-    label_names : list[str], optional
-        List of strings of the names of the labels (ex ["streaming", "voip", ...])
-
     Notes
     -----
     Although this model build upon the approach in SNGP, it does not enforce the spectral normalization
@@ -382,6 +385,28 @@ class EquineGP(Equine):
         feature_names: Optional[list[str]] = None,
         label_names: Optional[list[str]] = None,
     ) -> None:
+        """
+        Initialize the EquineGP model.
+
+        Parameters
+        ----------
+        embedding_model : torch.nn.Module
+            Neural Network feature embedding.
+        emb_out_dim : int
+            The number of deep features from the feature embedding.
+        num_classes : int
+            The number of output classes this model predicts.
+        use_temperature : bool, optional
+            Whether to use temperature scaling after training.
+        init_temperature : float, optional
+            What to use as the initial temperature (1.0 has no effect).
+        device : str, optional
+            Either 'cuda' or 'cpu'.
+        feature_names : list[str], optional
+            List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
+        label_names : list[str], optional
+            List of strings of the names of the labels (ex ["streaming", "voip", ...])
+        """
         super().__init__(
             embedding_model, feature_names=feature_names, label_names=label_names
         )
@@ -559,6 +584,19 @@ class EquineGP(Equine):
         self.prototypes: torch.Tensor = self.compute_prototypes()
 
     def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Method for computing deep embeddings for given input tensor.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input tensor for generating embeddings.
+
+        Returns
+        -------
+        torch.Tensor
+            Output embeddings .
+        """
         f = self.model.feature_extractor(x)
         f_reduc = self.model.jl(f)
         if self.model.normalize_gp_features:
@@ -594,10 +632,26 @@ class EquineGP(Equine):
 
     @icontract.require(lambda self: len(self.support) > 0)
     def get_support(self) -> OrderedDict[int, torch.Tensor]:
+        """
+        Method for returning support examples used in training.
+
+        Returns
+        -------
+            OrderedDict[int, torch.Tensor]
+            Dictionary containing support examples for each class.
+        """
         return self.support
 
     @icontract.require(lambda self: len(self.prototypes) > 0)
     def get_prototypes(self) -> torch.Tensor:
+        """
+        Method for returning class prototypes.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensors of prototypes for each of the given classes in the support.
+        """
         return self.prototypes
 
     @icontract.require(lambda num_calibration_epochs: 0 < num_calibration_epochs)

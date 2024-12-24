@@ -24,7 +24,10 @@ from .equine_output import EquineOutput
 @beartype
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
-    Compute the Brier score for a multiclass problem.
+    Compute the Brier score for a multiclass problem:
+    $$ \\frac{1}{N} \\sum_{i=1}^{N} \\sum_{j=1}^{M} (f_{ij} - o_{ij})^2 , $$
+    where $f_{ij}$ is the predicted probability of class $j$ for inference sample $i$
+    and $o_{ij}$ is the one-hot encoded ground truth label.
 
     Parameters
     ----------
@@ -435,14 +438,14 @@ def generate_model_summary(
 @icontract.require(lambda cov: cov.shape[-2] == cov.shape[-1])
 def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
     """
-    Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
+    Compute Mahalanobis distance $x^T C x$ (without square root), assume cov is symmetric positive definite
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            vectors to compute distances for
-        cov : torch.Tensor
-            covariance matrix, assumes first dimension is number of classes
+    Parameters
+    ----------
+    x : torch.Tensor
+        vectors to compute distances for
+    cov : torch.Tensor
+        covariance matrix, assumes first dimension is number of classes
     """
     U, S, _ = torch.linalg.svd(cov)
     S_inv_sqrt = torch.stack(

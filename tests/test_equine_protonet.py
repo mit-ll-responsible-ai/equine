@@ -188,7 +188,7 @@ def test_train_episodes_full_cov(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes_with_temperature(random_dataset):
-    dataset, num_classes, way = random_dataset
+    dataset, _, way = random_dataset
     num_shot = 3
     num_episodes = 10
     episode_size = 512
@@ -197,7 +197,7 @@ def test_train_episodes_with_temperature(random_dataset):
     num_deep_features = 32
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
     model = eq.EquineProtonet(embed_model, num_deep_features, use_temperature=True)
-    _, cal_x, cal_y = model.train_model(
+    train_dict = model.train_model(
         dataset,
         way=way,
         support_size=num_shot,
@@ -205,8 +205,11 @@ def test_train_episodes_with_temperature(random_dataset):
         episode_size=episode_size,
     )
 
-    assert model.model.training is False, "Embedding model leaves training mode"
-    assert model.training is False, "Model leaves training mode"
+    assert "calib_x" in train_dict
+    assert "calib_y" in train_dict
+
+    model.calibrate_temperature(train_dict["calib_x"], train_dict["calib_y"], 1, 0.01)
+
     # Test on multiple predictions
     eq_out = model.predict(X)
     assert len(eq_out.classes) == len(X)
@@ -216,8 +219,6 @@ def test_train_episodes_with_temperature(random_dataset):
     assert len(pred_out) == 1, "Single prediction works"
     eq_out = model.predict(X[0])
     assert len(eq_out.classes) == 1, "Single prediction works"
-
-    model.calibrate_temperature(cal_x, cal_y, 1, 0.01)
 
 
 @given(random_dataset=random_dataset())

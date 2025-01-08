@@ -8,8 +8,12 @@ import icontract
 import torch
 from beartype import beartype
 from collections import OrderedDict
-from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
-from torchmetrics.classification import MulticlassCalibrationError
+from torchmetrics.classification import (
+    MulticlassAccuracy,
+    MulticlassCalibrationError,
+    MulticlassConfusionMatrix,
+    MulticlassF1Score,
+)
 
 from .equine import Equine
 from .equine_output import EquineOutput
@@ -20,7 +24,10 @@ from .equine_output import EquineOutput
 @beartype
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     """
-    Compute the Brier score for a multiclass problem.
+    Compute the Brier score for a multiclass problem:
+    $$ \\frac{1}{N} \\sum_{i=1}^{N} \\sum_{j=1}^{M} (f_{ij} - o_{ij})^2 , $$
+    where $f_{ij}$ is the predicted probability of class $j$ for inference sample $i$
+    and $o_{ij}$ is the one-hot encoded ground truth label.
 
     Parameters
     ----------
@@ -220,7 +227,7 @@ def generate_episode(
     support_size: int,
     way: int,
     episode_size: int,
-) -> Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]:
+) -> Tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]:
     """
     Generate a single episode of data for a few-shot learning task.
 
@@ -318,9 +325,12 @@ def generate_model_metrics(
         Dictionary of model metrics.
     """
     pred_y = torch.argmax(eq_preds.classes, dim=1)
+    accuracy = MulticlassAccuracy(num_classes=eq_preds.classes.shape[1])
+    f1_score = MulticlassF1Score(num_classes=eq_preds.classes.shape[1], average="micro")
+    confusion_matrix = MulticlassConfusionMatrix(num_classes=eq_preds.classes.shape[1])
     metrics = {
-        "accuracy": accuracy_score(true_y, pred_y),
-        "microF1Score": f1_score(true_y, pred_y, average="micro"),
+        "accuracy": accuracy(true_y, pred_y),
+        "microF1Score": f1_score(true_y, pred_y),
         "confusionMatrix": confusion_matrix(true_y, pred_y).tolist(),
         "brierScore": brier_score(eq_preds.classes, true_y),
         "brierSkillScore": brier_skill_score(eq_preds.classes, true_y),
@@ -428,14 +438,14 @@ def generate_model_summary(
 @icontract.require(lambda cov: cov.shape[-2] == cov.shape[-1])
 def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
     """
-    Compute Mahalanobis distance x^T C x (without square root), assume cov is symmetric positive definite
+    Compute Mahalanobis distance $x^T C x$ (without square root), assume cov is symmetric positive definite
 
-        Parameters
-        ----------
-        x : torch.Tensor
-            vectors to compute distances for
-        cov : torch.Tensor
-            covariance matrix, assumes first dimension is number of classes
+    Parameters
+    ----------
+    x : torch.Tensor
+        vectors to compute distances for
+    cov : torch.Tensor
+        covariance matrix, assumes first dimension is number of classes
     """
     U, S, _ = torch.linalg.svd(cov)
     S_inv_sqrt = torch.stack(
@@ -444,3 +454,80 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
     prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
     dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
     return dist
+
+
+@icontract.require(
+    lambda X, Y: X.shape[0] == Y.shape[0],
+    "X and Y must have the same number of samples.",
+)
+@icontract.require(
+    lambda test_size: 0.0 < test_size < 1.0, "test_size must be between 0 and 1."
+)
+@icontract.ensure(
+    lambda result: len(result) == 4, "Function must return four elements."
+)
+@icontract.ensure(
+    lambda X, result: result[0].shape[0] + result[1].shape[0] == X.shape[0],
+    "Total samples must be preserved.",
+)
+@icontract.ensure(
+    lambda Y, result: result[2].shape[0] + result[3].shape[0] == Y.shape[0],
+    "Total labels must be preserved.",
+)
+@icontract.ensure(
+    lambda result: result[0].shape[0] == result[2].shape[0],
+    "Train features and labels must match in size.",
+)
+@icontract.ensure(
+    lambda result: result[1].shape[0] == result[3].shape[0],
+    "Test features and labels must match in size.",
+)
+@beartype
+def stratified_train_test_split(
+    X: torch.Tensor, Y: torch.Tensor, test_size: float
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    A pytorch-ified version of sklearn's train_test_split with data stratification
+
+    Parameters
+    ----------
+    X : torch.Tensor
+        Input features tensor of shape (n_samples, n_features).
+    Y : torch.Tensor
+        Labels tensor of shape (n_samples,).
+    test_size : float
+        Proportion of the dataset to include in the test split (between 0.0 and 1.0).
+
+    Returns
+    -------
+    train_x : torch.Tensor
+        Training set features.
+    calib_x : torch.Tensor
+        Test set features.
+    train_y : torch.Tensor
+        Training set labels.
+    calib_y : torch.Tensor
+        Test set labels.
+    """
+    unique_classes, class_counts = torch.unique(Y, return_counts=True)
+    test_counts = (class_counts.float() * test_size).round().long()
+    train_indices = []
+    test_indices = []
+
+    for cls, test_count in zip(unique_classes, test_counts):
+        cls_indices = torch.where(Y == cls)[0]
+        cls_indices = cls_indices[torch.randperm(len(cls_indices))]
+        test_idx = cls_indices[:test_count]
+        train_idx = cls_indices[test_count:]
+        train_indices.append(train_idx)
+        test_indices.append(test_idx)
+
+    train_indices = torch.cat(train_indices)
+    test_indices = torch.cat(test_indices)
+
+    train_x = X[train_indices]
+    train_y = Y[train_indices]
+    calib_x = X[test_indices]
+    calib_y = Y[test_indices]
+
+    return train_x, calib_x, train_y, calib_y

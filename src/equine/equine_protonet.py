@@ -15,7 +15,6 @@ from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
 from scipy.stats import gaussian_kde
-from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
@@ -25,11 +24,16 @@ from .utils import (
     generate_support,
     generate_train_summary,
     mahalanobis_distance_nosq,
+    stratified_train_test_split,
 )
 
 
 #####################################
 class CovType(Enum):
+    """
+    Enum class for covariance types used in EQUINE.
+    """
+
     UNIT = "unit"
     DIAGONAL = "diag"
     FULL = "full"
@@ -86,12 +90,12 @@ class Protonet(torch.nn.Module):
         self.to(device)
         self.device = device
 
-        self.support = None
-        # self.support_embeddings = None
-        self.model_head = self.create_model_head(emb_out_dim)
+        self.support: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.model_head: torch.nn.Module = self.create_model_head(emb_out_dim)
         self.model_head.to(device)
 
-    def create_model_head(self, emb_out_dim: int):
+    def create_model_head(self, emb_out_dim: int) -> torch.nn.Linear:
         """
         Method for adding a PyTorch layer on top of the given embedding model. This layer
         is intended to offer extra degrees of freedom for distance learning in the embedding space.
@@ -126,7 +130,7 @@ class Protonet(torch.nn.Module):
         head_embeddings = self.model_head(model_embeddings)
         return head_embeddings
 
-    @icontract.require(lambda self: self.support_embeddings is not None)
+    @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_prototypes(self) -> torch.Tensor:
         """
         Method for computing class prototypes based on given support examples.
@@ -140,7 +144,7 @@ class Protonet(torch.nn.Module):
         # Compute prototype for each class
         proto_list = []
         for label in self.support_embeddings:  # look at doing functorch
-            class_prototype = torch.mean(self.support_embeddings[label], dim=0)  # type: ignore
+            class_prototype = torch.mean(self.support_embeddings[label], dim=0)
             proto_list.append(class_prototype)
 
         prototypes = torch.stack(proto_list)
@@ -163,7 +167,9 @@ class Protonet(torch.nn.Module):
         torch.Tensor
             Tensor containing the generated regularized covariance matrix.
         """
-        class_cov_dict = OrderedDict().fromkeys(self.support_embeddings.keys())
+        class_cov_dict = OrderedDict().fromkeys(
+            self.support_embeddings.keys(), torch.Tensor()
+        )
         for label in self.support_embeddings.keys():
             class_covariance = self.compute_covariance_by_type(
                 cov_type, self.support_embeddings[label]
@@ -180,10 +186,20 @@ class Protonet(torch.nn.Module):
     def compute_covariance_by_type(
         self, cov_type: CovType, embedding: torch.Tensor
     ) -> torch.Tensor:
-        """Method to select appropriate covariance matrix type based on cov_type
-        :param cov_type: Type of covariance to use [unit, diag, full]
-        :param embedding: embedding tensor to use when generating the covariance matrix
-        :return torch.Tensor: Tensor containing the requested covariance matrix
+        """
+        Select the appropriate covariance matrix type based on cov_type.
+
+        Parameters
+        ----------
+        cov_type : str
+            Type of covariance to use. Options are ['unit', 'diag', 'full'].
+        embedding : torch.Tensor
+            Embedding tensor to use when generating the covariance matrix.
+
+        Returns
+        -------
+        torch.Tensor
+            Tensor containing the requested covariance matrix.
         """
         if cov_type == CovType.FULL:
             class_covariance = torch.cov(embedding.T)
@@ -226,8 +242,6 @@ class Protonet(torch.nn.Module):
             regularization = self.epsilon * torch.ones(self.emb_out_dim).to(self.device)
         elif cov_type == CovType.UNIT:
             regularization = torch.zeros(self.emb_out_dim).to(self.device)
-        else:
-            raise ValueError("Unknown Covariance Type")
 
         if cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
@@ -375,7 +389,7 @@ class Protonet(torch.nn.Module):
         tuple[torch.Tensor, torch.Tensor]
             Tuple containing class probability predictions, and class distances from prototypes.
         """
-        if self.support is None or self.support_embeddings is None:
+        if len(self.support) == 0 or len(self.support_embeddings) == 0:
             raise ValueError(
                 "No support examples found. Protonet Model requires model support to \
                     be set with the 'update_support()' method before calling forward."
@@ -400,7 +414,7 @@ class Protonet(torch.nn.Module):
         """
         self.support = support  # TODO torch.nn.ParameterDict(support)
 
-        support_embs = OrderedDict().fromkeys(support.keys())
+        support_embs = OrderedDict().fromkeys(support.keys(), torch.Tensor())
         for label in support:
             support_embs[label] = self.compute_embeddings(support[label])
 
@@ -408,27 +422,31 @@ class Protonet(torch.nn.Module):
             support_embs  # TODO torch.nn.ParameterDict(support_embs)
         )
 
-        self.prototypes = self.compute_prototypes()
+        self.prototypes: torch.Tensor = self.compute_prototypes()
 
         if self.training is False:
             self.compute_global_moments()
-            self.covariance = self.compute_covariance(cov_type=PRED_COV_TYPE)
+            self.covariance: torch.Tensor = self.compute_covariance(
+                cov_type=PRED_COV_TYPE
+            )
         else:
-            self.covariance = self.compute_covariance(cov_type=self.cov_type)
+            self.covariance: torch.Tensor = self.compute_covariance(
+                cov_type=self.cov_type
+            )
 
-    @icontract.require(lambda self: self.support_embeddings is not None)
+    @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_global_moments(self) -> None:
         """Method to calculate the global moments of the support embeddings for use in OOD score generation"""
         embeddings = torch.cat(list(self.support_embeddings.values()))
         self.global_covariance = torch.unsqueeze(
             self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
         )
-        global_reg_input = OrderedDict().fromkeys([0])
+        global_reg_input = OrderedDict().fromkeys([0], torch.Tensor())
         global_reg_input[0] = self.global_covariance
-        self.global_covariance = self.regularize_covariance(
+        self.global_covariance: torch.Tensor = self.regularize_covariance(
             global_reg_input, OOD_COV_TYPE, "epsilon"
         )[0]
-        self.global_mean = torch.mean(embeddings, dim=0)
+        self.global_mean: torch.Tensor = torch.mean(embeddings, dim=0)
 
 
 ###############################################
@@ -438,32 +456,11 @@ class EquineProtonet(Equine):
     A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances
     to generate OOD and model confidence scores. This wraps any pytorch embedding neural network
     and provides the `forward`, `predict`, `save`, and `load` methods required by Equine.
-
-    Parameters
-    ----------
-    embedding_model : torch.nn.Module
-        Neural Network feature embedding model.
-    emb_out_dim : int
-        The number of output features from the embedding model.
-    cov_type : CovType, optional
-        The type of covariance to use when training the protonet [UNIT, DIAG, FULL], by default CovType.UNIT.
-    relative_mahal : bool, optional
-        Use relative mahalanobis distance for OOD calculations. If false, uses standard mahalanobis distance instead, by default True.
-    use_temperature : bool, optional
-        Whether to use temperature scaling after training, by default False.
-    init_temperature : float, optional
-        What to use as the initial temperature (1.0 has no effect), by default 1.0.
-    device : str, optional
-        The device to train the equine model on (defaults to cpu).
-    feature_names : list[str], optional
-        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
-    label_names : list[str], optional
-        List of strings of the names of the labels (ex ["streaming", "voip", ...])
     """
 
     def __init__(
         self,
-        embedding_model,
+        embedding_model: torch.nn.Module,
         emb_out_dim: int,
         cov_type: CovType = CovType.UNIT,
         relative_mahal: bool = True,
@@ -473,6 +470,30 @@ class EquineProtonet(Equine):
         feature_names: Optional[list[str]] = None,
         label_names: Optional[list[str]] = None,
     ) -> None:
+        """
+        EquineProtonet class constructor
+
+        Parameters
+        ----------
+        embedding_model : torch.nn.Module
+            Neural Network feature embedding model.
+        emb_out_dim : int
+            The number of output features from the embedding model.
+        cov_type : CovType, optional
+            The type of covariance to use when training the protonet [UNIT, DIAG, FULL], by default CovType.UNIT.
+        relative_mahal : bool, optional
+            Use relative mahalanobis distance for OOD calculations. If false, uses standard mahalanobis distance instead, by default True.
+        use_temperature : bool, optional
+            Whether to use temperature scaling after training, by default False.
+        init_temperature : float, optional
+            What to use as the initial temperature (1.0 has no effect), by default 1.0.
+        device : str, optional
+            The device to train the equine model on (defaults to cpu).
+        feature_names : list[str], optional
+            List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
+        label_names : list[str], optional
+            List of strings of the names of the labels (ex ["streaming", "voip", ...])
+        """
         super().__init__(
             embedding_model,
             device=device,
@@ -484,15 +505,15 @@ class EquineProtonet(Equine):
         self.relative_mahal = relative_mahal
         self.emb_out_dim = emb_out_dim
         self.epsilon = DEFAULT_EPSILON
-        self.outlier_score_kde = None
-        self.model_summary = None
+        self.outlier_score_kde: OrderedDict[int, gaussian_kde] = OrderedDict()
+        self.model_summary: dict[str, Any] = dict()
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
         self.register_buffer(
             "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
         )
 
-        self.model = Protonet(
+        self.model: torch.nn.Module = Protonet(
             embedding_model,
             self.emb_out_dim,
             self.cov_type,
@@ -531,7 +552,7 @@ class EquineProtonet(Equine):
         opt_class: Callable = torch.optim.Adam,
         num_calibration_epochs: int = 2,
         calibration_lr: float = 0.01,
-    ) -> tuple[dict[str, Any], torch.Tensor, torch.Tensor]:
+    ) -> dict[str, Any]:
         """
         Train or fine-tune an EquineProtonet model.
 
@@ -566,7 +587,7 @@ class EquineProtonet(Equine):
         self.train()
 
         if self.use_temperature:
-            self.temperature = torch.Tensor(
+            self.temperature: torch.Tensor = torch.Tensor(
                 self.init_temperature * torch.ones(1)
             ).type_as(self.temperature)
 
@@ -574,9 +595,9 @@ class EquineProtonet(Equine):
 
         self.validate_feature_label_names(X.shape[-1], torch.unique(Y).shape[0])
 
-        train_x, calib_x, train_y, calib_y = train_test_split(
-            X, Y, test_size=calib_frac, stratify=Y
-        )  # TODO: Replace sklearn with torch call
+        train_x, calib_x, train_y, calib_y = stratified_train_test_split(
+            X, Y, test_size=calib_frac
+        )
         optimizer = opt_class(self.parameters())
 
         train_x.to(self.device)
@@ -622,8 +643,14 @@ class EquineProtonet(Equine):
             )
 
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-        self.train_summary = generate_train_summary(self, train_y, date_trained)
-        return self.train_summary, calib_x, calib_y
+        self.train_summary: dict[str, Any] = generate_train_summary(
+            self, train_y, date_trained
+        )
+        return_dict: dict[str, Any] = dict()
+        return_dict["train_summary"] = self.train_summary
+        return_dict["calib_x"] = calib_x
+        return_dict["calib_y"] = calib_y
+        return return_dict
 
     def calibrate_temperature(
         self,
@@ -664,7 +691,7 @@ class EquineProtonet(Equine):
             optimizer.step()
         self.temperature.requires_grad = False
 
-    @icontract.ensure(lambda self: self.model.support_embeddings is not None)
+    @icontract.ensure(lambda self: len(self.model.support_embeddings) > 0)
     def _fit_outlier_scores(
         self, ood_dists: torch.Tensor, calib_y: torch.Tensor
     ) -> None:
@@ -682,11 +709,7 @@ class EquineProtonet(Equine):
         -------
         None
         """
-        self.outlier_score_kde = OrderedDict.fromkeys(
-            self.model.support_embeddings.keys()
-        )
-
-        for label in self.outlier_score_kde:
+        for label in self.model.support_embeddings.keys():
             class_ood_dists = ood_dists[calib_y == int(label)].cpu().detach().numpy()
             class_kde = gaussian_kde(class_ood_dists)  # TODO convert to torch func
             self.outlier_score_kde[label] = class_kde
@@ -810,8 +833,8 @@ class EquineProtonet(Equine):
         None
         """
 
-        support_x, calib_x, support_y, calib_y = train_test_split(
-            support_x, support_y, test_size=calib_frac, stratify=support_y
+        support_x, calib_x, support_y, calib_y = stratified_train_test_split(
+            support_x, support_y, test_size=calib_frac
         )
         labels, counts = torch.unique(support_y, return_counts=True)
         if label_names is not None:
@@ -836,12 +859,28 @@ class EquineProtonet(Equine):
 
         self._fit_outlier_scores(ood_dists, calib_y)
 
-    @icontract.require(lambda self: self.model.support is not None)
-    def get_support(self):
+    @icontract.require(lambda self: len(self.model.support) > 0)
+    def get_support(self) -> OrderedDict[int, torch.Tensor]:
+        """
+        Get the support examples for the model.
+
+        Returns
+        -------
+            OrderedDict[int, torch.Tensor]
+            The support examples for the model.
+        """
         return self.model.support
 
-    @icontract.require(lambda self: self.model.prototypes is not None)
-    def get_prototypes(self):
+    @icontract.require(lambda self: len(self.model.prototypes) > 0)
+    def get_prototypes(self) -> torch.Tensor:
+        """
+        Get the prototypes for the model (the class means of the support embeddings).
+
+        Returns
+        -------
+        torch.Tensor
+            The prototpes for the model.
+        """
         return self.model.prototypes
 
     def save(self, path: str) -> None:
@@ -865,9 +904,9 @@ class EquineProtonet(Equine):
             "relative_mahal": self.relative_mahal,
         }
 
-        jit_model = torch.jit.script(self.model.embedding_model)  # type: ignore
+        jit_model = torch.jit.script(self.model.embedding_model)
         buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)  # type: ignore
+        torch.jit.save(jit_model, buffer)
         buffer.seek(0)
 
         save_data = {
@@ -900,7 +939,7 @@ class EquineProtonet(Equine):
         """
         model_save = torch.load(path)
         support = model_save.get("support")
-        jit_model = torch.jit.load(model_save.get("embed_jit_save"))  # type: ignore
+        jit_model = torch.jit.load(model_save.get("embed_jit_save"))
         eq_model = cls(jit_model, **model_save.get("settings"))
 
         eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))

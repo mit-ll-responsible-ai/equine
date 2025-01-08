@@ -26,7 +26,6 @@ dependencies = [
         "tqdm",
         "beartype",
         "icontract",
-        "scikit-learn",  # TODO: remove dependency on train_test_split
         "scipy",         # TODO: remove dependency on gaussian_kde
 ] 
 license = { text = "MIT" }
@@ -177,7 +176,7 @@ basepython = python3.11
 deps = pyright
 
 commands = pyright src/ --level=error
-           pyright --ignoreexternal --verifytypes --level=warning equine
+           pyright --ignoreexternal --level=warning --verifytypes equine
 
 [testenv:format]
 description = Applies auto-flake (e.g. remove unsused imports), black, and isort 

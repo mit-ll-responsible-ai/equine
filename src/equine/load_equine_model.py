@@ -4,11 +4,30 @@
 
 import torch
 
+from .equine import Equine
 from .equine_gp import EquineGP
 from .equine_protonet import EquineProtonet
 
 
-def load_equine_model(model_path: str):
+def load_equine_model(model_path: str) -> Equine:
+    """
+    Attempt to load an EQUINE model from a file
+
+    Parameters
+    ----------
+    model_path : str
+        The path to the model file
+
+    Returns
+    -------
+    Equine
+        The loaded EQUINE model
+
+    Raises
+    ------
+    ValueError
+        If the model type is unknown
+    """
     model_type = torch.load(model_path)["train_summary"]["modelType"]
 
     if model_type == "EquineProtonet":

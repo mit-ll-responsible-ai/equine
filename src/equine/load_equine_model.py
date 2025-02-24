@@ -28,7 +28,9 @@ def load_equine_model(model_path: str) -> Equine:
     ValueError
         If the model type is unknown
     """
-    model_type = torch.load(model_path)["train_summary"]["modelType"]
+    model_type = torch.load(model_path, weights_only=False)["train_summary"][
+        "modelType"
+    ]
 
     if model_type == "EquineProtonet":
         model = EquineProtonet.load(model_path)

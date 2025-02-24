@@ -798,7 +798,7 @@ class EquineGP(Equine):
         EquineGP
             The reconstituted EquineGP object.
         """
-        model_save = torch.load(path)
+        model_save = torch.load(path, weights_only=False)
         jit_model = torch.jit.load(model_save.get("embed_jit_save"))
         eq_model = cls(jit_model, **model_save.get("settings"))
 

@@ -38,7 +38,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Install package
-        run: python3 -m pip install .[docs]
+        run: python3 -m pip install .[docs,tests]
 
+      - name: Generate coverage report
+        run: |
+          python -m pytest --cov=src/equine --cov-report=html:docs/coverage --cov-report=term
+          
       - name: Run mkdocs
         run: mkdocs gh-deploy --force --clean --verbose

@@ -16,6 +16,7 @@ nav:
 - Code Reference: reference/
 - Development:
    - Contributing: CONTRIBUTING.md
+   - Coverage Report: coverage/index.html
 
 theme:
   name: material

@@ -11,7 +11,7 @@
 <header>
     <div class="content">
         <h1>Coverage report:
-            <span class="pc_cov">0%</span>
+            <span class="pc_cov">97%</span>
         </h1>
         <aside id="help_panel_wrapper">
             <input id="help_panel_state" type="checkbox">
@@ -26,6 +26,8 @@
                         <kbd>s</kbd>
                         <kbd>m</kbd>
                         <kbd>x</kbd>
+                        <kbd>b</kbd>
+                        <kbd>p</kbd>
                         <kbd>c</kbd>
                         &nbsp; change column sorting
                     </p>
@@ -54,7 +56,7 @@
         </h2>
         <p class="text">
             <a class="nav" href="https://coverage.readthedocs.io/en/7.9.1">coverage.py v7.9.1</a>,
-            created at 2025-06-28 21:26 +0000
+            created at 2025-06-28 21:42 +0000
         </p>
     </div>
 </header>
@@ -66,67 +68,94 @@
                 <th id="statements" aria-sort="none" data-default-sort-order="descending" data-shortcut="s">statements<span class="arrows"></span></th>
                 <th id="missing" aria-sort="none" data-default-sort-order="descending" data-shortcut="m">missing<span class="arrows"></span></th>
                 <th id="excluded" aria-sort="none" data-default-sort-order="descending" data-shortcut="x">excluded<span class="arrows"></span></th>
+                <th id="branches" aria-sort="none" data-default-sort-order="descending" data-shortcut="b">branches<span class="arrows"></span></th>
+                <th id="partial" aria-sort="none" data-default-sort-order="descending" data-shortcut="p">partial<span class="arrows"></span></th>
                 <th id="coverage" class="right" aria-sort="none" data-shortcut="c">coverage<span class="arrows"></span></th>
             </tr>
         </thead>
         <tbody>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d___init___py.html">src/equine/__init__.py</a></td>
+                <td class="name left"><a href="z_48b9f513cfc27170___init___py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/__init__.py</a></td>
                 <td>7</td>
+                <td>0</td>
                 <td>7</td>
-                <td>7</td>
-                <td class="right" data-ratio="0 7">0%</td>
+                <td>0</td>
+                <td>0</td>
+                <td class="right" data-ratio="7 7">100%</td>
             </tr>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_equine_py.html">src/equine/equine.py</a></td>
+                <td class="name left"><a href="z_48b9f513cfc27170__version_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/_version.py</a></td>
+                <td>9</td>
+                <td>0</td>
+                <td>4</td>
+                <td>0</td>
+                <td>0</td>
+                <td class="right" data-ratio="9 9">100%</td>
+            </tr>
+            <tr class="region">
+                <td class="name left"><a href="z_48b9f513cfc27170_equine_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/equine.py</a></td>
                 <td>38</td>
-                <td>38</td>
+                <td>0</td>
                 <td>81</td>
-                <td class="right" data-ratio="0 38">0%</td>
-            </tr>
-            <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_equine_gp_py.html">src/equine/equine_gp.py</a></td>
-                <td>270</td>
-                <td>270</td>
+                <td>4</td>
                 <td>0</td>
-                <td class="right" data-ratio="0 270">0%</td>
+                <td class="right" data-ratio="42 42">100%</td>
             </tr>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_equine_output_py.html">src/equine/equine_output.py</a></td>
-                <td>7</td>
+                <td class="name left"><a href="z_48b9f513cfc27170_equine_gp_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/equine_gp.py</a></td>
+                <td>270</td>
+                <td>5</td>
+                <td>0</td>
+                <td>52</td>
+                <td>8</td>
+                <td class="right" data-ratio="309 322">96%</td>
+            </tr>
+            <tr class="region">
+                <td class="name left"><a href="z_48b9f513cfc27170_equine_output_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/equine_output.py</a></td>
                 <td>7</td>
                 <td>0</td>
-                <td class="right" data-ratio="0 7">0%</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td class="right" data-ratio="7 7">100%</td>
             </tr>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_equine_protonet_py.html">src/equine/equine_protonet.py</a></td>
+                <td class="name left"><a href="z_48b9f513cfc27170_equine_protonet_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/equine_protonet.py</a></td>
                 <td>297</td>
-                <td>297</td>
+                <td>6</td>
                 <td>3</td>
-                <td class="right" data-ratio="0 297">0%</td>
+                <td>60</td>
+                <td>5</td>
+                <td class="right" data-ratio="344 357">96%</td>
             </tr>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_load_equine_model_py.html">src/equine/load_equine_model.py</a></td>
+                <td class="name left"><a href="z_48b9f513cfc27170_load_equine_model_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/load_equine_model.py</a></td>
                 <td>11</td>
-                <td>11</td>
+                <td>0</td>
                 <td>1</td>
-                <td class="right" data-ratio="0 11">0%</td>
+                <td>2</td>
+                <td>0</td>
+                <td class="right" data-ratio="13 13">100%</td>
             </tr>
             <tr class="region">
-                <td class="name left"><a href="z_25e814848c54336d_utils_py.html">src/equine/utils.py</a></td>
+                <td class="name left"><a href="z_48b9f513cfc27170_utils_py.html">/opt/hostedtoolcache/Python/3.10.18/x64/lib/python3.10/site-packages/equine/utils.py</a></td>
                 <td>163</td>
-                <td>163</td>
+                <td>0</td>
                 <td>3</td>
-                <td class="right" data-ratio="0 163">0%</td>
+                <td>16</td>
+                <td>0</td>
+                <td class="right" data-ratio="179 179">100%</td>
             </tr>
         </tbody>
         <tfoot>
             <tr class="total">
                 <td class="name left">Total</td>
-                <td>793</td>
-                <td>793</td>
-                <td>95</td>
-                <td class="right" data-ratio="0 793">0%</td>
+                <td>802</td>
+                <td>11</td>
+                <td>99</td>
+                <td>134</td>
+                <td>13</td>
+                <td class="right" data-ratio="910 936">97%</td>
             </tr>
         </tfoot>
     </table>
@@ -138,12 +167,12 @@
     <div class="content">
         <p>
             <a class="nav" href="https://coverage.readthedocs.io/en/7.9.1">coverage.py v7.9.1</a>,
-            created at 2025-06-28 21:26 +0000
+            created at 2025-06-28 21:42 +0000
         </p>
     </div>
     <aside class="hidden">
-        <a id="prevFileLink" class="nav" href="z_25e814848c54336d_utils_py.html"></a>
-        <a id="nextFileLink" class="nav" href="z_25e814848c54336d___init___py.html"></a>
+        <a id="prevFileLink" class="nav" href="z_48b9f513cfc27170_utils_py.html"></a>
+        <a id="nextFileLink" class="nav" href="z_48b9f513cfc27170___init___py.html"></a>
         <button type="button" class="button_prev_file" data-shortcut="["></button>
         <button type="button" class="button_next_file" data-shortcut="]"></button>
         <button type="button" class="button_show_hide_help" data-shortcut="?"></button>

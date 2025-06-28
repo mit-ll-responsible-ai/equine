@@ -42,7 +42,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          python -m pytest --cov=src/equine --cov-report=html:docs/coverage --cov-report=term --cov-config=pyproject.toml tests
+          python -m pytest --cov=equine --cov-report=html:docs/coverage --cov-report=term --cov-config=pyproject.toml tests -v
         env:
           JUPYTER_PLATFORM_DIRS: 1
           

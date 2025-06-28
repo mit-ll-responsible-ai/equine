@@ -955,6 +955,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#continuous-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Continuous Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       Documentation
@@ -1036,6 +1045,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#continuous-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Continuous Integration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       Documentation
@@ -1088,11 +1106,19 @@ We currently support python versions &gt;= 3.9</p>
 <span class="go">pre-commit run</span>
 </code></pre></div></p>
 </li>
+<li>
+<p>For local testing, install tox (<code>pip install tox</code>)</p>
+</li>
 </ol>
 <p>We prefer that any contributed code be outfitted with contracts from <code>icontract</code> and tested with <code>hypothesis</code>. 
 This combination frequently means that the tests require few (if any) actual post-checks -- if the contracts are
 well-written, then <code>hypothesis</code> can generate reasonable tests that will explore the bounds of the contracts
 for each method.  Assuming that tests pass, then make a pull request. </p>
+<h2 id="continuous-integration">Continuous Integration<a class="headerlink" href="#continuous-integration" title="Permanent link">¤</a></h2>
+<p>There are a number of Github Actions enabled to ensure high code quality upon commiting. 
+* Tests must be added and all tests must pass (100%) before closing a pull request
+* Total coverage should be 97% or higher
+* We enforce a code style via <code>black</code>, <code>isort</code>, and <code>codespell</code>. If formatting issues are found, <code>tox -e format</code> usually fixes them automatically.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">¤</a></h2>
 <p>In the <a href="https://github.com/mit-ll-responsible-ai">MIT-LL Responsible AI GitHub organization</a>, we use the numpy/scipy format for docstrings.</p>
 <p>We use <a href="https://www.mkdocs.org">mkdocs</a> to build our documentation and autodocumented API. 

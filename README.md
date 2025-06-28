@@ -4,7 +4,7 @@
 [![PyPi](https://img.shields.io/pypi/v/equine.svg)](https://pypi.org/project/equine/)
 [![Build Status](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml/badge.svg?branch=main)](https://github.com/mit-ll-responsible-ai/equine/actions/workflows/Tests.yml)
 ![python_passing_tests](https://img.shields.io/badge/Tests%20Passed-100%25-green)
-![python_coverage](https://img.shields.io/badge/Coverage-98%25-green)
+[![python_coverage](https://img.shields.io/badge/Coverage-97%25-green)](https://mit-ll-responsible-ai.github.io/equine/coverage/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tested with Hypothesis](https://img.shields.io/badge/hypothesis-tested-brightgreen.svg)](https://hypothesis.readthedocs.io/)
 [![DOI](https://zenodo.org/badge/653796804.svg)](https://zenodo.org/badge/latestdoi/653796804)
@@ -20,7 +20,7 @@ test data belongs to any known labels.
 EQUINE was created to simplify two kinds of uncertainty quantification for supervised labeling problems:
 1) Calibrated probabilities for each predicted label
 2) An in-distribution score, indicating whether any of the model's known labels should be trusted.
-
+ 
 Dive into our [documentation examples](https://mit-ll-responsible-ai.github.io/equine/)
 to get started. Additionally, we provide a [companion web application](https://github.com/mit-ll-responsible-ai/equine-webapp).
 

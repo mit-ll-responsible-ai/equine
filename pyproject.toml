@@ -20,13 +20,16 @@ description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-        "torch >= 1.10.0, <= 2.5.1",
+        "torch >= 1.10.0, <= 2.5.1 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
+        "torch >= 2.0.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
         "torchmetrics >= 0.6.0",
-        "numpy >= 1.22.0, <= 2.2.4",
+        "numpy >= 1.22.0, < 2.0.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+        "numpy >= 1.22.0, <= 2.2.4 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
         "tqdm",
         "beartype",
         "icontract",
-        "scipy",         # TODO: remove dependency on gaussian_kde
+        "scipy < 1.14.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+        "scipy ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
 ] 
 license = { text = "MIT" }
 keywords = ["machine learning", "robustness", "pytorch", "responsible", "AI"]
@@ -42,6 +45,7 @@ classifiers = [
 [project.optional-dependencies]
 tests = [
     "pytest >= 3.8",
+    "pytest-cov",
     "hypothesis >= 6.105.0, < 6.132.0",
     "pre-commit >= 2.19",
     "codespell"
@@ -89,9 +93,9 @@ known_standard_library = "typing"
 line_length = 88
 include_trailing_comma = true
 
-[tool.pytest]
-addopts = "--cov=equine --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=100 --durations=0"
-testpaths = "tests"
+[tool.pytest.ini_options]
+addopts = "--durations=0"
+testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
@@ -149,9 +153,13 @@ description = Runs test suite parallelized in the specified python enviornment a
               parallelization disabled.
 passenv = *
 deps = pytest
+       pytest-cov
        hypothesis
        pytest-xdist
        tzdata
+       numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
+       numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
+       torch>=2.0.0
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 
@@ -164,6 +172,9 @@ basepython = python3.11
 deps = {[testenv]deps}
        coverage[toml]
        pytest-cov
+       numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
+       numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
+       torch>=2.0.0
 commands = pytest --cov-report term-missing --cov-config=pyproject.toml --cov-fail-under=97 --cov=equine tests {posargs: -n auto --maxprocesses=4}
 
 
@@ -174,6 +185,9 @@ description = Ensure that the equine source code and test suite scan clean
 usedevelop = true
 basepython = python3.11
 deps = pyright
+       numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
+       numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
+       torch>=2.0.0
 
 commands = pyright src/ --level=error
            pyright --ignoreexternal --level=warning --verifytypes equine

@@ -77,6 +77,8 @@ jobs:
         pip install tox tox-gh-actions
     - name: Test with tox
       run: tox -e docs
+      env:
+        JUPYTER_PLATFORM_DIRS: 1
 
   run-pyright:
         runs-on: ubuntu-latest

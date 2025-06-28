@@ -45,6 +45,7 @@ classifiers = [
 [project.optional-dependencies]
 tests = [
     "pytest >= 3.8",
+    "pytest-cov",
     "hypothesis >= 6.105.0, < 6.132.0",
     "pre-commit >= 2.19",
     "codespell"
@@ -152,6 +153,7 @@ description = Runs test suite parallelized in the specified python enviornment a
               parallelization disabled.
 passenv = *
 deps = pytest
+       pytest-cov
        hypothesis
        pytest-xdist
        tzdata

@@ -1354,8 +1354,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
               <details class="quote">
                 <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">363</span>
-<span class="normal">364</span>
+                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">364</span>
 <span class="normal">365</span>
 <span class="normal">366</span>
 <span class="normal">367</span>
@@ -1815,7 +1814,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">821</span>
 <span class="normal">822</span>
 <span class="normal">823</span>
-<span class="normal">824</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">824</span>
+<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An example of an EQUINE model that builds upon the approach in &quot;Spectral Norm</span>
@@ -2451,8 +2451,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">377</span>
-<span class="normal">378</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">378</span>
 <span class="normal">379</span>
 <span class="normal">380</span>
 <span class="normal">381</span>
@@ -2513,7 +2512,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">436</span>
 <span class="normal">437</span>
 <span class="normal">438</span>
-<span class="normal">439</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">439</span>
+<span class="normal">440</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
     <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -2661,8 +2661,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">657</span>
-<span class="normal">658</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">658</span>
 <span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
@@ -2695,7 +2694,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">688</span>
 <span class="normal">689</span>
 <span class="normal">690</span>
-<span class="normal">691</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">num_calibration_epochs</span><span class="p">)</span>
+<span class="normal">691</span>
+<span class="normal">692</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">num_calibration_epochs</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calibration_lr</span><span class="p">:</span> <span class="n">calibration_lr</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
@@ -2806,8 +2806,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">586</span>
-<span class="normal">587</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">587</span>
 <span class="normal">588</span>
 <span class="normal">589</span>
 <span class="normal">590</span>
@@ -2825,7 +2824,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">602</span>
 <span class="normal">603</span>
 <span class="normal">604</span>
-<span class="normal">605</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="normal">605</span>
+<span class="normal">606</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method for computing deep embeddings for given input tensor.</span>
 
@@ -2891,8 +2891,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">607</span>
-<span class="normal">608</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">608</span>
 <span class="normal">609</span>
 <span class="normal">610</span>
 <span class="normal">611</span>
@@ -2915,7 +2914,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">628</span>
 <span class="normal">629</span>
 <span class="normal">630</span>
-<span class="normal">631</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">631</span>
+<span class="normal">632</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method for computing class prototypes based on given support examples.</span>
@@ -3016,8 +3016,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">693</span>
-<span class="normal">694</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">694</span>
 <span class="normal">695</span>
 <span class="normal">696</span>
 <span class="normal">697</span>
@@ -3032,7 +3031,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">706</span>
 <span class="normal">707</span>
 <span class="normal">708</span>
-<span class="normal">709</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="normal">709</span>
+<span class="normal">710</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    EquineGP forward function, generates logits for classification.</span>
 
@@ -3094,8 +3094,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">645</span>
-<span class="normal">646</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">646</span>
 <span class="normal">647</span>
 <span class="normal">648</span>
 <span class="normal">649</span>
@@ -3104,7 +3103,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">652</span>
 <span class="normal">653</span>
 <span class="normal">654</span>
-<span class="normal">655</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">655</span>
+<span class="normal">656</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method for returning class prototypes.</span>
@@ -3160,8 +3160,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">633</span>
-<span class="normal">634</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">634</span>
 <span class="normal">635</span>
 <span class="normal">636</span>
 <span class="normal">637</span>
@@ -3170,7 +3169,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">640</span>
 <span class="normal">641</span>
 <span class="normal">642</span>
-<span class="normal">643</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">643</span>
+<span class="normal">644</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method for returning support examples used in training.</span>
@@ -3261,8 +3261,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">786</span>
-<span class="normal">787</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">787</span>
 <span class="normal">788</span>
 <span class="normal">789</span>
 <span class="normal">790</span>
@@ -3299,7 +3298,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">821</span>
 <span class="normal">822</span>
 <span class="normal">823</span>
-<span class="normal">824</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">824</span>
+<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to load previously saved EquineGP model.</span>
@@ -3419,8 +3419,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">711</span>
-<span class="normal">712</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">712</span>
 <span class="normal">713</span>
 <span class="normal">714</span>
 <span class="normal">715</span>
@@ -3448,7 +3447,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">737</span>
 <span class="normal">738</span>
 <span class="normal">739</span>
-<span class="normal">740</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
+<span class="normal">740</span>
+<span class="normal">741</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">((</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
@@ -3531,8 +3531,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">742</span>
-<span class="normal">743</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">743</span>
 <span class="normal">744</span>
 <span class="normal">745</span>
 <span class="normal">746</span>
@@ -3573,7 +3572,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">781</span>
 <span class="normal">782</span>
 <span class="normal">783</span>
-<span class="normal">784</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">784</span>
+<span class="normal">785</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to save all model parameters to a file.</span>
 
@@ -3668,7 +3668,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
                 <code>loss_fn</code>
             </td>
             <td>
-                  <code><span title="typing.Callable">Callable</span></code>
+                  <code><span title="collections.abc.Callable">Callable</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3812,8 +3812,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">441</span>
-<span class="normal">442</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">442</span>
 <span class="normal">443</span>
 <span class="normal">444</span>
 <span class="normal">445</span>
@@ -3918,7 +3917,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">544</span>
 <span class="normal">545</span>
 <span class="normal">546</span>
-<span class="normal">547</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
+<span class="normal">547</span>
+<span class="normal">548</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="n">TensorDataset</span><span class="p">,</span>
     <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
@@ -4117,8 +4117,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="quote">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">549</span>
-<span class="normal">550</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">550</span>
 <span class="normal">551</span>
 <span class="normal">552</span>
 <span class="normal">553</span>
@@ -4152,7 +4151,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">581</span>
 <span class="normal">582</span>
 <span class="normal">583</span>
-<span class="normal">584</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
+<span class="normal">584</span>
+<span class="normal">585</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">support_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to update protonet support examples with given examples.</span>

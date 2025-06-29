@@ -136,7 +136,7 @@ legacy_tox_ini = """
 
 [tox]
 isolated_build = True
-envlist = py39, py310, py311, py312
+envlist = py39, py310, py311, py312, py313
 
 [gh-actions]
 python =
@@ -144,12 +144,13 @@ python =
   3.10: py310
   3.11: py311
   3.12: py312
+  3.13: py313
 
 
 [testenv]
-description = Runs test suite parallelized in the specified python enviornment and 
+description = Runs test suite parallelized in the specified python environment and 
               against number of available processes (up to 4). 
-              Run `tox -e py39 -- -n 0` to run tests in a python 3.9 with 
+              Run `tox -e py311 -- -n 0` to run tests in a python 3.11 with 
               parallelization disabled.
 passenv = *
 deps = pytest

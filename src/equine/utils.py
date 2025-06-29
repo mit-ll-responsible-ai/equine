@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, List, Tuple, Union
+from typing import Any, Union
 
 import icontract
 import torch
@@ -107,7 +107,7 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
 )
 @beartype
 def _get_shuffle_idxs_by_class(
-    train_y: torch.Tensor, selected_labels: List
+    train_y: torch.Tensor, selected_labels: list
 ) -> dict[Any, torch.Tensor]:
     """
     Internal helper function to randomly select indices of example classes for a given
@@ -117,8 +117,8 @@ def _get_shuffle_idxs_by_class(
     ----------
     train_y : torch.Tensor
         Label data.
-    selected_labels : List
-        List of unique labels found in the label data.
+    selected_labels : list
+        list of unique labels found in the label data.
 
     Returns
     -------
@@ -160,7 +160,7 @@ def generate_support(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
     support_size: int,
-    selected_labels: List[Any],
+    selected_labels: list[Any],
     shuffled_indexes: Union[None, dict[Any, torch.Tensor]] = None,
 ) -> OrderedDict[int, torch.Tensor]:
     """
@@ -175,7 +175,7 @@ def generate_support(
         Corresponding classification labels.
     support_size : int
         Number of support examples for each class.
-    selected_labels : List
+    selected_labels : list
         Selected class labels to generate examples from.
     shuffled_indexes: Union[None, dict[Any, torch.Tensor]], optional
         Simply use the precomputed indexes if they are available
@@ -227,7 +227,7 @@ def generate_episode(
     support_size: int,
     way: int,
     episode_size: int,
-) -> Tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]:
+) -> tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]:
     """
     Generate a single episode of data for a few-shot learning task.
 
@@ -246,8 +246,8 @@ def generate_episode(
 
     Returns
     -------
-    Tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
-        Tuple of support examples, query examples, and query labels.
+    tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
+        tuple of support examples, query examples, and query labels.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
     if way > len(labels):
@@ -347,7 +347,7 @@ def generate_model_metrics(
 )
 @icontract.ensure(lambda result: all(d["numExamples"] >= 0 for d in result))
 @beartype
-def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
+def get_num_examples_per_label(Y: torch.Tensor) -> list[dict[str, Any]]:
     """
     Get the number of examples per label in the given tensor.
 
@@ -358,8 +358,8 @@ def get_num_examples_per_label(Y: torch.Tensor) -> List[dict[str, Any]]:
 
     Returns
     -------
-    List[dict[str, Any]]
-        List of dictionaries containing label and number of examples.
+    list[dict[str, Any]]
+        list of dictionaries containing label and number of examples.
     """
     tensor_labels, tensor_counts = Y.unique(return_counts=True)
 
@@ -485,7 +485,7 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
 @beartype
 def stratified_train_test_split(
     X: torch.Tensor, Y: torch.Tensor, test_size: float
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     A pytorch-ified version of sklearn's train_test_split with data stratification
 

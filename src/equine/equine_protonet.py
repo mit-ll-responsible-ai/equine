@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import icontract
 import io
@@ -12,6 +12,7 @@ import torch
 import warnings
 from beartype import beartype
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from scipy.stats import gaussian_kde
@@ -387,7 +388,7 @@ class Protonet(torch.nn.Module):
         Returns
         -------
         tuple[torch.Tensor, torch.Tensor]
-            Tuple containing class probability predictions, and class distances from prototypes.
+            tuple containing class probability predictions, and class distances from prototypes.
         """
         if len(self.support) == 0 or len(self.support_embeddings) == 0:
             raise ValueError(

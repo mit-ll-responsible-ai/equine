@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import icontract
 import io
@@ -10,6 +10,7 @@ import math
 import torch
 from beartype import beartype
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import datetime
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
@@ -17,7 +18,7 @@ from tqdm import tqdm
 from .equine import Equine, EquineOutput
 from .utils import generate_support, generate_train_summary, stratified_train_test_split
 
-BatchType = Tuple[torch.Tensor, ...]
+BatchType = tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
 # Note that the below code for
 # * `_random_ortho`,
@@ -296,7 +297,7 @@ class _Laplace(torch.nn.Module):
     @icontract.require(lambda self: self.training_parameters_set)
     def forward(
         self, x: torch.Tensor
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """
         Compute the forward pass of the Laplace approximation to the Gaussian Process.
 
@@ -307,7 +308,7 @@ class _Laplace(torch.nn.Module):
 
         Returns
         -------
-        Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+        Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]
             If the model is in training mode, returns the predicted mean of shape (batch_size, 1).
             If the model is in evaluation mode, returns a tuple containing the predicted mean of shape (batch_size, 1)
             and the predicted covariance matrix of shape (batch_size, batch_size).

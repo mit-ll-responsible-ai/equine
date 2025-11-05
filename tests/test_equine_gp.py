@@ -26,7 +26,7 @@ def test_equine_gp_train_from_scratch(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
+    _ = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
 
@@ -51,6 +51,7 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
 
+
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
 def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
@@ -65,11 +66,14 @@ def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
         weight_decay=0.0001,
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2)
-    train_dict = model.train_model(dataset, loss_fn, optimizer, scheduler=scheduler, num_epochs=5)
+    train_dict = model.train_model(
+        dataset, loss_fn, optimizer, scheduler=scheduler, num_epochs=5
+    )
     assert "train_summary" in train_dict
     assert np.isclose(scheduler.get_last_lr()[0], 0.00001)
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
+
 
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
@@ -84,13 +88,19 @@ def test_equine_gp_train_from_scratch_with_validation(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    train_dict = model.train_model(dataset, loss_fn, optimizer, 
-                                   validation_dataset=dataset, 
-                                   val_metrics=[torchmetrics.classification.MulticlassAccuracy(num_classes),
-                                                torchmetrics.classification.MulticlassCalibrationError(num_classes)],
-                                                  num_epochs=2)
-    print(train_dict["val_metrics"])
-    model.predict(X[1:10])  # Contracts should fire asserts on errors    
+    _ = model.train_model(
+        dataset,
+        loss_fn,
+        optimizer,
+        validation_dataset=dataset,
+        val_metrics=[
+            torchmetrics.classification.MulticlassAccuracy(num_classes),
+            torchmetrics.classification.MulticlassCalibrationError(num_classes),
+        ],
+        num_epochs=2,
+    )
+    model.predict(X[1:10])  # Contracts should fire asserts on errors
+
 
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=2)

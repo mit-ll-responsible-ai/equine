@@ -12,12 +12,12 @@ from beartype import beartype
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from torch.utils.data import DataLoader, TensorDataset, Dataset
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import torchmetrics
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_train_summary, stratified_train_test_split
+from .utils import generate_support, generate_train_summary
 
 BatchType = tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
@@ -486,7 +486,10 @@ class EquineGP(Equine):
         )
         if validation_dataset is not None:
             val_loader = DataLoader(
-                validation_dataset, batch_size=batch_size, shuffle=False, drop_last=False
+                validation_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                drop_last=False,
             )
 
         self.model.set_training_params(len(dataset), batch_size)
@@ -646,7 +649,7 @@ class EquineGP(Equine):
     @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
     def calibrate_model(
         self,
-        dataset : torch.utils.data.Dataset,
+        dataset: torch.utils.data.Dataset,
         num_calibration_epochs: int = 1,
         calibration_lr: float = 0.01,
         calibration_batch_size: int = 256,

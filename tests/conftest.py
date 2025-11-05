@@ -12,7 +12,7 @@ import equine as eq
 
 
 class BasicEmbeddingModel(torch.nn.Module):
-    def __init__(self, tensor_dim, num_classes):
+    def __init__(self, tensor_dim: int, num_classes: int) -> None:
         super(BasicEmbeddingModel, self).__init__()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(tensor_dim, 32),
@@ -22,7 +22,7 @@ class BasicEmbeddingModel(torch.nn.Module):
             torch.nn.Linear(32, num_classes),
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         logits = self.linear_relu_stack(x)
         return logits
 

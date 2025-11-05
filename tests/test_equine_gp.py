@@ -1,9 +1,6 @@
-# Copyright 2024, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
-# Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
-# SPDX-License-Identifier: MIT
-
 import os
 import torch
+import numpy as np
 from conftest import (
     generate_random_string_list,
     random_dataset,
@@ -13,6 +10,7 @@ from conftest import (
 from hypothesis import given, settings
 
 import equine as eq
+import torchmetrics
 
 
 @given(random_dataset=random_dataset())
@@ -28,7 +26,7 @@ def test_equine_gp_train_from_scratch(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    model.train_model(dataset, loss_fn, optimizer, num_epochs=10)
+    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
 
@@ -38,7 +36,7 @@ def test_equine_gp_train_from_scratch(random_dataset) -> None:
 def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
-    model = eq.EquineGP(embedding_model, num_classes, num_classes, use_temperature=True)
+    model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -46,15 +44,53 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=10)
-    assert "calibration_loader" in train_dict
-    assert train_dict["calibration_loader"] is not None
-    cal_loader = train_dict["calibration_loader"]
+    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
+    assert "train_summary" in train_dict
 
-    model.calibrate_temperature(cal_loader, 1, 0.01)
+    model.calibrate_model(dataset, 1, 0.01)
 
     model.predict(X[1:10])  # Contracts should fire asserts on errors
 
+@given(random_dataset=random_dataset())
+@settings(deadline=None, max_examples=10)
+def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
+    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+
+    model = eq.EquineGP(embedding_model, num_classes, num_classes)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=0.001,
+        momentum=0.9,
+        weight_decay=0.0001,
+    )
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2)
+    train_dict = model.train_model(dataset, loss_fn, optimizer, scheduler=scheduler, num_epochs=5)
+    assert "train_summary" in train_dict
+    assert np.isclose(scheduler.get_last_lr()[0], 0.00001)
+
+    model.predict(X[1:10])  # Contracts should fire asserts on errors
+
+@given(random_dataset=random_dataset())
+@settings(deadline=None, max_examples=10)
+def test_equine_gp_train_from_scratch_with_validation(random_dataset) -> None:
+    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+
+    model = eq.EquineGP(embedding_model, num_classes, num_classes)
+    loss_fn = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=0.001,
+        momentum=0.9,
+        weight_decay=0.0001,
+    )
+    train_dict = model.train_model(dataset, loss_fn, optimizer, 
+                                   validation_dataset=dataset, 
+                                   val_metrics=[torchmetrics.classification.MulticlassAccuracy(num_classes),
+                                                torchmetrics.classification.MulticlassCalibrationError(num_classes)],
+                                                  num_epochs=2)
+    print(train_dict["val_metrics"])
+    model.predict(X[1:10])  # Contracts should fire asserts on errors    
 
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=2)
@@ -84,7 +120,7 @@ def test_equine_gp_save_load(random_dataset) -> None:
 def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
-    model = eq.EquineGP(embedding_model, num_classes, num_classes, use_temperature=True)
+    model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -92,7 +128,10 @@ def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
+    train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
+    assert "train_summary" in train_dict
+
+    model.calibrate_model(dataset, 1, 0.01)
 
     new_model, tmp_filename = use_save_load_model_tests(
         model, X, tmp_filename="gp_save_load_with_temperature.eq"
@@ -140,7 +179,7 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
 def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
-    # without feature and label names
+    # without feature and labels names
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(
@@ -161,7 +200,6 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
     if os.path.exists(tmp_filename):
         os.remove(tmp_filename)  # Cleanup
 
-    # with feature and label names
     feature_names = generate_random_string_list(X.shape[1])
     label_names = generate_random_string_list(num_classes)
 

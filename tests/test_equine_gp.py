@@ -1,6 +1,7 @@
+import numpy as np
 import os
 import torch
-import numpy as np
+import torchmetrics
 from conftest import (
     generate_random_string_list,
     random_dataset,
@@ -10,7 +11,6 @@ from conftest import (
 from hypothesis import given, settings
 
 import equine as eq
-import torchmetrics
 
 
 @given(random_dataset=random_dataset())

@@ -8,13 +8,13 @@ import icontract
 import io
 import math
 import torch
+import torchmetrics
 from beartype import beartype
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-import torchmetrics
 
 from .equine import Equine, EquineOutput
 from .utils import generate_support, generate_train_summary

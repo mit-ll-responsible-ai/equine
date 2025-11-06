@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Protocol
 
 import icontract
 import io
@@ -20,6 +20,12 @@ from .equine import Equine, EquineOutput
 from .utils import generate_support, generate_train_summary
 
 BatchType = tuple[torch.Tensor, ...]
+
+
+class DatasetProtocol(Protocol):
+    def __len__(self) -> int: ...
+
+
 # -------------------------------------------------------------------------------
 # Note that the below code for
 # * `_random_ortho`,
@@ -441,7 +447,7 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: Dataset,
+        dataset: DatasetProtocol,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,

@@ -119,7 +119,7 @@ class _RandomFourierFeatures(torch.nn.Module):
         self.register_buffer("feature_scale", torch.tensor(feature_scale))
 
         if num_random_features <= in_dim:
-            W = _random_ortho(in_dim, num_random_features)
+            W: torch.Tensor = _random_ortho(in_dim, num_random_features)
         else:
             # generate blocks of orthonormal rows which are not necessarily orthonormal
             # to each other.
@@ -129,13 +129,14 @@ class _RandomFourierFeatures(torch.nn.Module):
                 ws.append(_random_ortho(in_dim, in_dim))
                 dim_left -= in_dim
             ws.append(_random_ortho(in_dim, dim_left))
-            W = torch.cat(ws, 1)
+            W: torch.Tensor = torch.cat(ws, 1)
 
         feature_norm = torch.randn(W.shape) ** 2
+
         W = W * feature_norm.sum(0).sqrt()
         self.register_buffer("W", W)
 
-        b = torch.empty(num_random_features).uniform_(0, 2 * math.pi)
+        b: torch.Tensor = torch.empty(num_random_features).uniform_(0, 2 * math.pi)
         self.register_buffer("b", b)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -208,10 +209,10 @@ class _Laplace(torch.nn.Module):
 
         if num_gp_features > 0:
             self.num_gp_features = num_gp_features
-            self.register_buffer(
-                "random_matrix",
-                torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
+            random_matrix: torch.Tensor = torch.normal(
+                0, 0.05, (num_gp_features, num_deep_features)
             )
+            self.register_buffer("random_matrix", random_matrix)
             self.jl: Callable = lambda x: torch.nn.functional.linear(
                 x, self.random_matrix
             )
@@ -266,9 +267,9 @@ class _Laplace(torch.nn.Module):
         self.train_batch_size: int = batch_size
         self.training_parameters_set: bool = True
 
-    @icontract.require(lambda self: self.mean_field_factor is not None)
+    @icontract.require(lambda mean_field_factor: mean_field_factor is not None)
     def mean_field_logits(
-        self, logits: torch.Tensor, pred_cov: torch.Tensor
+        self, logits: torch.Tensor, pred_cov: torch.Tensor, mean_field_factor: float
     ) -> torch.Tensor:
         """
         Compute the mean-field logits for the Gaussian-Softmax approximation.
@@ -279,6 +280,8 @@ class _Laplace(torch.nn.Module):
             The logits tensor of shape (batch_size, num_outputs).
         pred_cov : torch.Tensor
             The predicted covariance matrix of shape (batch_size, batch_size).
+        mean_field_factor : float
+            Diagonal scaling factor
 
         Returns
         -------
@@ -288,8 +291,8 @@ class _Laplace(torch.nn.Module):
         # Mean-Field approximation as alternative to MC integration of Gaussian-Softmax
         # Based on: https://arxiv.org/abs/2006.07584
 
-        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * self.mean_field_factor)
-        if self.mean_field_factor > 0:  # type: ignore
+        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * mean_field_factor)
+        if mean_field_factor > 0:
             logits = logits / logits_scale.unsqueeze(-1)
 
         return logits
@@ -354,7 +357,7 @@ class _Laplace(torch.nn.Module):
             if self.mean_field_factor is None:
                 return pred, pred_cov
             else:
-                pred = self.mean_field_logits(pred, pred_cov)
+                pred = self.mean_field_logits(pred, pred_cov, self.mean_field_factor)
 
         return pred
 

@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Optional, Protocol, Union, runtime_checkable
+from typing import Any, Optional, Tuple, Union
 
 import icontract
 import io
@@ -22,16 +22,17 @@ from .utils import generate_support, generate_train_summary
 BatchType = tuple[torch.Tensor, ...]
 
 
-@runtime_checkable
-class DatasetProtocol(Protocol):
-    def __len__(self) -> int: ...
+class TensorDatasetWrapper(Dataset):
+    def __init__(self, tensors: Tuple[torch.Tensor, torch.Tensor]) -> None:
+        self.tensors = tensors
+
+    def __len__(self) -> int:
+        return len(self.tensors[0])
 
     def __getitem__(
         self, index: Union[int, slice]
-    ) -> Union[tuple[torch.Tensor, torch.Tensor], "DatasetProtocol"]: ...
-
-    @property
-    def tensors(self) -> tuple[torch.Tensor, torch.Tensor]: ...
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        return self.tensors[0][index], self.tensors[1][index]
 
 
 # -------------------------------------------------------------------------------
@@ -455,7 +456,7 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: DatasetProtocol,
+        dataset: TensorDatasetWrapper,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,

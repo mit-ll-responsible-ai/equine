@@ -23,8 +23,12 @@ BatchType = tuple[torch.Tensor, ...]
 
 
 @runtime_checkable
-class DatasetProtocol(Dataset, Protocol):
+class DatasetProtocol(Protocol):
     def __len__(self) -> int: ...
+
+    def __getitem__(
+        self, index: Union[int, slice]
+    ) -> Union[tuple[torch.Tensor, torch.Tensor], "DatasetProtocol"]: ...
 
     @property
     def tensors(self) -> tuple[torch.Tensor, torch.Tensor]: ...

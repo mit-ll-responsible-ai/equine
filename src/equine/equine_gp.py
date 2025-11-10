@@ -2,7 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Optional, Union, Protocol
+from typing import Any, Optional, Union, Protocol, runtime_checkable
 
 import icontract
 import io
@@ -22,6 +22,7 @@ from .utils import generate_support, generate_train_summary
 BatchType = tuple[torch.Tensor, ...]
 
 
+@runtime_checkable
 class DatasetProtocol(Protocol):
     def __len__(self) -> int: ...
 

@@ -2,39 +2,24 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import icontract
 import io
 import math
 import torch
-import torchmetrics
 from beartype import beartype
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
 from torch.utils.data import DataLoader, Dataset
+from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
 from .utils import generate_support, generate_train_summary
 
 BatchType = tuple[torch.Tensor, ...]
-
-
-class TensorDatasetWrapper(Dataset):
-    def __init__(self, tensors: Tuple[torch.Tensor, torch.Tensor]) -> None:
-        self.tensors = tensors
-
-    def __len__(self) -> int:
-        return len(self.tensors[0])
-
-    def __getitem__(
-        self, index: Union[int, slice]
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
-        return self.tensors[0][index], self.tensors[1][index]
-
-
 # -------------------------------------------------------------------------------
 # Note that the below code for
 # * `_random_ortho`,
@@ -456,14 +441,14 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: TensorDatasetWrapper,
+        dataset: Dataset,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
-        scheduler: torch.optim.lr_scheduler.LRScheduler = None,
+        scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None,
         batch_size: int = 64,
-        validation_dataset: Dataset = None,
-        val_metrics: Iterable[torchmetrics.metric.Metric] = None,
+        validation_dataset: Optional[Dataset] = None,
+        val_metrics: Optional[Iterable[Metric]] = None,
         vis_support: bool = False,
         support_size: int = 25,
     ) -> dict[str, Any]:
@@ -499,6 +484,8 @@ class EquineGP(Equine):
         train_loader = DataLoader(
             dataset, batch_size=batch_size, shuffle=True, drop_last=False
         )
+
+        val_loader: Optional[DataLoader] = None
         if validation_dataset is not None:
             val_loader = DataLoader(
                 validation_dataset,
@@ -508,8 +495,11 @@ class EquineGP(Equine):
             )
 
         self.model.set_training_params(len(dataset), batch_size)
-        if validation_dataset is not None:
-            val_metrics_outputs = [[] for i in range(len(val_metrics))]
+        val_metrics_outputs: Optional[list[list[float]]] = None
+
+        if validation_dataset is not None and val_metrics is not None:
+            val_metrics_outputs = [[] for i in range(len(list(val_metrics)))]
+
         for _ in tqdm(range(num_epochs)):
             self.model.train()
             self.model.reset_precision_matrix()
@@ -527,8 +517,13 @@ class EquineGP(Equine):
                 scheduler.step()
             self.model.eval()
             # compute the validation metrics
-            if validation_dataset is not None:
-                for j, (xs_val, labels_val) in enumerate(val_loader):
+            if (
+                validation_dataset is not None
+                and val_loader is not None
+                and val_metrics is not None
+                and val_metrics_outputs is not None
+            ):
+                for _, (xs_val, labels_val) in enumerate(val_loader):
                     xs_val = xs_val.to(self.device)
                     labels_val = labels_val.to(self.device)
                     yhats_val = self.model(xs_val)

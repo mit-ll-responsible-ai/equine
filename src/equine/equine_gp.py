@@ -10,13 +10,14 @@ import math
 import torch
 from beartype import beartype
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader, Dataset
+from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_train_summary, stratified_train_test_split
+from .utils import generate_support, generate_train_summary
 
 BatchType = tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
@@ -383,7 +384,7 @@ class EquineGP(Equine):
         embedding_model: torch.nn.Module,
         emb_out_dim: int,
         num_classes: int,
-        use_temperature: bool = False,
+        num_random_features: int = 1024,
         init_temperature: float = 1.0,
         device: str = "cpu",
         feature_names: Optional[list[str]] = None,
@@ -400,8 +401,8 @@ class EquineGP(Equine):
             The number of deep features from the feature embedding.
         num_classes : int
             The number of output classes this model predicts.
-        use_temperature : bool, optional
-            Whether to use temperature scaling after training.
+        num_random_features : int
+            The dimension of the output of the RandomFourierFeatures operation
         init_temperature : float, optional
             What to use as the initial temperature (1.0 has no effect).
         device : str, optional
@@ -417,12 +418,11 @@ class EquineGP(Equine):
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
         self.normalize_gp_features = True
-        self.num_random_features = 1024
+        self.num_random_features = num_random_features
         self.num_outputs = num_classes
         self.mean_field_factor = 25
         self.ridge_penalty = 1
         self.feature_scale: float = 2.0
-        self.use_temperature = use_temperature
         self.init_temperature = init_temperature
         self.register_buffer(
             "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
@@ -444,14 +444,14 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: TensorDataset,
+        dataset: Dataset,
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
+        scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None,
         batch_size: int = 64,
-        calib_frac: float = 0.1,
-        num_calibration_epochs: int = 2,
-        calibration_lr: float = 0.01,
+        validation_dataset: Optional[Dataset] = None,
+        val_metrics: Optional[Iterable[Metric]] = None,
         vis_support: bool = False,
         support_size: int = 25,
     ) -> dict[str, Any]:
@@ -468,45 +468,43 @@ class EquineGP(Equine):
             A pytorch optimizer, e.g., torch.optim.Adam().
         num_epochs : int
             The desired number of epochs to use for training.
+        scheduler : torch.optim.LRScheduler
+            A pytorch scheduler, if one is desired
+        validation_dataset: Dataset
+            If provided, will compute validation metrics on this dataset after each epoch of training
         batch_size : int, optional
             The number of samples to use per batch.
-        calib_frac : float, optional
-            Fraction of training data to use in temperature scaling.
-        num_calibration_epochs : int, optional
-            The desired number of epochs to use for temperature scaling.
-        calibration_lr : float, optional
-            Learning rate for temperature scaling.
 
         Returns
         -------
         dict[str, Any]
             A dict containing a dict of summary stats and a dataloader for the calibration data.
 
-        Notes
-        -------
-        - If `use_temperature` is True, temperature scaling will be used after training.
-        - The calibration data is used to calibrate the temperature scaling.
         """
-        X, Y = dataset[:]
-        calib_x = torch.Tensor()
-        calib_y = torch.Tensor()
-        if self.use_temperature:
-            train_x, calib_x, train_y, calib_y = stratified_train_test_split(
-                X, Y, test_size=calib_frac
-            )
-            dataset = TensorDataset(torch.Tensor(train_x), torch.Tensor(train_y))
-            self.temperature: torch.Tensor = torch.Tensor(
-                self.init_temperature * torch.ones(1)
-            ).type_as(self.temperature)
 
-        self.validate_feature_label_names(X.shape[-1], self.num_outputs)
+        self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
 
         train_loader = DataLoader(
-            dataset, batch_size=batch_size, shuffle=True, drop_last=True
+            dataset, batch_size=batch_size, shuffle=True, drop_last=False
         )
+
+        val_loader: Optional[DataLoader] = None
+        if validation_dataset is not None:
+            val_loader = DataLoader(
+                validation_dataset,
+                batch_size=batch_size,
+                shuffle=False,
+                drop_last=False,
+            )
+
         self.model.set_training_params(len(dataset), batch_size)
-        self.model.train()
+        val_metrics_outputs: Optional[list[list[float]]] = None
+
+        if validation_dataset is not None and val_metrics is not None:
+            val_metrics_outputs = [[] for i in range(len(list(val_metrics)))]
+
         for _ in tqdm(range(num_epochs)):
+            self.model.train()
             self.model.reset_precision_matrix()
             epoch_loss = 0.0
             for i, (xs, labels) in enumerate(train_loader):
@@ -518,25 +516,26 @@ class EquineGP(Equine):
                 loss.backward()
                 opt.step()
                 epoch_loss += loss.item()
-        self.model.eval()
-
+            if scheduler is not None:
+                scheduler.step()
+            self.model.eval()
+            # compute the validation metrics
+            if (
+                validation_dataset is not None
+                and val_loader is not None
+                and val_metrics is not None
+                and val_metrics_outputs is not None
+            ):
+                for _, (xs_val, labels_val) in enumerate(val_loader):
+                    xs_val = xs_val.to(self.device)
+                    labels_val = labels_val.to(self.device)
+                    yhats_val = self.model(xs_val)
+                    for metric in val_metrics:
+                        metric.update(yhats_val, labels_val)
+                for i, metric in enumerate(val_metrics):
+                    val_metrics_outputs[i].append(metric.compute())
         if vis_support:
             self.update_support(dataset.tensors[0], dataset.tensors[1], support_size)
-
-        calibration_loader = None
-        if self.use_temperature:
-            dataset_calibration = TensorDataset(
-                torch.Tensor(calib_x), torch.Tensor(calib_y)
-            )
-            calibration_loader = DataLoader(
-                dataset_calibration,
-                batch_size=batch_size,
-                shuffle=True,
-                drop_last=False,
-            )
-            self.calibrate_temperature(
-                calibration_loader, num_calibration_epochs, calibration_lr
-            )
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -546,7 +545,8 @@ class EquineGP(Equine):
 
         return_dict: dict[str, Any] = dict()
         return_dict["train_summary"] = self.train_summary
-        return_dict["calibration_loader"] = calibration_loader
+        if validation_dataset is not None:
+            return_dict["val_metrics"] = val_metrics_outputs
 
         return return_dict
 
@@ -660,24 +660,33 @@ class EquineGP(Equine):
 
     @icontract.require(lambda num_calibration_epochs: 0 < num_calibration_epochs)
     @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
-    def calibrate_temperature(
+    def calibrate_model(
         self,
-        calibration_loader: DataLoader[BatchType],
+        dataset: torch.utils.data.Dataset,
         num_calibration_epochs: int = 1,
         calibration_lr: float = 0.01,
+        calibration_batch_size: int = 256,
     ) -> None:
         """
         Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.
 
         Parameters
         ----------
-        calibration_loader : DataLoader
-            Data loader returned by train_model.
+        dataset : TensorDataset
+            An iterable, pytorch TensorDataset.
         num_calibration_epochs : int, optional
             Number of epochs to tune temperature.
         calibration_lr : float, optional
             Learning rate for temperature optimization.
         """
+
+        calibration_loader = DataLoader(
+            dataset,
+            batch_size=calibration_batch_size,
+            shuffle=True,
+            drop_last=False,
+        )
+
         self.temperature.requires_grad = True
         loss_fn = torch.nn.functional.cross_entropy
         optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
@@ -755,7 +764,6 @@ class EquineGP(Equine):
         model_settings = {
             "emb_out_dim": self.num_deep_features,
             "num_classes": self.num_outputs,
-            "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
             "device": self.device_type,
         }

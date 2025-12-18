@@ -20,11 +20,11 @@ description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-        "torch >= 1.10.0, <= 2.5.1 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+        "torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
         "torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
         "torchmetrics >= 0.6.0",
-        "numpy >= 1.22.0, < 3.0.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
-        "numpy >= 1.22.0, <= 2.2.4 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
+        "numpy >= 1.22.0, < 2.0.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+        "numpy >= 1.22.0, <= 2.3.5 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
         "tqdm",
         "beartype",
         "icontract",
@@ -159,8 +159,9 @@ deps = pytest
        pytest-xdist
        tzdata
        numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
-       numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
-       torch>=2.0.0
+       numpy 
+       torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'
+       torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 

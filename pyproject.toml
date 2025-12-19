@@ -18,10 +18,10 @@ maintainers = [
 ]
 description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
         "torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
-        "torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
+        "torch >= 2.0.0, <= 2.9.1 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
         "torchmetrics >= 0.6.0",
         "numpy >= 1.22.0, < 2.0.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
         "numpy >= 1.22.0, <= 2.3.5 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
@@ -136,21 +136,21 @@ legacy_tox_ini = """
 
 [tox]
 isolated_build = True
-envlist = py39, py310, py311, py312, py313
+envlist = py310, py311, py312, py313, py314
 
 [gh-actions]
 python =
-  3.9: py39
   3.10: py310
   3.11: py311
   3.12: py312
   3.13: py313
+  3.14: py314
 
 
 [testenv]
 description = Runs test suite parallelized in the specified python environment and 
               against number of available processes (up to 4). 
-              Run `tox -e py311 -- -n 0` to run tests in a python 3.11 with 
+              Run `tox -e py312 -- -n 0` to run tests in a python 3.12 with 
               parallelization disabled.
 passenv = *
 deps = pytest
@@ -161,7 +161,7 @@ deps = pytest
        numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
        numpy 
        torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'
-       torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'
+       torch >= 2.0.0, <= 2.9.1 ; platform_machine != 'x86_64' or sys_platform != 'darwin'
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 
@@ -170,7 +170,7 @@ description = Runs test suite and measures test-coverage. Fails if coverage is
               below 97 percent. Run `tox -e coverage -- -n 0` to disable parallelization.
 setenv = NUMBA_DISABLE_JIT=1
 usedevelop = true
-basepython = python3.11
+basepython = python3.12
 deps = {[testenv]deps}
        coverage[toml]
        pytest-cov
@@ -185,7 +185,7 @@ description = Ensure that the equine source code and test suite scan clean
               under pyright and that the public API has a 100 percent
               type-completeness score.
 usedevelop = true
-basepython = python3.11
+basepython = python3.12
 deps = pyright
        numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
        numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
@@ -212,7 +212,7 @@ commands =
 description = Ensures that source materials code and docs and test suite adhere to 
               formatting and code-quality standards.
 skip_install=true
-basepython=python3.11
+basepython=python3.12
 deps=black
      isort
      Flake8-pyproject
@@ -226,7 +226,7 @@ commands=
 [testenv:docs]
 description = Uses mkdocs to generate html for the docs. Stores the
               results in `.tox/docs/build/html/`.
-basepython=python3.11
+basepython=python3.12
 deps=[docs]
 commands=
     mkdocs build --clean --strict

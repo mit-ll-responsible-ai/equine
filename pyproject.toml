@@ -46,7 +46,7 @@ classifiers = [
 tests = [
     "pytest >= 3.8",
     "pytest-cov",
-    "hypothesis >= 6.105.0, < 6.142.0",
+    "hypothesis >= 6.105.0, < 6.150.0",
     "pre-commit >= 2.19",
     "codespell"
 ]

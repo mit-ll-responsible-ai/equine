@@ -28,7 +28,7 @@ dependencies = [
         "tqdm",
         "beartype",
         "icontract",
-        "scipy < 1.14.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
+        "scipy < 1.17.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
         "scipy ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
 ] 
 license = { text = "MIT" }

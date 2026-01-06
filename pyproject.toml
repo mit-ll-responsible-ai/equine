@@ -21,7 +21,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
         "torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
-        "torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
+        "torch >= 2.0.0, < 2.10.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
         "torchmetrics >= 0.6.0",
         "numpy >= 1.22.0, < 2.0.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'",
         "numpy >= 1.22.0, <= 2.3.5 ; platform_machine != 'x86_64' or sys_platform != 'darwin'",
@@ -161,7 +161,7 @@ deps = pytest
        numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
        numpy 
        torch >= 1.10.0, < 2.3.0 ; platform_machine == 'x86_64' and sys_platform == 'darwin'
-       torch >= 2.0.0, < 2.9.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'
+       torch >= 2.0.0, < 2.10.0 ; platform_machine != 'x86_64' or sys_platform != 'darwin'
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 

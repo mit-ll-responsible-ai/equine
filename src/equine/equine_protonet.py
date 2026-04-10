@@ -111,7 +111,7 @@ class Protonet(torch.nn.Module):
         torch.nn.Linear
             The created PyTorch model layer.
         """
-        return torch.nn.Identity()#(emb_out_dim, emb_out_dim)
+        return torch.nn.Identity()  # (emb_out_dim, emb_out_dim)
 
     def compute_embeddings(self, X: torch.Tensor) -> torch.Tensor:
         """

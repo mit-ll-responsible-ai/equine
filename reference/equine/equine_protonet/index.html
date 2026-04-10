@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
@@ -2686,7 +2686,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="c1"># Use KDE and RMD corresponding to the predicted class</span>
             <span class="n">predicted_class</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">predictions</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:]))</span>
             <span class="n">p_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">predicted_class</span><span class="p">)]</span><span class="o">.</span><span class="n">integrate_box_1d</span><span class="p">(</span>
-                <span class="n">ood_dists</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+                <span class="n">ood_dists</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span>
             <span class="p">)</span>
             <span class="n">ood_scores</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">p_value</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
 
@@ -5234,7 +5234,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_model_head</span><span class="p">(</span><span class="n">emb_out_dim</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method for adding a PyTorch layer on top of the given embedding model. This layer</span>
 <span class="sd">        is intended to offer extra degrees of freedom for distance learning in the embedding space.</span>
@@ -5249,7 +5249,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        torch.nn.Linear</span>
 <span class="sd">            The created PyTorch model layer.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>  <span class="c1"># (emb_out_dim, emb_out_dim)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -6900,7 +6900,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="normal">111</span>
 <span class="normal">112</span>
 <span class="normal">113</span>
-<span class="normal">114</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">:</span>
+<span class="normal">114</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Method for adding a PyTorch layer on top of the given embedding model. This layer</span>
 <span class="sd">    is intended to offer extra degrees of freedom for distance learning in the embedding space.</span>
@@ -6915,7 +6915,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="sd">    torch.nn.Linear</span>
 <span class="sd">        The created PyTorch model layer.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>  <span class="c1"># (emb_out_dim, emb_out_dim)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

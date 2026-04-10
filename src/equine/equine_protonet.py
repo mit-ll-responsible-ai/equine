@@ -96,7 +96,7 @@ class Protonet(torch.nn.Module):
         self.model_head: torch.nn.Module = self.create_model_head(emb_out_dim)
         self.model_head.to(device)
 
-    def create_model_head(self, emb_out_dim: int) -> torch.nn.Linear:
+    def create_model_head(self, emb_out_dim: int) -> torch.nn.Identity:
         """
         Method for adding a PyTorch layer on top of the given embedding model. This layer
         is intended to offer extra degrees of freedom for distance learning in the embedding space.
@@ -111,7 +111,7 @@ class Protonet(torch.nn.Module):
         torch.nn.Linear
             The created PyTorch model layer.
         """
-        return torch.nn.Linear(emb_out_dim, emb_out_dim)
+        return torch.nn.Identity()  # (emb_out_dim, emb_out_dim)
 
     def compute_embeddings(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -736,7 +736,7 @@ class EquineProtonet(Equine):
             # Use KDE and RMD corresponding to the predicted class
             predicted_class = int(torch.argmax(predictions[i, :]))
             p_value = self.outlier_score_kde[int(predicted_class)].integrate_box_1d(
-                ood_dists[i].detach().numpy(), np.inf
+                ood_dists[i].detach().cpu().numpy(), np.inf
             )
             ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
 

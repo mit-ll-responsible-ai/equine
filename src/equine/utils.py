@@ -41,7 +41,7 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     float
         Brier score.
     """
-    (_, num_classes) = y_hat.size()
+    _, num_classes = y_hat.size()
     one_hot_y_test = torch.nn.functional.one_hot(y_test.long(), num_classes=num_classes)
     bs = torch.mean(torch.sum((y_hat - one_hot_y_test) ** 2, dim=1)).item()
     return bs
@@ -66,7 +66,7 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     float
         Brier skill score.
     """
-    (_, num_classes) = y_hat.size()
+    _, num_classes = y_hat.size()
     random_guess = (1.0 / num_classes) * torch.ones(y_hat.size())
     bs0 = brier_score(random_guess, y_test)
     bs1 = brier_score(y_hat, y_test)
@@ -93,7 +93,7 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     float
         Expected calibration error.
     """
-    (_, num_classes) = y_hat.size()
+    _, num_classes = y_hat.size()
     metric = MulticlassCalibrationError(num_classes=num_classes, n_bins=25, norm="l1")
     ece = metric(y_hat, y_test).item()
     return ece

@@ -903,6 +903,7 @@ class EquineProtonet(Equine):
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
             "relative_mahal": self.relative_mahal,
+            "device": self.device,
         }
 
         jit_model = torch.jit.script(self.model.embedding_model)
@@ -924,7 +925,7 @@ class EquineProtonet(Equine):
         torch.save(save_data, path)  # TODO allow model checkpointing
 
     @classmethod
-    def load(cls, path: str) -> Equine:  # noqa: F821
+    def load(cls, path: str, device: Optional[str] = None) -> Equine:
         """
         Load a previously saved EquineProtonet model.
 
@@ -933,15 +934,30 @@ class EquineProtonet(Equine):
         path : str
             The filename of the saved model.
 
+        device : Optional[str]
+            The device to load the model onto
+
         Returns
         -------
         EquineProtonet
             The reconstituted EquineProtonet object.
         """
-        model_save = torch.load(path, weights_only=False)
+
+        # Added map_location so internal tensors map to the correct device
+        model_save = torch.load(path, map_location=device, weights_only=False)
         support = model_save.get("support")
-        jit_model = torch.jit.load(model_save.get("embed_jit_save"))
-        eq_model = cls(jit_model, **model_save.get("settings"))
+        
+        # Explicitly pass map_location for the jit_model as well
+        buffer = model_save.get("embed_jit_save")
+        buffer.seek(0)
+        jit_model = torch.jit.load(buffer, map_location=device)
+        
+        settings = model_save.get("settings")
+        # Allow the user to override the saved device state dynamically
+        if device is not None:
+            settings["device"] = device
+        
+        eq_model = cls(jit_model, **settings)
 
         eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))
         eq_model.eval()

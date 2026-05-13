@@ -946,17 +946,17 @@ class EquineProtonet(Equine):
         # Added map_location so internal tensors map to the correct device
         model_save = torch.load(path, map_location=device, weights_only=False)
         support = model_save.get("support")
-        
+
         # Explicitly pass map_location for the jit_model as well
         buffer = model_save.get("embed_jit_save")
         buffer.seek(0)
         jit_model = torch.jit.load(buffer, map_location=device)
-        
+
         settings = model_save.get("settings")
         # Allow the user to override the saved device state dynamically
         if device is not None:
             settings["device"] = device
-        
+
         eq_model = cls(jit_model, **settings)
 
         eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))

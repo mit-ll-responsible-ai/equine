@@ -764,6 +764,7 @@ class EquineGP(Equine):
         model_settings = {
             "emb_out_dim": self.num_deep_features,
             "num_classes": self.num_outputs,
+            "num_random_features": self.num_random_features,
             "init_temperature": self.temperature.item(),
             "device": self.device_type,
         }

@@ -2010,7 +2010,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An example of an EQUINE model that builds upon the approach in &quot;Spectral Norm</span>
@@ -2409,6 +2410,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
             <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+            <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
             <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
             <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
         <span class="p">}</span>
@@ -3480,8 +3482,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">798</span>
-<span class="normal">799</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">799</span>
 <span class="normal">800</span>
 <span class="normal">801</span>
 <span class="normal">802</span>
@@ -3518,7 +3519,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to load previously saved EquineGP model.</span>
@@ -3791,7 +3793,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">793</span>
 <span class="normal">794</span>
 <span class="normal">795</span>
-<span class="normal">796</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">796</span>
+<span class="normal">797</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to save all model parameters to a file.</span>
 
@@ -3803,6 +3806,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
         <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+        <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
         <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
         <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
     <span class="p">}</span>

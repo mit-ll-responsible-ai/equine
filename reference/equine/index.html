@@ -3864,7 +3864,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    An example of an EQUINE model that builds upon the approach in &quot;Spectral Norm</span>
@@ -4263,6 +4264,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
             <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+            <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
             <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
             <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
         <span class="p">}</span>
@@ -5334,8 +5336,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">798</span>
-<span class="normal">799</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">799</span>
 <span class="normal">800</span>
 <span class="normal">801</span>
 <span class="normal">802</span>
@@ -5372,7 +5373,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to load previously saved EquineGP model.</span>
@@ -5645,7 +5647,8 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">793</span>
 <span class="normal">794</span>
 <span class="normal">795</span>
-<span class="normal">796</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">796</span>
+<span class="normal">797</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Function to save all model parameters to a file.</span>
 
@@ -5657,6 +5660,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
         <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+        <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
         <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
         <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
     <span class="p">}</span>
@@ -6916,7 +6920,23 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">952</span>
 <span class="normal">953</span>
 <span class="normal">954</span>
-<span class="normal">955</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">955</span>
+<span class="normal">956</span>
+<span class="normal">957</span>
+<span class="normal">958</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
@@ -7368,6 +7388,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="s2">&quot;use_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
             <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
             <span class="s2">&quot;relative_mahal&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
+            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">)</span>
@@ -7389,7 +7410,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>  <span class="c1"># noqa: F821</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Load a previously saved EquineProtonet model.</span>
 
@@ -7398,15 +7419,30 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        path : str</span>
 <span class="sd">            The filename of the saved model.</span>
 
+<span class="sd">        device : Optional[str]</span>
+<span class="sd">            The device to load the model onto</span>
+
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        EquineProtonet</span>
 <span class="sd">            The reconstituted EquineProtonet object.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># Added map_location so internal tensors map to the correct device</span>
+        <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
-        <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">))</span>
-        <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">))</span>
+
+        <span class="c1"># Explicitly pass map_location for the jit_model as well</span>
+        <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">)</span>
+        <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
+        <span class="c1"># Allow the user to override the saved device state dynamically</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
+
+        <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">settings</span><span class="p">)</span>
 
         <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_head_save&quot;</span><span class="p">))</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
@@ -8182,7 +8218,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h3 id="equine.EquineProtonet.load" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -8223,6 +8259,22 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The device to load the model onto</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -8252,8 +8304,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">926</span>
-<span class="normal">927</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">927</span>
 <span class="normal">928</span>
 <span class="normal">929</span>
 <span class="normal">930</span>
@@ -8281,8 +8332,24 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">952</span>
 <span class="normal">953</span>
 <span class="normal">954</span>
-<span class="normal">955</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>  <span class="c1"># noqa: F821</span>
+<span class="normal">955</span>
+<span class="normal">956</span>
+<span class="normal">957</span>
+<span class="normal">958</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load a previously saved EquineProtonet model.</span>
 
@@ -8291,15 +8358,30 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    path : str</span>
 <span class="sd">        The filename of the saved model.</span>
 
+<span class="sd">    device : Optional[str]</span>
+<span class="sd">        The device to load the model onto</span>
+
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    EquineProtonet</span>
 <span class="sd">        The reconstituted EquineProtonet object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Added map_location so internal tensors map to the correct device</span>
+    <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
-    <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">))</span>
-    <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Explicitly pass map_location for the jit_model as well</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">)</span>
+    <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
+    <span class="c1"># Allow the user to override the saved device state dynamically</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
+
+    <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">settings</span><span class="p">)</span>
 
     <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_head_save&quot;</span><span class="p">))</span>
     <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
@@ -8556,7 +8638,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">921</span>
 <span class="normal">922</span>
 <span class="normal">923</span>
-<span class="normal">924</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">924</span>
+<span class="normal">925</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
@@ -8575,6 +8658,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="s2">&quot;use_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
         <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
         <span class="s2">&quot;relative_mahal&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
+        <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">)</span>

@@ -92,9 +92,7 @@ def draw_two_tensors(draw: st.DrawFn) -> tuple[torch.Tensor, torch.Tensor]:
 def test_brier_score(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.brier_score(yh, yt) >= 0.0
-    yt = (
-        yt.int()
-    )  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
+    yt = yt.int()  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
     assert eq.utils.brier_score(yh, yt) >= 0.0
 
 
@@ -102,9 +100,7 @@ def test_brier_score(two_tensors) -> None:
 def test_brier_skill_score(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.brier_skill_score(yh, yt) <= 1.0
-    yt = (
-        yt.int()
-    )  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
+    yt = yt.int()  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
     assert eq.utils.brier_skill_score(yh, yt) <= 1.0
 
 

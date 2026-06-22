@@ -2,12 +2,12 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Optional, TypeVar
 
 import icontract
 import torch
-from abc import ABC, abstractmethod
-from collections import OrderedDict
 from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput

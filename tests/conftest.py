@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 
 import os
-import torch
-from hypothesis import strategies as st
 from random import choice
 from string import ascii_lowercase, digits
+
+import torch
+from hypothesis import strategies as st
 
 import equine as eq
 

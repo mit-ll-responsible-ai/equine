@@ -2,6 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 import os
+
 import pytest
 import torch
 from conftest import (
@@ -84,13 +85,13 @@ def test_train_episodes(random_dataset):
     assert len(eq_out.classes) == 1, "Single prediction works"
 
     support = model.get_support()
-    assert (
-        support is not None and len(support) == num_classes
-    ), "Support set is correct size"
+    assert support is not None and len(support) == num_classes, (
+        "Support set is correct size"
+    )
     prototypes = model.get_prototypes()
-    assert (
-        prototypes is not None and len(prototypes) == num_classes
-    ), "Prototypes set is correct size"
+    assert prototypes is not None and len(prototypes) == num_classes, (
+        "Prototypes set is correct size"
+    )
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
@@ -133,9 +134,9 @@ def test_train_episodes_shared_reg(random_dataset):
     assert len(eq_out.classes) == 1, "Single prediction works"
 
     support = model.get_support()
-    assert (
-        support is not None and len(support) == num_classes
-    ), "Support set is correct size"
+    assert support is not None and len(support) == num_classes, (
+        "Support set is correct size"
+    )
     model.update_support(X, Y, 0.5)
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
@@ -300,9 +301,9 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
         model, X, tmp_filename="protonet_save_load_with_feature_and_label_names.eq"
     )
 
-    assert (
-        new_model.get_feature_names() == feature_names
-    ), "feature_names changed on reload"
+    assert new_model.get_feature_names() == feature_names, (
+        "feature_names changed on reload"
+    )
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
 
     if os.path.exists(tmp_filename):

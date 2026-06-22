@@ -35,7 +35,7 @@ for each method.  Assuming that tests pass, then make a pull request.
 There are a number of Github Actions enabled to ensure high code quality upon commiting. 
 * Tests must be added and all tests must pass (100%) before closing a pull request
 * Total coverage should be 97% or higher
-* We enforce a code style via `black`, `isort`, and `codespell`. If formatting issues are found, `tox -e format` usually fixes them automatically.
+* We enforce a code style via `ruff` (formatting + linting, including import sorting) and `codespell`. If formatting issues are found, `tox -e format` usually fixes them automatically.
 
 ## Documentation
 In the [MIT-LL Responsible AI GitHub organization](https://github.com/mit-ll-responsible-ai), we use the numpy/scipy format for docstrings.

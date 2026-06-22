@@ -20,6 +20,7 @@ from .equine import Equine
 from .equine_output import EquineOutput
 
 
+@icontract.ensure(lambda result, module: result is module)
 @beartype
 def prepare_jit_module(module: torch.nn.Module) -> torch.nn.Module:
     """

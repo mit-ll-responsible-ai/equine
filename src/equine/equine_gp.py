@@ -17,7 +17,7 @@ from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_train_summary
+from .utils import generate_support, generate_train_summary, prepare_jit_module
 
 BatchType = tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
@@ -769,7 +769,7 @@ class EquineGP(Equine):
             "device": self.device_type,
         }
 
-        jit_model = torch.jit.script(self.model.feature_extractor)
+        jit_model = torch.jit.script(prepare_jit_module(self.model.feature_extractor))
         buffer = io.BytesIO()
         torch.jit.save(jit_model, buffer)
         buffer.seek(0)

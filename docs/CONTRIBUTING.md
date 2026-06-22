@@ -9,7 +9,7 @@
     conda create --name equine python==3.11
     conda activate equine
     ```
-    We currently support python versions >= 3.9
+    We currently support python versions from 3.10 to 3.14
 
 3. Install the code with the extra `tests` dependencies
 

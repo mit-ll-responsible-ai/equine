@@ -5,6 +5,7 @@
 from typing import Any, Union
 
 import icontract
+import sys
 import torch
 from beartype import beartype
 from collections import OrderedDict
@@ -17,6 +18,42 @@ from torchmetrics.classification import (
 
 from .equine import Equine
 from .equine_output import EquineOutput
+
+
+@icontract.ensure(lambda result, module: result is module)
+@beartype
+def prepare_jit_module(module: torch.nn.Module) -> torch.nn.Module:
+    """
+    Make an ``nn.Module`` safe to pass to ``torch.jit.script`` on Python 3.14+.
+
+    Starting with Python 3.14 (PEP 649/749) a class's ``__annotations__`` is
+    exposed through a ``type`` getset descriptor instead of being stored in the
+    class ``__dict__``. ``torch.jit``'s scripting checker reads
+    ``__annotations__`` from the module *instance*, where attribute lookup only
+    consults the ``__dict__`` of each class in the MRO. For any ``nn.Module``
+    that declares no class-level annotations this lookup misses and
+    ``nn.Module.__getattr__`` raises ``AttributeError``, breaking
+    ``torch.jit.script``. Materializing each submodule's own class annotations
+    onto its instance ``__dict__`` lets that lookup succeed. This is a no-op on
+    Python < 3.14.
+
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The module that is about to be scripted with ``torch.jit.script``.
+
+    Returns
+    -------
+    torch.nn.Module
+        The same module, returned for convenient inline use.
+    """
+    if sys.version_info >= (3, 14):
+        for submodule in module.modules():
+            if "__annotations__" not in submodule.__dict__:
+                submodule.__dict__["__annotations__"] = dict(
+                    type(submodule).__annotations__
+                )
+    return module
 
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))

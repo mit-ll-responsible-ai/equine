@@ -25,6 +25,7 @@ from .utils import (
     generate_support,
     generate_train_summary,
     mahalanobis_distance_nosq,
+    prepare_jit_module,
     stratified_train_test_split,
 )
 
@@ -906,7 +907,7 @@ class EquineProtonet(Equine):
             "device": self.device,
         }
 
-        jit_model = torch.jit.script(self.model.embedding_model)
+        jit_model = torch.jit.script(prepare_jit_module(self.model.embedding_model))
         buffer = io.BytesIO()
         torch.jit.save(jit_model, buffer)
         buffer.seek(0)

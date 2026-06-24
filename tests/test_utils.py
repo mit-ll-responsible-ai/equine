@@ -12,6 +12,22 @@ from hypothesis import given, settings, strategies as st
 import equine as eq
 
 
+class _NoAnnotationModel(torch.nn.Module):
+    """An nn.Module that declares no class-level annotations.
+
+    On Python 3.14 such a module cannot be passed to ``torch.jit.script``
+    without ``prepare_jit_module`` first materializing its instance
+    ``__annotations__`` (see PEP 649/749).
+    """
+
+    def __init__(self, in_dim: int, out_dim: int) -> None:
+        super().__init__()
+        self.linear = torch.nn.Linear(in_dim, out_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear(x)
+
+
 @st.composite
 def support_dataset(draw):
     support_sz = draw(st.integers(min_value=2, max_value=25))
@@ -204,3 +220,22 @@ def test_stratified_split_imbalanced_classes():
 
     assert torch.all(actual_train_counts == expected_train_counts)
     assert torch.all(actual_test_counts == expected_test_counts)
+
+
+@given(
+    in_dim=st.integers(min_value=1, max_value=16),
+    out_dim=st.integers(min_value=1, max_value=16),
+    batch=st.integers(min_value=1, max_value=8),
+)
+@settings(deadline=None, max_examples=5)
+def test_prepare_jit_module_makes_module_scriptable(in_dim, out_dim, batch):
+    # Regression test for Python 3.14 (PEP 649/749): a module with no
+    # class-level annotations must remain compatible with torch.jit.script
+    # after prepare_jit_module, which is what EquineGP/EquineProtonet.save use.
+    model = _NoAnnotationModel(in_dim, out_dim)
+    returned = eq.utils.prepare_jit_module(model)
+    assert returned is model  # returned for convenient inline use
+
+    scripted = torch.jit.script(model)  # must not raise on Python 3.14
+    x = torch.rand(batch, in_dim)
+    assert torch.allclose(scripted(x), model(x))

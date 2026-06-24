@@ -78,11 +78,14 @@ line-length = 88
 extend-exclude = ["src/equine/_version.py"]
 
 [tool.ruff.lint]
-# E/W (pycodestyle) + F (pyflakes) reproduce the previous flake8 checks,
-# I (isort) replaces the standalone isort step, and the autoflake cleanup of
-# unused imports/variables is covered by F401/F811/F841.
+# E/W (pycodestyle) + F (pyflakes) reproduce the previous flake8 checks and
+# I (isort) replaces the standalone isort step. The unused-import/variable
+# cleanup that autoflake handled is covered by F401/F841.
 select = ["E", "F", "W", "I"]
-ignore = ["E501"]  # line length is handled by the formatter
+# Mirror the rule exemptions from the previous .flake8 config. E501 (line
+# length) and E203 (whitespace before punctuation) are also handled by, or
+# conflict with, the formatter.
+ignore = ["E203", "E501", "E701", "E721", "F403", "F405", "F811"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["equine", "tests"]
@@ -200,8 +203,8 @@ commands = pyright src/ --level=error
            pyright --ignoreexternal --level=warning --verifytypes equine
 
 [testenv:format]
-description = Applies auto-flake (e.g. remove unsused imports), black, and isort 
-              in-place on source files and test suite. Running this can help fix a 
+description = Applies ruff's autofixes (e.g. removes unused imports) and formats
+              the source files and test suite in-place. Running this can help fix a
               failing `enforce-format` run.
 skip_install=true
 deps =

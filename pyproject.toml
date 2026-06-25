@@ -73,25 +73,33 @@ write_to = "src/equine/_version.py"
 [tool.setuptools.package-data]
 equine = ["py.typed"]
 
-[tool.black]
+[tool.ruff]
 line-length = 88
-target-version = ['py311']
-include = '\.pyi?$'
+extend-exclude = ["src/equine/_version.py"]
 
-[tool.flake8]
-max-line-length = 88
-extend-ignore = ["E501"]
-exclude = "src/equine/_version.py"
+[tool.ruff.lint]
+# E/W (pycodestyle) + F (pyflakes) reproduce the previous flake8 checks and
+# I (isort) replaces the standalone isort step. The unused-import/variable
+# cleanup that autoflake handled is covered by F401/F841.
+select = ["E", "F", "W", "I"]
+# Mirror the rule exemptions from the previous .flake8 config. E501 (line
+# length) and E203 (whitespace before punctuation) are also handled by, or
+# conflict with, the formatter.
+ignore = ["E203", "E501", "E701", "E721", "F403", "F405", "F811"]
 
-
-[tool.isort]
-known_first_party = ["equine", "tests"]
-profile = "black"
-combine_as_imports = true
-known_third_party = "torch,torchmetrics,numpy,tqdm,beartype,icontract,scikit-learn,scipy"
-known_standard_library = "typing"
-line_length = 88
-include_trailing_comma = true
+[tool.ruff.lint.isort]
+known-first-party = ["equine", "tests"]
+known-third-party = [
+    "torch",
+    "torchmetrics",
+    "numpy",
+    "tqdm",
+    "beartype",
+    "icontract",
+    "scikit-learn",
+    "scipy",
+]
+combine-as-imports = true
 
 [tool.pytest.ini_options]
 addopts = "--durations=0"
@@ -195,32 +203,26 @@ commands = pyright src/ --level=error
            pyright --ignoreexternal --level=warning --verifytypes equine
 
 [testenv:format]
-description = Applies auto-flake (e.g. remove unsused imports), black, and isort 
-              in-place on source files and test suite. Running this can help fix a 
+description = Applies ruff's autofixes (e.g. removes unused imports) and formats
+              the source files and test suite in-place. Running this can help fix a
               failing `enforce-format` run.
 skip_install=true
 deps =
-    autoflake
-    black
-    isort
+    ruff
 commands =
-    autoflake --recursive --in-place --remove-duplicate-keys --remove-unused-variables src/ tests/
-    isort src/ tests/
-    black src/ tests/
+    ruff check --fix src/ tests/
+    ruff format src/ tests/
 
 [testenv:enforce-format]
 description = Ensures that source materials code and docs and test suite adhere to 
               formatting and code-quality standards.
 skip_install=true
 basepython=python3.11
-deps=black
-     isort
-     Flake8-pyproject
+deps=ruff
      codespell
 commands=
-    black src/ tests/ --diff --check
-    isort src/ tests/ --diff --check
-    flake8 src/ tests/
+    ruff format src/ tests/ --diff --check
+    ruff check src/ tests/
     codespell src/ docs/
 
 [testenv:docs]

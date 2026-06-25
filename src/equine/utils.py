@@ -2,13 +2,13 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import sys
+from collections import OrderedDict
 from typing import Any, Union
 
 import icontract
-import sys
 import torch
 from beartype import beartype
-from collections import OrderedDict
 from torchmetrics.classification import (
     MulticlassAccuracy,
     MulticlassCalibrationError,
@@ -172,15 +172,17 @@ def _get_shuffle_idxs_by_class(
 
 @icontract.require(lambda train_x, train_y: len(train_x) <= len(train_y))
 @icontract.require(
-    lambda selected_labels, train_x: (0 < len(selected_labels))
-    & (len(selected_labels) < len(train_x))
+    lambda selected_labels, train_x: (
+        (0 < len(selected_labels)) & (len(selected_labels) < len(train_x))
+    )
 )
 @icontract.require(
     lambda support_size, train_x: (0 < support_size) & (support_size < len(train_x))
 )
 @icontract.require(
-    lambda support_size, selected_labels, train_x: support_size * len(selected_labels)
-    <= len(train_x)
+    lambda support_size, selected_labels, train_x: (
+        support_size * len(selected_labels) <= len(train_x)
+    )
 )
 @icontract.require(
     lambda selected_labels, shuffled_indexes: (
@@ -235,9 +237,9 @@ def generate_support(
     for label in selected_labels:
         shuffled_x = train_x[shuffled_idxs[label]]
 
-        assert torch.unique(train_y[shuffled_idxs[label]]).tolist() == [
-            label
-        ], "Not enough support for label " + str(label)
+        assert torch.unique(train_y[shuffled_idxs[label]]).tolist() == [label], (
+            "Not enough support for label " + str(label)
+        )
         selected_support = shuffled_x[:support_size]
         support[int(label)] = selected_support
 

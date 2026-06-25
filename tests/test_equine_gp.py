@@ -1,5 +1,6 @@
-import numpy as np
 import os
+
+import numpy as np
 import torch
 import torchmetrics
 from conftest import (
@@ -172,9 +173,9 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
 
     assert new_model.support is not None, "support was not saved"
     assert new_model.prototypes is not None, "prototypes were not saved"
-    assert (
-        model.support.keys() == new_model.get_support().keys()
-    ), "Support keys changed on reload"
+    assert model.support.keys() == new_model.get_support().keys(), (
+        "Support keys changed on reload"
+    )
     assert (
         torch.nn.functional.mse_loss(model.prototypes, new_model.get_prototypes())
         <= 1e-7
@@ -233,9 +234,9 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
         model, X, tmp_filename="gp_save_load_with_feature_and_label_names.eq"
     )
 
-    assert (
-        new_model.get_feature_names() == feature_names
-    ), "feature_names changed on reload"
+    assert new_model.get_feature_names() == feature_names, (
+        "feature_names changed on reload"
+    )
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
 
     if os.path.exists(tmp_filename):

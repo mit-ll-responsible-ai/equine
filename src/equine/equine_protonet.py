@@ -3,18 +3,18 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Any, Optional
-
-import icontract
 import io
-import numpy as np
-import torch
 import warnings
-from beartype import beartype
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
+from typing import Any, Optional
+
+import icontract
+import numpy as np
+import torch
+from beartype import beartype
 from scipy.stats import gaussian_kde
 from torch.utils.data import TensorDataset
 from tqdm import tqdm

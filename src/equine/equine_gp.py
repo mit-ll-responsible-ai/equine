@@ -2,16 +2,16 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Any, Optional, Union
-
-import icontract
 import io
 import math
-import torch
-from beartype import beartype
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
+from typing import Any, Optional, Union
+
+import icontract
+import torch
+from beartype import beartype
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics.metric import Metric
 from tqdm import tqdm
@@ -331,13 +331,13 @@ class _Laplace(torch.nn.Module):
             self.precision += precision_minibatch
             self.seen_data += x.shape[0]
 
-            assert (
-                self.seen_data <= self.num_data
-            ), "Did not reset precision matrix at start of epoch"
+            assert self.seen_data <= self.num_data, (
+                "Did not reset precision matrix at start of epoch"
+            )
         else:
-            assert self.seen_data > (
-                self.num_data - self.train_batch_size
-            ), "Not seen sufficient data for precision matrix"
+            assert self.seen_data > (self.num_data - self.train_batch_size), (
+                "Not seen sufficient data for precision matrix"
+            )
 
             if self.recompute_covariance:
                 with torch.no_grad():

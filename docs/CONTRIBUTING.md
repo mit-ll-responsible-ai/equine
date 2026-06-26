@@ -23,7 +23,12 @@
     pre-commit run
     ```
 
-5. For local testing, install tox (`pip install tox`)
+5. For local testing, install tox (`pip install tox`).
+
+    Optionally, also install [`tox-uv`](https://github.com/tox-dev/tox-uv)
+    (`pip install tox tox-uv`) to have tox use `uv` to build its environments
+    and install dependencies. This is drop-in (no tox config changes) and
+    significantly faster — it's the same backend CI uses.
 
 
 We prefer that any contributed code be outfitted with contracts from `icontract` and tested with `hypothesis`. 

@@ -3,18 +3,32 @@
 ## Developer Installation 
 1. Clone the [git repository](https://github.com/mit-ll-responsible-ai/equine) and navigate to that directory
     
-2. Install virtual environment (the below example assumes conda)
+2. Install a virtual environment. We currently support python versions from 3.10 to 3.14.
+
+    Using conda:
 
     ```shell
     conda create --name equine python==3.11
     conda activate equine
     ```
-    We currently support python versions from 3.10 to 3.14
+
+    Or, alternatively, using [uv](https://docs.astral.sh/uv/):
+
+    ```shell
+    uv venv --python 3.11
+    source .venv/bin/activate
+    ```
 
 3. Install the code with the extra `tests` dependencies
 
     ```shell
     pip install -e .'[tests]'
+    ```
+
+    If you created the environment with uv, you can use `uv pip` instead:
+
+    ```shell
+    uv pip install -e '.[tests]'
     ```
 
 4. Activate the pre-commit hooks

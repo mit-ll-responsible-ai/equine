@@ -1229,15 +1229,22 @@
 <p>Clone the <a href="https://github.com/mit-ll-responsible-ai/equine">git repository</a> and navigate to that directory</p>
 </li>
 <li>
-<p>Install virtual environment (the below example assumes conda)</p>
-<p><div class="language-shell highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>--name<span class="w"> </span>equine<span class="w"> </span><span class="nv">python</span><span class="o">==</span><span class="m">3</span>.11
+<p>Install a virtual environment. We currently support python versions from 3.10 to 3.14.</p>
+<p>Using conda:</p>
+<div class="language-shell highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>--name<span class="w"> </span>equine<span class="w"> </span><span class="nv">python</span><span class="o">==</span><span class="m">3</span>.11
 conda<span class="w"> </span>activate<span class="w"> </span>equine
 </code></pre></div>
-We currently support python versions from 3.10 to 3.14</p>
+<p>Or, alternatively, using <a href="https://docs.astral.sh/uv/">uv</a>:</p>
+<div class="language-shell highlight"><pre><span></span><code>uv<span class="w"> </span>venv<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.11
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</code></pre></div>
 </li>
 <li>
 <p>Install the code with the extra <code>tests</code> dependencies</p>
 <div class="language-shell highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.<span class="s1">&#39;[tests]&#39;</span>
+</code></pre></div>
+<p>If you created the environment with uv, you can use <code>uv pip</code> instead:</p>
+<div class="language-shell highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;.[tests]&#39;</span>
 </code></pre></div>
 </li>
 <li>
@@ -1247,7 +1254,11 @@ We currently support python versions from 3.10 to 3.14</p>
 </code></pre></div></p>
 </li>
 <li>
-<p>For local testing, install tox (<code>pip install tox</code>)</p>
+<p>For local testing, install tox (<code>pip install tox</code>).</p>
+<p>Optionally, also install <a href="https://github.com/tox-dev/tox-uv"><code>tox-uv</code></a>
+(<code>pip install tox tox-uv</code>) to have tox use <code>uv</code> to build its environments
+and install dependencies. This is drop-in (no tox config changes) and
+significantly faster — it's the same backend CI uses.</p>
 </li>
 </ol>
 <p>We prefer that any contributed code be outfitted with contracts from <code>icontract</code> and tested with <code>hypothesis</code>. 

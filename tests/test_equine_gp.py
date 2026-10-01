@@ -17,7 +17,9 @@ import equine as eq
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
 def test_equine_gp_train_from_scratch(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -36,7 +38,9 @@ def test_equine_gp_train_from_scratch(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
 def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -63,7 +67,9 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
 def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -87,7 +93,9 @@ def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=10)
 def test_equine_gp_train_from_scratch_with_validation(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -115,7 +123,9 @@ def test_equine_gp_train_from_scratch_with_validation(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=2)
 def test_equine_gp_save_load(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -133,7 +143,9 @@ def test_equine_gp_save_load(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -163,7 +175,9 @@ def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_vis(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, train_kwargs = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -173,7 +187,14 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
         momentum=0.9,
         weight_decay=0.0001,
     )
-    model.train_model(dataset, loss_fn, optimizer, num_epochs=2, vis_support=True)
+    model.train_model(
+        dataset,
+        loss_fn,
+        optimizer,
+        num_epochs=2,
+        vis_support=True,
+        support_size=train_kwargs["support_size"],
+    )
 
     new_model = use_save_load_model_tests(
         model, X, tmp_filename="gp_save_load_with_vis.eq"
@@ -193,7 +214,9 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     # without feature and labels names
     model = eq.EquineGP(embedding_model, num_classes, num_classes)

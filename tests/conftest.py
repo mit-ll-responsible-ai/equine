@@ -121,6 +121,29 @@ class CountingEmbedding(torch.nn.Module):
         return self.inner(x)
 
 
+class RecordingEmbedding(torch.nn.Module):
+    """``BasicEmbeddingModel`` behind ``Dropout(0.5)``, recording each forward's mode.
+
+    In training mode the dropout makes two forwards of the same input differ. ``modes``
+    holds ``self.training`` as seen by each forward; ``fail_next`` makes the next
+    forward raise ``RuntimeError`` once. Not registered in the architecture registry.
+    """
+
+    def __init__(self, tensor_dim: int, num_classes: int) -> None:
+        super().__init__()
+        self.dropout = torch.nn.Dropout(0.5)
+        self.inner = BasicEmbeddingModel(tensor_dim, num_classes)
+        self.modes: list[bool] = []
+        self.fail_next = False
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.fail_next:
+            self.fail_next = False
+            raise RuntimeError("embedding failed")
+        self.modes.append(self.training)
+        return self.inner(self.dropout(x))
+
+
 @st.composite
 def random_dataset(draw):
     """A labelled dataset plus the training arguments that fit its shape.

@@ -350,12 +350,14 @@ class _Laplace(torch.nn.Module):
 
         return logits
 
-    @icontract.require(lambda self: self.training_parameters_set)
     def forward(
         self, x: torch.Tensor
     ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """
         Compute the forward pass of the Laplace approximation to the Gaussian Process.
+
+        Requires ``set_training_params`` to have been called (the precondition
+        lives on ``_forward_with_features``, which this delegates to).
 
         Parameters
         ----------
@@ -365,9 +367,36 @@ class _Laplace(torch.nn.Module):
         Returns
         -------
         Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]
-            If the model is in training mode, returns the predicted mean of shape (batch_size, 1).
-            If the model is in evaluation mode, returns a tuple containing the predicted mean of shape (batch_size, 1)
-            and the predicted covariance matrix of shape (batch_size, batch_size).
+            The logits of shape (batch_size, num_outputs). In training mode
+            they are the raw GP mean; in evaluation mode they are mean-field
+            adjusted with the predictive covariance when ``mean_field_factor``
+            is set (always, in equine). Only when ``mean_field_factor`` is
+            ``None`` does evaluation mode return the tuple ``(mean, pred_cov)``
+            instead, with ``pred_cov`` of shape (batch_size, batch_size).
+        """
+        return self._forward_with_features(x)[0]
+
+    @icontract.require(lambda self: self.training_parameters_set)
+    def _forward_with_features(
+        self, x: torch.Tensor
+    ) -> tuple[Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]], torch.Tensor]:
+        """
+        ``forward`` that also returns the random Fourier features it computed.
+
+        The features are the output of ``rff`` (feature_extractor -> jl ->
+        normalize -> rff), the same tensor ``EquineGP.compute_embeddings``
+        returns, so a caller needing both logits and embeddings runs the
+        embedding model once (#173). The ``training_parameters_set``
+        precondition is checked here, before anything is computed or the
+        precision/seen_data buffers are touched, so every caller (``forward``
+        included) is covered.
+
+        Returns
+        -------
+        tuple
+            The value ``forward(x)`` would return (the logits, or
+            ``(logits, pred_cov)`` when ``mean_field_factor`` is ``None``)
+            and the post-``rff`` features.
         """
         f = self.feature_extractor(x)
         f_reduc = self.jl(f)
@@ -408,11 +437,11 @@ class _Laplace(torch.nn.Module):
                 pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
 
             if self.mean_field_factor is None:
-                return pred, pred_cov
+                return (pred, pred_cov), k
             else:
                 pred = self.mean_field_logits(pred, pred_cov, self.mean_field_factor)
 
-        return pred
+        return pred, k
 
 
 _DEFAULT_NUM_RANDOM_FEATURES = 1024
@@ -740,7 +769,7 @@ class EquineGP(Equine):
             support_embeddings[label] = self.compute_embeddings(self.support[label])
 
         self.support_embeddings = support_embeddings
-        self.prototypes: torch.Tensor = self.compute_prototypes()
+        self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
 
     def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -770,20 +799,28 @@ class EquineGP(Equine):
         Method for computing class prototypes based on given support examples.
         ``Prototypes'' in this context are the means of the support embeddings for each class.
 
+        Embeds ``self.support`` with the current model (one pass per class)
+        and, as a side effect, refreshes ``self.support_embeddings`` with
+        those embeddings. ``update_support`` and the load path, which have
+        just embedded the support, average it with
+        ``_prototypes_from_embeddings`` instead (#212).
+
         Returns
         -------
         torch.Tensor
             Tensors of prototypes for each of the given classes in the support.
         """
-        # Compute support embeddings
-        support_embeddings = OrderedDict().fromkeys(self.support.keys())
-        for label in self.support:
-            support_embeddings[label] = self.compute_embeddings(self.support[label])
+        self.support_embeddings = OrderedDict(
+            (label, self.compute_embeddings(x)) for label, x in self.support.items()
+        )
+        return self._prototypes_from_embeddings()
 
-        # Compute prototype for each class
+    @icontract.require(lambda self: len(self.support_embeddings) > 0)
+    def _prototypes_from_embeddings(self) -> torch.Tensor:
+        """Mean of ``self.support_embeddings`` per class, in support order; embeds nothing."""
         proto_list = []
-        for label in self.support:  # look at doing functorch
-            class_prototype = torch.mean(support_embeddings[label], dim=0)  # type: ignore
+        for label in self.support_embeddings:  # look at doing functorch
+            class_prototype = torch.mean(self.support_embeddings[label], dim=0)
             proto_list.append(class_prototype)
 
         prototypes = torch.stack(proto_list)
@@ -886,9 +923,18 @@ class EquineGP(Equine):
         torch.Tensor
             Output probabilities computed.
         """
+        logits, _ = self._forward_with_embeddings(X)
+        return logits
+
+    def _forward_with_embeddings(
+        self, X: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """``forward`` that also returns the embeddings (``compute_embeddings(X)``) from the same pass (#173)."""
         X = self._input_to_model(X)
-        preds = self.model(X)
-        return preds / self.temperature.to(self.device)
+        logits, embeddings = self.model._forward_with_features(X)
+        logits = cast(torch.Tensor, logits)  # mean_field_factor is always set
+        temperature = cast(torch.Tensor, self.temperature)  # registered buffer
+        return logits / temperature, embeddings
 
     @icontract.ensure(
         lambda result: all((0 <= result.ood_scores) & (result.ood_scores <= 1.0))
@@ -907,20 +953,25 @@ class EquineGP(Equine):
         Returns
         -------
         EquineOutput
-            Output object containing prediction probabilities and OOD scores.
+            Output object containing prediction probabilities, OOD scores and
+            embeddings. Computed under ``torch.no_grad()``: the tensors carry
+            no autograd graph but are ordinary tensors (not inference-mode
+            tensors), so a caller can still use them in autograd.
         """
-        X = self._input_to_model(X)
-        logits = self(X)
-        preds = torch.softmax(logits, dim=1)
-        equiprobable = (
-            torch.ones(self.num_outputs, device=logits.device) / self.num_outputs
-        )
-        max_entropy = torch.sum(_entr(equiprobable))
-        ood_score = torch.sum(_entr(preds), dim=1) / max_entropy
-        embeddings = self.compute_embeddings(X)
+        # One embedding pass and no autograd graph (#173, #182). no_grad, not
+        # inference_mode: the outputs stay ordinary tensors a caller can feed
+        # into autograd.
+        with torch.no_grad():
+            logits, embeddings = self._forward_with_embeddings(X)
+            preds = torch.softmax(logits, dim=1)
+            equiprobable = (
+                torch.ones(self.num_outputs, device=logits.device) / self.num_outputs
+            )
+            max_entropy = torch.sum(_entr(equiprobable))
+            ood_score = torch.sum(_entr(preds), dim=1) / max_entropy
         eq_out = EquineOutput(
             classes=preds, ood_scores=ood_score, embeddings=embeddings
-        )  # TODO return embeddings
+        )
 
         self.validate_feature_label_names(X.shape[-1], self.num_outputs)
 
@@ -1197,7 +1248,11 @@ class EquineGP(Equine):
             )
             if len(support) > 0:
                 eq_model.support = support
-                eq_model.prototypes = eq_model.compute_prototypes()
+                eq_model.support_embeddings = OrderedDict(
+                    (label, eq_model.compute_embeddings(x))
+                    for label, x in support.items()
+                )
+                eq_model.prototypes = eq_model._prototypes_from_embeddings()
         except Exception as err:  # the embedding is arbitrary code
             raise ValueError(
                 "Model file's support could not be passed through its embedding "

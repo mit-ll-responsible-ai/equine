@@ -4,7 +4,7 @@
 
 import pytest
 import torch
-from conftest import BasicEmbeddingModel, random_dataset
+from conftest import BasicEmbeddingModel, assert_valid_prediction, random_dataset
 from hypothesis import given, settings
 
 import equine as eq
@@ -74,5 +74,6 @@ def test_model_summary(random_dataset) -> None:
     )
     model.train_model(dataset, loss_fn, optimizer, 2)
     eq_out = model.predict(X)
+    assert_valid_prediction(eq_out, len(X), num_classes)
 
     eq.utils.generate_model_summary(model, eq_out, Y)

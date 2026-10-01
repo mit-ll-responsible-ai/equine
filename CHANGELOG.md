@@ -3,6 +3,32 @@
 ## Unreleased
 
 ### Changed
+- **Device handling** (#170, #177, #206, #216, #188). Both model classes now
+  keep every tensor they own on their `device`: the `temperature` buffer, the
+  support set, the GP's Laplace `seen_data` counter and the covariances it
+  allocates. Inputs cross to the model in one place: the arguments of
+  `predict`, `forward` and `compute_embeddings`, the support stored by
+  `update_support`, and every batch of `train_model` and
+  `EquineGP.calibrate_model` are moved to the model device and, when floating
+  point, cast to the model's parameter dtype (the embedding model's; for an
+  `EquineGP` whose embedding has no parameters, such as `nn.Identity`, the
+  Laplace head's). A float64 input to a float32 model used to raise; integer
+  inputs, e.g. embedding indices, keep their dtype. `EquineProtonet.train_model`
+  samples its episodes and support on the CPU and moves each batch at that
+  boundary. `EquineGP.device`
+  is a `str` like `EquineProtonet.device`; `EquineGP.device_type` is
+  deprecated (see below). `EquineGP.load` and `load_equine_model`
+  accept `device=` (positional second argument) like `EquineProtonet.load`;
+  an explicit device is checked before the file is read, and `meta`, an
+  unavailable device or an index at or above the device count (`cuda:7` on a
+  one-GPU machine, `mps:1`) raises `ValueError`; so does loading a file
+  whose tensors have a dtype the device lacks (float64 on MPS), naming the
+  dtype. For a model on MPS the GP covariance inversion and the
+  entropy in `EquineGP.predict` are computed on the CPU, because torch 2.6 to
+  2.9 lack some of those MPS kernels; CPU and CUDA results are unchanged.
+  Files saved after training on an
+  accelerator hold accelerator tensors; pass `device="cpu"` when loading them
+  on a machine without one.
 - **Model files no longer embed executable code by default** (#191). `save()`
   stores the embedding model as a recipe (the name of a registered architecture
   plus its constructor arguments) and a `state_dict`. Register your embedding
@@ -66,6 +92,11 @@
   saving with `allow_executable=True`, or loading a TorchScript embedding
   under `trust_executable=True`, emits a `FutureWarning`. Migrate flagged
   files with the snippet above (using `trust_executable=True`).
+- `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading
+  or assigning it emits a `DeprecationWarning`; assigning it moves the module
+  and then sets `device`. To move a model yourself, set `model.device = value`
+  and call `model.to(value)`: either one alone leaves the inputs and the
+  module on different devices.
 
 ### Fixed
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).

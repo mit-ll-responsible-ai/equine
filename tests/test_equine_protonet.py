@@ -253,6 +253,57 @@ def test_train_episodes_with_temperature(random_dataset):
     assert_valid_prediction(eq_out, 1, num_classes)
 
 
+# The calibrated temperature of ``_float64_protonet_with_temperature(2)``
+# computed by EQUINE at 54d9181, the base of the device work (CPU, torch 2.9.1).
+_BASE_CALIBRATED_TEMPERATURE = 0.8800012564399848
+
+
+def _float64_protonet_with_temperature(
+    num_calibration_epochs: int,
+) -> eq.EquineProtonet:
+    """A ``.double()`` Protonet trained on a float64 dataset under the float32 default dtype."""
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        use_temperature=True,
+        init_temperature=0.9,
+    ).double()
+    model.train_model(
+        torch.utils.data.TensorDataset(x.double(), y.double()),
+        num_episodes=5,
+        calib_frac=0.2,
+        support_size=10,
+        way=3,
+        episode_size=30,
+        num_calibration_epochs=num_calibration_epochs,
+    )
+    return model
+
+
+def test_temperature_restarts_rounded_through_the_default_dtype() -> None:
+    """``train_model`` restarts the temperature at ``init_temperature`` as 0.1.8 did.
+
+    The value is rounded to the default dtype (float32 here) and then widened
+    to the buffer's, so a float64 model starts calibrating from float32(0.9),
+    not from 0.9. A different start moves the calibrated temperature, and
+    with it the CPU predictions of every such trained model.
+    """
+    assert torch.get_default_dtype() == torch.float32
+    start = _float64_protonet_with_temperature(num_calibration_epochs=0).temperature
+    assert start.dtype == torch.float64
+    assert start.item() == float(torch.tensor(0.9, dtype=torch.float32))
+
+    calibrated = _float64_protonet_with_temperature(num_calibration_epochs=2)
+    torch.testing.assert_close(
+        calibrated.temperature,
+        torch.tensor([_BASE_CALIBRATED_TEMPERATURE], dtype=torch.float64),
+        atol=0,
+        rtol=0,
+    )
+
+
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_predict_fail_before_training(random_dataset):

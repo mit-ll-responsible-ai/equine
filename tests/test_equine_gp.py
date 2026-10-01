@@ -1,3 +1,6 @@
+import warnings
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 import torch
@@ -306,3 +309,67 @@ def test_validation_metrics_are_reset_between_epochs() -> None:
     # compute()) shows every compute() exactly 2 updates; today the count
     # accumulates and each epoch's compute() covers all prior epochs.
     assert seen == [2, 2, 2]
+
+
+def _gp_trained_on_cpu():
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    return model, x
+
+
+def _device_type_warning(record) -> warnings.WarningMessage:
+    """The one device_type DeprecationWarning in ``record``, checked to point at the caller.
+
+    Python's default filters show a DeprecationWarning only when it is
+    attributed to ``__main__``, so the warning must skip EQUINE's and
+    beartype's frames to reach a script or notebook.
+    """
+    found = [w for w in record if "device_type" in str(w.message)]
+    assert len(found) == 1
+    assert found[0].category is DeprecationWarning
+    assert found[0].filename == __file__, "the warning must point at the caller"
+    return found[0]
+
+
+def test_device_type_is_deprecated_alias(monkeypatch) -> None:
+    model, x = _gp_trained_on_cpu()
+    with pytest.warns(DeprecationWarning, match="device_type") as record:
+        assert model.device_type == "cpu"
+    message = str(_device_type_warning(record).message)
+    # The replacement it names is the one that works: device alone moves the
+    # inputs only, to() alone the module only.
+    assert "model.device = value" in message and "model.to(value)" in message
+    assert model.device == "cpu"
+
+    # Assigning a value the model does not already have: the setter moves the
+    # module (spied, as a move to the CPU cannot be observed; the device tests
+    # move it to an accelerator) and changes ``device``, so predict keeps
+    # working.
+    monkeypatch.setattr(model, "to", Mock(wraps=model.to))
+    with pytest.warns(DeprecationWarning, match="device_type") as record:
+        model.device_type = "cpu:0"
+    _device_type_warning(record)
+    model.to.assert_called_once_with("cpu:0")
+    assert model.device == "cpu:0"
+    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
+
+
+@pytest.mark.skipif(torch.cuda.is_available(), reason="needs a machine without CUDA")
+def test_device_type_failed_move_leaves_the_model_usable() -> None:
+    """The module moves before ``device`` changes, so a move that raises changes nothing."""
+    model, x = _gp_trained_on_cpu()
+    with pytest.warns(DeprecationWarning, match="device_type"):
+        with pytest.raises((AssertionError, RuntimeError)):
+            model.device_type = "cuda"
+    assert model.device == "cpu"
+    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)

@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-import io
 import sys
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import icontract
 import numpy as np
@@ -21,16 +20,25 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
+from .registry import _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
+    _checked_settings,
+    _embedding_checkpoint,
+    _outlier_kde_from_file,
+    _plain_names,
+    _rebuild_embedding,
+    _require_device,
+    _require_entries,
+    _require_matching_weights,
+    _require_names,
+    _shown,
+    _support_from_file,
     generate_episode,
     generate_support,
     generate_train_summary,
-    jit_archive_to_tensor,
     load_checkpoint,
-    load_jit_archive,
     mahalanobis_distance_nosq,
-    prepare_jit_module,
     stratified_train_test_split,
 )
 
@@ -57,11 +65,6 @@ def _kde_to_state(kde: gaussian_kde) -> dict[str, Any]:
         "dataset": torch.as_tensor(kde.dataset).clone(),
         "bw_factor": float(kde.factor),
     }
-
-
-def _kde_from_state(state: dict[str, Any]) -> gaussian_kde:
-    """Rebuild a ``gaussian_kde`` saved by ``_kde_to_state``."""
-    return gaussian_kde(state["dataset"].cpu().numpy(), bw_method=state["bw_factor"])
 
 
 COV_REG_TYPE = "epsilon"
@@ -905,19 +908,43 @@ class EquineProtonet(Equine):
         """
         return self.model.prototypes
 
-    def save(self, path: str) -> None:
+    def save(self, path: str, *, allow_executable: bool = False) -> None:
         """
         Save all model parameters to a file.
+
+        The embedding model is stored as a *recipe* (registered architecture
+        name plus constructor arguments) and a ``state_dict``, so the file holds
+        only data. If the embedding model is not a registered architecture (for
+        example a ``torch.jit.ScriptModule``), pass ``allow_executable=True`` to
+        embed a TorchScript copy instead; such a file is flagged and can only be
+        opened with ``load(..., trust_executable=True)``. This opt-in exists for
+        one release to migrate existing files and will then be removed.
 
         Parameters
         ----------
         path : str
             Filename to write the model.
+        allow_executable : bool, optional
+            Keyword-only. Permit embedding executable TorchScript when no recipe
+            is available; emits a ``FutureWarning``.
 
-        Returns
-        -------
-        None
+        Raises
+        ------
+        ValueError
+            If the embedding model has no recipe and ``allow_executable`` is False.
         """
+        checkpoint = self._to_checkpoint(
+            allow_executable,
+            # _embedding_checkpoint, then _to_checkpoint and save, each behind a
+            # beartype wrapper (absent under `python -O`), then the caller.
+            _stacklevel=4 + (0 if sys.flags.optimize else 2),
+        )
+        torch.save(checkpoint, path)
+
+    def _to_checkpoint(
+        self, allow_executable: bool = False, *, _stacklevel: int = 2
+    ) -> dict[str, Any]:
+        """Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""
         model_settings = {
             "cov_type": self.cov_type.value,
             "emb_out_dim": self.emb_out_dim,
@@ -926,61 +953,70 @@ class EquineProtonet(Equine):
             "relative_mahal": self.relative_mahal,
             "device": self.device,
         }
-
-        jit_model = torch.jit.script(prepare_jit_module(self.model.embedding_model))
-        buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)
-
         # Everything stored here must be readable by torch.load(weights_only=True)
         # on every supported torch version: tensors, containers and plain
-        # scalars/strings only (issue #168). The TorchScript archive travels as
-        # a uint8 tensor so the checkpoint contains only tensors and plain
-        # values.
-        save_data = {
+        # scalars/strings only (issue #168).
+        save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
-            "embed_jit_save": jit_archive_to_tensor(buffer),
-            "feature_names": self.feature_names,
-            "label_names": self.label_names,
+            **_embedding_checkpoint(
+                self.model.embedding_model, allow_executable, _stacklevel
+            ),
+            "feature_names": _plain_names(self.feature_names),
+            "label_names": _plain_names(self.label_names),
             "model_head_save": self.model.model_head.state_dict(),
             "outlier_kde": {
                 int(label): _kde_to_state(kde)
                 for label, kde in self.outlier_score_kde.items()
             },
             "settings": model_settings,
-            "support": {int(label): x for label, x in self.model.support.items()},
+            # Support tensors are usually views of all their class's training
+            # rows; a clone stores just the support rows, each label separately.
+            "support": {
+                int(label): x.detach().clone()
+                for label, x in self.model.support.items()
+            },
             "train_summary": self.train_summary,
         }
-
-        torch.save(save_data, path)  # TODO allow model checkpointing
+        return save_data
 
     @classmethod
     def load(
         cls,
         path: str,
         device: Optional[str] = None,
+        *,
         allow_unsafe_legacy_format: bool = False,
+        trust_executable: bool = False,
+        embedding_model: Optional[torch.nn.Module] = None,
     ) -> Equine:
         """
         Load a previously saved EquineProtonet model.
 
-        The file is read with ``torch.load(weights_only=True)`` so that a
-        pickle payload in the file cannot run, provided torch >= 2.6 (the
-        minimum EQUINE requires) is installed. The embedded TorchScript module
-        is still executable code, so only load files you trust.
+        The file is read with ``torch.load(weights_only=True)`` and the
+        embedding model is rebuilt from its recipe through the architecture
+        registry, so a default file contains nothing executable.
 
         Parameters
         ----------
         path : str
             The filename of the saved model.
-
         device : Optional[str]
-            The device to load the model onto
-
+            The device to load the model onto.
         allow_unsafe_legacy_format : bool, optional
-            Permit loading a file written in the legacy pickle format. This
-            uses unrestricted unpickling and can execute code embedded in the
-            file, so only enable it for files you trust. Call ``save`` on the
-            loaded model to rewrite it in the safe format. Defaults to False.
+            Keyword-only. Permit loading a file written in the legacy pickle
+            format. This uses unrestricted unpickling and can execute code
+            embedded in the file, so only enable it for files you trust.
+            Implies ``trust_executable``. Defaults to False.
+        trust_executable : bool, optional
+            Keyword-only. Permit running the TorchScript module embedded in a
+            file saved with ``allow_executable=True``; keeping that module as
+            the embedding emits a ``FutureWarning``. Defaults to False.
+        embedding_model : Optional[torch.nn.Module]
+            Keyword-only. Use this module as the embedding architecture instead
+            of rebuilding it from the file's recipe; the file's weights are
+            loaded into it. With a legacy or executable file (and trust), the
+            archive's weights are copied into it, which migrates the file to
+            the recipe format on the next ``save``.
 
         Returns
         -------
@@ -990,10 +1026,9 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If the file cannot be loaded safely and
-            ``allow_unsafe_legacy_format`` is False.
+            If the file cannot be loaded safely, names an unregistered
+            architecture, or contains executable content without trust.
         """
-
         # map_location so internal tensors map to the correct device
         model_save = load_checkpoint(
             path,
@@ -1005,11 +1040,26 @@ class EquineProtonet(Equine):
             # stacklevel must be one shorter to still land on the caller.
             _stacklevel=3 + (0 if sys.flags.optimize else 1),
         )
-        return cls._from_checkpoint(model_save, device)
+        return cls._from_checkpoint(
+            model_save,
+            device,
+            trust_executable=trust_executable,
+            embedding_model=embedding_model,
+            allow_unsafe_legacy_format=allow_unsafe_legacy_format,
+            # _from_checkpoint, then load, each behind a beartype wrapper
+            # (absent under `python -O`), then the caller.
+            _stacklevel=3 + (0 if sys.flags.optimize else 2),
+        )
 
     @classmethod
     def _from_checkpoint(
-        cls, model_save: dict[str, Any], device: Optional[str] = None
+        cls,
+        model_save: dict[str, Any],
+        device: Optional[str] = None,
+        trust_executable: bool = False,
+        embedding_model: Optional[torch.nn.Module] = None,
+        allow_unsafe_legacy_format: bool = False,
+        _stacklevel: int = 2,
     ) -> Equine:
         """
         Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.
@@ -1020,38 +1070,126 @@ class EquineProtonet(Equine):
             The dictionary returned by ``utils.load_checkpoint``.
         device : Optional[str]
             Device override for the reconstituted model.
+        trust_executable : bool, optional
+            Permit running an embedded TorchScript module. Defaults to False.
+        embedding_model : Optional[torch.nn.Module]
+            Use this module as the embedding architecture instead of the file's
+            recipe or archive; the file's weights are loaded into it.
+        allow_unsafe_legacy_format : bool, optional
+            The caller vouched for the file (see ``load``): implies
+            ``trust_executable``, and accepts what files from earlier releases
+            hold (pickled KDE objects, a Linear head's weights).
+        _stacklevel : int, optional
+            Stack depth, counted from this method, at which its warnings are
+            reported, so they point at the user's call site rather than at
+            EQUINE internals.
 
         Returns
         -------
         EquineProtonet
             The reconstituted EquineProtonet object.
         """
-        support = OrderedDict(
-            (int(label), x) for label, x in model_save.get("support").items()
+        # The embedding first: it is the single audit point for executable
+        # content, so a file that needs trust says so whatever else it lacks.
+        embedding = _rebuild_embedding(
+            model_save,
+            device,
+            trust_executable or allow_unsafe_legacy_format,
+            embedding_model,
+            _stacklevel=_stacklevel + 1,
         )
+        _require_entries(
+            model_save,
+            ("settings", "support", "train_summary", "outlier_kde", "model_head_save"),
+            cls,
+        )
+        support = _support_from_file(model_save["support"])
+        outlier_kde = _outlier_kde_from_file(
+            model_save["outlier_kde"], legacy=allow_unsafe_legacy_format
+        )
+        for key in ("feature_names", "label_names"):
+            _require_names(model_save.get(key), key)
+        head_save = model_save["model_head_save"]
+        if isinstance(head_save, dict) and set(head_save) == {"weight", "bias"}:
+            # EQUINE <= 0.1.6 appended a Linear head; #146 made it Identity.
+            if not allow_unsafe_legacy_format:
+                raise ValueError(
+                    "Model file's model_head_save holds the weights of a Linear "
+                    "head, which EQUINE <= 0.1.6 saved; the head has been Identity "
+                    "since #146. If the file was written by that older EQUINE and "
+                    "you trust it, load it with allow_unsafe_legacy_format=True, "
+                    "which ignores those weights."
+                )
+            warnings.warn(
+                "Model file's head weights from EQUINE <= 0.1.6 are ignored; the "
+                "head has been Identity since #146, so predictions can differ from "
+                "those of the EQUINE version that saved the file.",
+                UserWarning,
+                stacklevel=_stacklevel,
+            )
+            head_save = {}
 
-        # Explicitly pass map_location for the jit_model as well
-        jit_model = load_jit_archive(model_save.get("embed_jit_save"), device)
-
-        settings = dict(model_save.get("settings"))
-        if isinstance(settings.get("cov_type"), str):
-            settings["cov_type"] = CovType(settings["cov_type"])
+        settings = _checked_settings(cls, model_save["settings"])
+        # A bool passes the constructor's int check but breaks update_support.
+        _positive_int(
+            settings.get("emb_out_dim"), "Model file's settings['emb_out_dim']"
+        )
+        if "cov_type" in settings:
+            cov_type = settings["cov_type"]
+            try:
+                settings["cov_type"] = CovType(cov_type)
+            except (ValueError, TypeError) as err:
+                raise ValueError(
+                    f"Model file's settings['cov_type'] ({_shown(cov_type)}) is not "
+                    f"one of {[member.value for member in CovType]}."
+                ) from err
         # Allow the user to override the saved device state dynamically
         if device is not None:
             settings["device"] = device
+        else:
+            _require_device(settings, hint=" (pass device= to choose another)")
 
-        eq_model = cls(jit_model, **settings)
+        # Protonet.create_model_head builds an Identity, which has no weights
+        # whatever emb_out_dim is.
+        _require_matching_weights({}, head_save, "model_head_save")
+        try:
+            eq_model = cls(embedding, **settings)
+        except Exception as err:  # a backstop for anything the checks above miss
+            raise ValueError(
+                f"Could not build {cls.__name__} from the model file's settings "
+                f"({_truncate(f'{type(err).__name__}: {err}', 200)})."
+            ) from err
 
-        eq_model.model.model_head.load_state_dict(model_save.get("model_head_save"))
+        eq_model.model.model_head.load_state_dict(head_save)
         eq_model.eval()
+        # update_support allocates torch.ones(emb_out_dim) (regularize_covariance),
+        # and nothing stored in the file backs emb_out_dim, so bound it by the
+        # width the embedding actually outputs (a genuine model's is that width,
+        # or 1, which broadcasts).
+        if len(support) > 0:
+            try:
+                with torch.no_grad():
+                    probe = cast(Protonet, eq_model.model).compute_embeddings(
+                        next(iter(support.values()))[:1]
+                    )
+            except Exception as err:  # the embedding is arbitrary code
+                raise ValueError(
+                    "Model file's support could not be passed through its embedding "
+                    f"model ({_truncate(f'{type(err).__name__}: {err}', 200)}); the "
+                    "file is inconsistent or was tampered with."
+                ) from err
+            width = probe.shape[-1] if probe.dim() > 0 else 1
+            if eq_model.emb_out_dim not in (1, width):
+                raise ValueError(
+                    "Model file's settings['emb_out_dim'] is neither 1 nor the "
+                    f"{width} features its embedding model outputs; the file is "
+                    "inconsistent or was tampered with."
+                )
         eq_model.model.update_support(support)
 
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
-        eq_model.outlier_score_kde = OrderedDict(
-            (int(label), _kde_from_state(kde) if isinstance(kde, dict) else kde)
-            for label, kde in model_save.get("outlier_kde").items()
-        )
+        eq_model.outlier_score_kde = outlier_kde
         eq_model.train_summary = model_save.get("train_summary")
 
         return eq_model

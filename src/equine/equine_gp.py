@@ -2,9 +2,9 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import io
 import math
 import sys
+import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -18,14 +18,22 @@ from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
+from .registry import _positive_int, _truncate
 from .utils import (
+    _MIGRATION_HINT,
     EQUINE_FORMAT_VERSION,
+    _checked_settings,
+    _embedding_checkpoint,
+    _plain_names,
+    _rebuild_embedding,
+    _require_device,
+    _require_entries,
+    _require_matching_weights,
+    _require_names,
+    _support_from_file,
     generate_support,
     generate_train_summary,
-    jit_archive_to_tensor,
     load_checkpoint,
-    load_jit_archive,
-    prepare_jit_module,
 )
 
 BatchType = tuple[torch.Tensor, ...]
@@ -372,6 +380,57 @@ class _Laplace(torch.nn.Module):
         return pred
 
 
+_DEFAULT_NUM_RANDOM_FEATURES = 1024
+
+_USE_TEMPERATURE_WARNING = (
+    "Model file's settings include 'use_temperature' (saved by EQUINE 0.1.5 or "
+    "earlier); EquineGP has not accepted this setting since 0.1.6, so it is "
+    "dropped. The saved temperature is kept and predictions are unchanged. To "
+    f"rewrite the file without it, {_MIGRATION_HINT}."
+)
+
+
+def _expected_laplace_state(settings: dict[str, Any]) -> dict[str, torch.Tensor]:
+    """
+    The ``_Laplace`` state_dict that ``EquineGP(embedding, **settings)`` builds,
+    feature extractor excluded, as meta tensors (names and shapes, no data).
+
+    Plain arithmetic mirroring ``EquineGP.__init__`` (which always builds
+    ``_Laplace`` with ``num_gp_features == emb_out_dim`` and normalized GP
+    features), ``_Laplace.__init__`` and ``_RandomFourierFeatures.__init__``,
+    so that nothing sized by a file's settings is allocated before those
+    settings are checked against the stored weights.
+    """
+    e, c, n = (
+        _positive_int(settings.get(name, default), f"Model file's settings[{name!r}]")
+        for name, default in (
+            ("emb_out_dim", None),
+            ("num_classes", None),
+            ("num_random_features", _DEFAULT_NUM_RANDOM_FEATURES),
+        )
+    )
+    shapes: dict[str, tuple[int, ...]] = {
+        "random_matrix": (e, e),
+        "seen_data": (),
+        "precision": (n, n),
+        "covariance": (n, n),
+        "normalize.weight": (e,),
+        "normalize.bias": (e,),
+        "rff.feature_scale": (),
+        "rff.W": (e, n),
+        "rff.b": (n,),
+        "beta.weight": (c, n),
+        "beta.bias": (c,),
+    }
+    try:
+        return {key: torch.empty(shape, device="meta") for key, shape in shapes.items()}
+    except (RuntimeError, TypeError) as err:  # sizes too large to represent
+        raise ValueError(
+            "Model file's settings describe a model too large to represent; "
+            "refusing to load."
+        ) from err
+
+
 # -------------------------------------------------------------------------------
 # EquineGP, below, demonstrates how to adapt that approach in EQUINE
 @beartype
@@ -393,7 +452,7 @@ class EquineGP(Equine):
         embedding_model: torch.nn.Module,
         emb_out_dim: int,
         num_classes: int,
-        num_random_features: int = 1024,
+        num_random_features: int = _DEFAULT_NUM_RANDOM_FEATURES,
         init_temperature: float = 1.0,
         device: str = "cpu",
         feature_names: Optional[list[str]] = None,
@@ -761,15 +820,44 @@ class EquineGP(Equine):
 
         return eq_out
 
-    def save(self, path: str) -> None:
+    def save(self, path: str, *, allow_executable: bool = False) -> None:
         """
-        Function to save all model parameters to a file.
+        Save all model parameters to a file.
+
+        The embedding model (the feature extractor) is stored as a *recipe*
+        (registered architecture name plus constructor arguments) and a
+        ``state_dict``, so the file holds only data. If the embedding model is
+        not a registered architecture (for example a ``torch.jit.ScriptModule``),
+        pass ``allow_executable=True`` to embed a TorchScript copy instead; such
+        a file is flagged and can only be opened with
+        ``load(..., trust_executable=True)``. This opt-in exists for one release
+        to migrate existing files and will then be removed.
 
         Parameters
         ----------
         path : str
             Filename to write the model.
+        allow_executable : bool, optional
+            Keyword-only. Permit embedding executable TorchScript when no recipe
+            is available; emits a ``FutureWarning``.
+
+        Raises
+        ------
+        ValueError
+            If the embedding model has no recipe and ``allow_executable`` is False.
         """
+        checkpoint = self._to_checkpoint(
+            allow_executable,
+            # _embedding_checkpoint, then _to_checkpoint and save, each behind a
+            # beartype wrapper (absent under `python -O`), then the caller.
+            _stacklevel=4 + (0 if sys.flags.optimize else 2),
+        )
+        torch.save(checkpoint, path)
+
+    def _to_checkpoint(
+        self, allow_executable: bool = False, *, _stacklevel: int = 2
+    ) -> dict[str, Any]:
+        """Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""
         model_settings = {
             "emb_out_dim": self.num_deep_features,
             "num_classes": self.num_outputs,
@@ -777,58 +865,71 @@ class EquineGP(Equine):
             "init_temperature": self.temperature.item(),
             "device": self.device_type,
         }
-
-        jit_model = torch.jit.script(prepare_jit_module(self.model.feature_extractor))
-        buffer = io.BytesIO()
-        torch.jit.save(jit_model, buffer)
-
-        laplace_sd = self.model.state_dict()
-        keys_to_delete = []
-        for key in laplace_sd:
-            if "feature_extractor" in key:
-                keys_to_delete.append(key)
-        for key in keys_to_delete:
-            del laplace_sd[key]
-
+        # The feature extractor is the embedding model, which is stored on its
+        # own below, so its weights are left out of the Laplace state_dict.
+        laplace_sd = {
+            key: value
+            for key, value in self.model.state_dict().items()
+            if "feature_extractor" not in key
+        }
         # Everything stored here must be readable by torch.load(weights_only=True)
         # on every supported torch version: tensors, containers and plain
-        # scalars/strings only (issue #168). The TorchScript archive travels as
-        # a uint8 tensor so the checkpoint contains only tensors and plain
-        # values.
-        save_data = {
+        # scalars/strings only (issue #168).
+        save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
-            "embed_jit_save": jit_archive_to_tensor(buffer),
-            "feature_names": self.feature_names,
-            "label_names": self.label_names,
+            **_embedding_checkpoint(
+                self.embedding_model, allow_executable, _stacklevel
+            ),
+            "feature_names": _plain_names(self.feature_names),
+            "label_names": _plain_names(self.label_names),
             "laplace_model_save": laplace_sd,
             "num_data": self.model.num_data,
             "settings": model_settings,
-            "support": {int(label): x for label, x in self.support.items()},
+            # Support tensors are usually views of all their class's training
+            # rows; a clone stores just the support rows, each label separately.
+            "support": {
+                int(label): x.detach().clone() for label, x in self.support.items()
+            },
             "train_batch_size": self.model.train_batch_size,
             "train_summary": self.train_summary,
         }
-
-        torch.save(save_data, path)  # TODO allow model checkpointing
+        return save_data
 
     @classmethod
-    def load(cls, path: str, allow_unsafe_legacy_format: bool = False) -> Equine:
+    def load(
+        cls,
+        path: str,
+        *,
+        allow_unsafe_legacy_format: bool = False,
+        trust_executable: bool = False,
+        embedding_model: Optional[torch.nn.Module] = None,
+    ) -> Equine:
         """
-        Function to load previously saved EquineGP model.
+        Load a previously saved EquineGP model.
 
-        The file is read with ``torch.load(weights_only=True)`` so that a
-        pickle payload in the file cannot run, provided torch >= 2.6 (the
-        minimum EQUINE requires) is installed. The embedded TorchScript module
-        is still executable code, so only load files you trust.
+        The file is read with ``torch.load(weights_only=True)`` and the
+        embedding model is rebuilt from its recipe through the architecture
+        registry, so a default file contains nothing executable.
 
         Parameters
         ----------
         path : str
             Input filename.
         allow_unsafe_legacy_format : bool, optional
-            Permit loading a file written in the legacy pickle format. This
-            uses unrestricted unpickling and can execute code embedded in the
-            file, so only enable it for files you trust. Call ``save`` on the
-            loaded model to rewrite it in the safe format. Defaults to False.
+            Keyword-only. Permit loading a file written in the legacy pickle
+            format. This uses unrestricted unpickling and can execute code
+            embedded in the file, so only enable it for files you trust.
+            Implies ``trust_executable``. Defaults to False.
+        trust_executable : bool, optional
+            Keyword-only. Permit running the TorchScript module embedded in a
+            file saved with ``allow_executable=True``; keeping that module as
+            the embedding emits a ``FutureWarning``. Defaults to False.
+        embedding_model : Optional[torch.nn.Module]
+            Keyword-only. Use this module as the embedding architecture instead
+            of rebuilding it from the file's recipe; the file's weights are
+            loaded into it. With a legacy or executable file (and trust), the
+            archive's weights are copied into it, which migrates the file to
+            the recipe format on the next ``save``.
 
         Returns
         -------
@@ -838,8 +939,8 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If the file cannot be loaded safely and
-            ``allow_unsafe_legacy_format`` is False.
+            If the file cannot be loaded safely, names an unregistered
+            architecture, or contains executable content without trust.
         """
         model_save = load_checkpoint(
             path,
@@ -850,10 +951,25 @@ class EquineGP(Equine):
             # stacklevel must be one shorter to still land on the caller.
             _stacklevel=3 + (0 if sys.flags.optimize else 1),
         )
-        return cls._from_checkpoint(model_save)
+        return cls._from_checkpoint(
+            model_save,
+            trust_executable=trust_executable,
+            embedding_model=embedding_model,
+            allow_unsafe_legacy_format=allow_unsafe_legacy_format,
+            # _from_checkpoint, then load, each behind a beartype wrapper
+            # (absent under `python -O`), then the caller.
+            _stacklevel=3 + (0 if sys.flags.optimize else 2),
+        )
 
     @classmethod
-    def _from_checkpoint(cls, model_save: dict[str, Any]) -> Equine:
+    def _from_checkpoint(
+        cls,
+        model_save: dict[str, Any],
+        trust_executable: bool = False,
+        embedding_model: Optional[torch.nn.Module] = None,
+        allow_unsafe_legacy_format: bool = False,
+        _stacklevel: int = 2,
+    ) -> Equine:
         """
         Rebuild an EquineGP from an already-loaded checkpoint dictionary.
 
@@ -861,14 +977,74 @@ class EquineGP(Equine):
         ----------
         model_save : dict[str, Any]
             The dictionary returned by ``utils.load_checkpoint``.
+        trust_executable : bool, optional
+            Permit running an embedded TorchScript module. Defaults to False.
+        embedding_model : Optional[torch.nn.Module]
+            Use this module as the embedding architecture instead of the file's
+            recipe or archive; the file's weights are loaded into it.
+        allow_unsafe_legacy_format : bool, optional
+            The caller vouched for the file (see ``load``); implies
+            ``trust_executable``.
+        _stacklevel : int, optional
+            Stack depth, counted from this method, at which its warnings are
+            reported, so they point at the user's call site rather than at
+            EQUINE internals.
 
         Returns
         -------
         EquineGP
             The reconstituted EquineGP object.
         """
-        jit_model = load_jit_archive(model_save.get("embed_jit_save"))
-        eq_model = cls(jit_model, **model_save.get("settings"))
+        # EquineGP.load does not take `device` yet (#188): the model is built on
+        # the device recorded in its settings. The embedding
+        # first: it is the single audit point for executable content, so a file
+        # that needs trust says so whatever else it lacks.
+        embedding = _rebuild_embedding(
+            model_save,
+            None,
+            trust_executable or allow_unsafe_legacy_format,
+            embedding_model,
+            _stacklevel=_stacklevel + 1,
+        )
+        _require_entries(
+            model_save,
+            (
+                "settings",
+                "support",
+                "train_summary",
+                "laplace_model_save",
+                "num_data",
+                "train_batch_size",
+            ),
+            cls,
+        )
+        stored_support = _support_from_file(model_save["support"])
+        for key in ("feature_names", "label_names"):
+            _require_names(model_save.get(key), key)
+        settings = model_save["settings"]
+        if isinstance(settings, dict) and "use_temperature" in settings:
+            # EquineGP.__init__ dropped use_temperature in 0.1.6. It only chose
+            # whether train_model calibrated; the calibrated temperature is
+            # stored as init_temperature, so dropping it changes no prediction.
+            settings = {k: v for k, v in settings.items() if k != "use_temperature"}
+            warnings.warn(_USE_TEMPERATURE_WARNING, UserWarning, stacklevel=_stacklevel)
+        settings = _checked_settings(cls, settings)
+        _require_device(settings)
+        # _Laplace allocates buffers sized by the settings (quadratic in
+        # num_random_features and emb_out_dim), so the stored head weights must
+        # match them before anything is constructed.
+        _require_matching_weights(
+            _expected_laplace_state(settings),
+            model_save.get("laplace_model_save"),
+            "laplace_model_save",
+        )
+        try:
+            eq_model = cls(embedding, **settings)
+        except Exception as err:  # a backstop for anything the checks above miss
+            raise ValueError(
+                f"Could not build {cls.__name__} from the model file's settings "
+                f"({_truncate(f'{type(err).__name__}: {err}', 200)})."
+            ) from err
 
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
@@ -884,11 +1060,21 @@ class EquineGP(Equine):
         )
         eq_model.eval()
 
-        support = OrderedDict(
-            (int(label), x) for label, x in model_save.get("support").items()
-        )
-        if len(support) > 0:
-            eq_model.support = support
-            eq_model.prototypes = eq_model.compute_prototypes()
+        # load_checkpoint returns CPU tensors (no map_location here), while the
+        # model is on settings["device"]. compute_prototypes embeds the support
+        # with the model, so the support goes there, as update_support needed it.
+        try:
+            support = OrderedDict(
+                (label, x.to(eq_model.device)) for label, x in stored_support.items()
+            )
+            if len(support) > 0:
+                eq_model.support = support
+                eq_model.prototypes = eq_model.compute_prototypes()
+        except Exception as err:  # the embedding is arbitrary code
+            raise ValueError(
+                "Model file's support could not be passed through its embedding "
+                f"model ({_truncate(f'{type(err).__name__}: {err}', 200)}); the "
+                "file is inconsistent or was tampered with."
+            ) from err
 
         return eq_model

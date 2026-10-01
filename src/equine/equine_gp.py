@@ -4,6 +4,7 @@
 
 import io
 import math
+import sys
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
@@ -17,7 +18,15 @@ from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
-from .utils import generate_support, generate_train_summary, prepare_jit_module
+from .utils import (
+    EQUINE_FORMAT_VERSION,
+    generate_support,
+    generate_train_summary,
+    jit_archive_to_tensor,
+    load_checkpoint,
+    load_jit_archive,
+    prepare_jit_module,
+)
 
 BatchType = tuple[torch.Tensor, ...]
 # -------------------------------------------------------------------------------
@@ -772,7 +781,6 @@ class EquineGP(Equine):
         jit_model = torch.jit.script(prepare_jit_module(self.model.feature_extractor))
         buffer = io.BytesIO()
         torch.jit.save(jit_model, buffer)
-        buffer.seek(0)
 
         laplace_sd = self.model.state_dict()
         keys_to_delete = []
@@ -782,14 +790,20 @@ class EquineGP(Equine):
         for key in keys_to_delete:
             del laplace_sd[key]
 
+        # Everything stored here must be readable by torch.load(weights_only=True)
+        # on every supported torch version: tensors, containers and plain
+        # scalars/strings only (issue #168). The TorchScript archive travels as
+        # a uint8 tensor so the checkpoint contains only tensors and plain
+        # values.
         save_data = {
-            "embed_jit_save": buffer,
+            "equine_format_version": EQUINE_FORMAT_VERSION,
+            "embed_jit_save": jit_archive_to_tensor(buffer),
             "feature_names": self.feature_names,
             "label_names": self.label_names,
             "laplace_model_save": laplace_sd,
             "num_data": self.model.num_data,
             "settings": model_settings,
-            "support": self.support,
+            "support": {int(label): x for label, x in self.support.items()},
             "train_batch_size": self.model.train_batch_size,
             "train_summary": self.train_summary,
         }
@@ -797,22 +811,63 @@ class EquineGP(Equine):
         torch.save(save_data, path)  # TODO allow model checkpointing
 
     @classmethod
-    def load(cls, path: str) -> Equine:
+    def load(cls, path: str, allow_unsafe_legacy_format: bool = False) -> Equine:
         """
         Function to load previously saved EquineGP model.
+
+        The file is read with ``torch.load(weights_only=True)`` so that a
+        pickle payload in the file cannot run, provided torch >= 2.6 (the
+        minimum EQUINE requires) is installed. The embedded TorchScript module
+        is still executable code, so only load files you trust.
 
         Parameters
         ----------
         path : str
             Input filename.
+        allow_unsafe_legacy_format : bool, optional
+            Permit loading a file written in the legacy pickle format. This
+            uses unrestricted unpickling and can execute code embedded in the
+            file, so only enable it for files you trust. Call ``save`` on the
+            loaded model to rewrite it in the safe format. Defaults to False.
+
+        Returns
+        -------
+        EquineGP
+            The reconstituted EquineGP object.
+
+        Raises
+        ------
+        ValueError
+            If the file cannot be loaded safely and
+            ``allow_unsafe_legacy_format`` is False.
+        """
+        model_save = load_checkpoint(
+            path,
+            allow_unsafe_legacy_format=allow_unsafe_legacy_format,
+            # Skip the beartype wrapper around this classmethod. Under
+            # `python -O`, beartype decorators become a no-op (identity)
+            # passthrough, so that wrapper frame doesn't exist and the
+            # stacklevel must be one shorter to still land on the caller.
+            _stacklevel=3 + (0 if sys.flags.optimize else 1),
+        )
+        return cls._from_checkpoint(model_save)
+
+    @classmethod
+    def _from_checkpoint(cls, model_save: dict[str, Any]) -> Equine:
+        """
+        Rebuild an EquineGP from an already-loaded checkpoint dictionary.
+
+        Parameters
+        ----------
+        model_save : dict[str, Any]
+            The dictionary returned by ``utils.load_checkpoint``.
 
         Returns
         -------
         EquineGP
             The reconstituted EquineGP object.
         """
-        model_save = torch.load(path, weights_only=False)
-        jit_model = torch.jit.load(model_save.get("embed_jit_save"))
+        jit_model = load_jit_archive(model_save.get("embed_jit_save"))
         eq_model = cls(jit_model, **model_save.get("settings"))
 
         eq_model.feature_names = model_save.get("feature_names")
@@ -829,7 +884,9 @@ class EquineGP(Equine):
         )
         eq_model.eval()
 
-        support = model_save.get("support")
+        support = OrderedDict(
+            (int(label), x) for label, x in model_save.get("support").items()
+        )
         if len(support) > 0:
             eq_model.support = support
             eq_model.prototypes = eq_model.compute_prototypes()

@@ -156,13 +156,8 @@ description = Runs test suite parallelized in the specified python environment a
               Run `tox -e py311 -- -n 0` to run tests in a python 3.11 with 
               parallelization disabled.
 passenv = *
-deps = pytest
-       pytest-cov
-       hypothesis
-       pytest-xdist
-       tzdata
-       numpy
-       torch >= 2.6.0, < 2.10.0
+extras = tests
+deps = pytest-xdist
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 
@@ -172,24 +167,20 @@ description = Runs test suite and measures test-coverage. Fails if coverage is
 setenv = NUMBA_DISABLE_JIT=1
 usedevelop = true
 basepython = python3.11
+extras = tests
 deps = {[testenv]deps}
        coverage[toml]
-       pytest-cov
-       numpy
-       torch >= 2.6.0, < 2.10.0
 commands = pytest --cov-report term-missing --cov-config=pyproject.toml --cov-fail-under=97 --cov=equine tests {posargs: -n auto --maxprocesses=4}
 
 
 [testenv:pyright]
-description = Ensure that the equine source code and test suite scan clean
+description = Ensure that the equine source code under `src/` scans clean
               under pyright and that the public API has a 100 percent
-              type-completeness score.
+              type-completeness score. The test suite is not scanned.
 usedevelop = true
 basepython = python3.11
+extras =
 deps = pyright
-       numpy<2.0.0 ; platform_machine == "x86_64" and sys_platform == "darwin"
-       numpy ; platform_machine != "x86_64" or sys_platform != "darwin"
-       torch>=2.0.0
 
 commands = pyright src/ --level=error
            pyright --ignoreexternal --level=warning --verifytypes equine
@@ -200,27 +191,29 @@ description = Applies ruff's autofixes (e.g. removes unused imports) and formats
               failing `enforce-format` run.
 skip_install=true
 deps =
-    ruff
+    # keep in sync with the ruff rev in .pre-commit-config.yaml
+    ruff==0.16.9
 commands =
     ruff check --fix src/ tests/
     ruff format src/ tests/
 
 [testenv:enforce-format]
-description = Ensures that source materials code and docs and test suite adhere to 
-              formatting and code-quality standards.
+description = Ensures that the source code and test suite adhere to formatting
+              and code-quality standards.
 skip_install=true
 basepython=python3.11
-deps=ruff
-     codespell
+deps={[testenv:format]deps}
+     codespell==2.4.3
 commands=
     ruff format src/ tests/ --diff --check
     ruff check src/ tests/
-    codespell src/ docs/
+    codespell src/
 
 [testenv:docs]
 description = Uses mkdocs to generate html for the docs. Stores the
               results in `.tox/docs/build/html/`.
 basepython=python3.11
+extras =
 deps=[docs]
 commands=
     mkdocs build --clean --strict

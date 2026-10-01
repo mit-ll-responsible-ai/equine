@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchmetrics.metric import Metric
 from tqdm import tqdm
 
-from .equine import Equine, EquineOutput
+from .equine import Equine, EquineOutput, _eval_mode
 from .registry import _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
@@ -407,6 +407,9 @@ class _Laplace(torch.nn.Module):
         if self.training:
             precision_minibatch = k.t() @ k
             self.precision += precision_minibatch
+            # A covariance cached by an eval-mode forward (predict is allowed
+            # mid-epoch) no longer matches the precision matrix.
+            self.recompute_covariance = True
             self.seen_data += x.shape[0]
             self._seen_count += x.shape[0]
 
@@ -642,8 +645,17 @@ class EquineGP(Equine):
         Returns
         -------
         dict[str, Any]
-            A dict containing a dict of summary stats and a dataloader for the calibration data.
+            ``{"train_summary": ...}`` (the dict ``generate_train_summary``
+            builds, also stored on ``self.train_summary``) plus, when a
+            ``validation_dataset`` was given, ``"val_metrics"``: one list per
+            metric in ``val_metrics`` with that metric's value after each epoch
+            (``None`` when ``val_metrics`` was not given).
 
+        Notes
+        -----
+        Training and eval mode are toggled on this wrapper (which propagates
+        to the inner module), so the model is left in eval mode afterwards,
+        ready to predict.
         """
 
         self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
@@ -668,7 +680,7 @@ class EquineGP(Equine):
             val_metrics_outputs = [[] for i in range(len(list(val_metrics)))]
 
         for _ in tqdm(range(num_epochs)):
-            self.model.train()
+            self.train()  # wrapper and inner module together
             self.model.reset_precision_matrix()
             epoch_loss = 0.0
             for i, (xs, labels) in enumerate(train_loader):
@@ -682,7 +694,7 @@ class EquineGP(Equine):
                 epoch_loss += loss.item()
             if scheduler is not None:
                 scheduler.step()
-            self.model.eval()
+            self.eval()
             # compute the validation metrics
             if (
                 validation_dataset is not None
@@ -719,41 +731,50 @@ class EquineGP(Equine):
     ) -> None:
         """Function to update protonet support examples with given examples.
 
+        The prototypes are eval-mode quantities: this computes in eval mode
+        and leaves the model in the mode the caller had it in (via
+        ``train()``/``eval()``), like ``EquineProtonet.update_support``.
+
         Parameters
         ----------
         support_x : torch.Tensor
             Tensor containing support examples for protonet.
         support_y : torch.Tensor
             Tensor containing labels for given support examples.
+        support_size : int
+            Maximum number of support examples to keep per class.
 
         Returns
         -------
         None
         """
+        with _eval_mode(self):
+            labels, counts = torch.unique(support_y, return_counts=True)
+            support = OrderedDict()
+            for label, count in list(zip(labels.tolist(), counts.tolist())):
+                class_support = generate_support(
+                    support_x,
+                    support_y,
+                    support_size=min(count, support_size),
+                    selected_labels=[label],
+                )
+                support.update(class_support)
 
-        labels, counts = torch.unique(support_y, return_counts=True)
-        support = OrderedDict()
-        for label, count in list(zip(labels.tolist(), counts.tolist())):
-            class_support = generate_support(
-                support_x,
-                support_y,
-                support_size=min(count, support_size),
-                selected_labels=[label],
+            # Through the model boundary: on the device and, for floating
+            # support, in the model's dtype (a float32 model on MPS accepts
+            # float64).
+            self.support = OrderedDict(
+                (label, self._input_to_model(x)) for label, x in support.items()
             )
-            support.update(class_support)
 
-        # Through the model boundary: on the device and, for floating support,
-        # in the model's dtype (so a float32 model on MPS accepts float64).
-        self.support = OrderedDict(
-            (label, self._input_to_model(x)) for label, x in support.items()
-        )
+            support_embeddings = OrderedDict().fromkeys(
+                self.support.keys(), torch.Tensor()
+            )
+            for label in self.support:
+                support_embeddings[label] = self.compute_embeddings(self.support[label])
 
-        support_embeddings = OrderedDict().fromkeys(self.support.keys(), torch.Tensor())
-        for label in self.support:
-            support_embeddings[label] = self.compute_embeddings(self.support[label])
-
-        self.support_embeddings = support_embeddings
-        self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
+            self.support_embeddings = support_embeddings
+            self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
 
     def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -927,6 +948,13 @@ class EquineGP(Equine):
         """
         Predict function for EquineGP, inherited and implemented from Equine.
 
+        Computes in eval mode and leaves the model in the mode the caller had
+        it in (via ``train()``/``eval()``): in training mode the inner Laplace
+        layer accumulates every batch into its precision matrix, which a
+        prediction must not touch. Every submodule's mode is restored, so an
+        embedding frozen with ``model.embedding_model.eval()`` during
+        fine-tuning stays frozen.
+
         Parameters
         ----------
         X : torch.Tensor
@@ -944,7 +972,7 @@ class EquineGP(Equine):
         """
         # One embedding pass; no_grad, not inference_mode, so the outputs stay
         # ordinary tensors a caller can feed into autograd.
-        with torch.no_grad():
+        with _eval_mode(self), torch.no_grad():
             logits, embeddings = self._forward_with_embeddings(X)
             preds = torch.softmax(logits, dim=1)
             equiprobable = (

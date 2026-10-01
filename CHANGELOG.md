@@ -3,6 +3,27 @@
 ## Unreleased
 
 ### Changed
+- **Inference entry points compute in eval mode and restore the caller's
+  mode** (#209, #179). `predict` and `update_support` on both classes switch
+  the model to eval mode for the duration of the call and then put it back in
+  whatever mode the caller left it in (via `train()`/`eval()`), so a
+  prediction is the same in either mode and a hand-written fine-tune loop can
+  call `predict` between epochs; `EquineGP.predict` after `model.train()` no
+  longer accumulates into the Laplace precision matrix (which used to raise
+  `Did not reset precision matrix at start of epoch`), and a training-mode
+  forward marks the cached Laplace covariance stale, so a `predict` issued
+  mid-epoch does not freeze a covariance that later eval-mode predictions
+  would reuse. Every submodule's mode is restored individually, so an
+  embedding frozen for fine-tuning (`model.train();
+  model.embedding_model.eval()`, keeping BatchNorm statistics and dropout
+  fixed) is still frozen after the call, as is any other mix the caller set.
+  `EquineGP.train_model` toggles training and eval mode on the
+  wrapper rather than only on the inner module, and both classes leave the
+  model in eval mode afterwards. `Protonet.update_support` computes the global
+  moments of the support embeddings whatever mode the caller left the model in
+  (via `train()`/`eval()`), so `update_support` works on a freshly constructed
+  (untrained) `EquineProtonet`; the covariance choice per mode is unchanged
+  and trained models produce the same numbers.
 - **Inference embeds each input once and builds no autograd graph** (#173,
   #182, #212). `predict` on both classes runs under `torch.no_grad()` and
   performs a single embedding pass (previously two); its outputs are ordinary

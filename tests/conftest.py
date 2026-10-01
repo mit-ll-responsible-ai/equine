@@ -105,6 +105,23 @@ class BasicEmbeddingModel(torch.nn.Module):
         return logits
 
 
+class CountingEmbedding(torch.nn.Module):
+    """``BasicEmbeddingModel`` that counts its ``forward`` calls (#173, #182, #212).
+
+    Not registered in the architecture registry: tests build it directly and
+    read ``calls`` to assert how many embedding passes an operation made.
+    """
+
+    def __init__(self, tensor_dim: int, num_classes: int) -> None:
+        super().__init__()
+        self.inner = BasicEmbeddingModel(tensor_dim, num_classes)
+        self.calls = 0
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        self.calls += 1
+        return self.inner(x)
+
+
 @st.composite
 def random_dataset(draw):
     """A labelled dataset plus the training arguments that fit its shape.

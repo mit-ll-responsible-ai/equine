@@ -3,6 +3,24 @@
 ## Unreleased
 
 ### Changed
+- **Inference embeds each input once and builds no autograd graph** (#173,
+  #182, #212). `predict` on both classes runs under `torch.no_grad()` and
+  performs a single embedding pass (previously two); its outputs are ordinary
+  tensors without a `grad_fn`, so input attribution through `predict` no
+  longer works (use `forward`). `predict` no longer calls the `EquineGP` /
+  `EquineProtonet` object or its inner module (`model.model`) through
+  `nn.Module.__call__`, so forward hooks registered on those do not observe
+  it; hooks on the embedding model still fire, once per call (previously
+  twice). `EquineGP.forward` likewise no longer runs hooks registered on the
+  inner `_Laplace` module (`model.model`), only on the wrapper and the
+  embedding model. `EquineProtonet.update_support` and the OOD-calibration
+  step of `EquineProtonet.train_model` also no longer call `model.model`
+  through `__call__`, so hooks on it do not see those passes (temperature
+  calibration still calls it), and hooks on the embedding model fire once per
+  calibration pass there (previously twice). `EquineGP.update_support`
+  and `EquineGP.load` embed the support set once per class; loaded GP models
+  expose `support_embeddings`. The public `EquineGP.compute_prototypes()` still
+  re-embeds the support and now refreshes `support_embeddings` as well.
 - **Device handling** (#170, #177, #206, #216, #188). Both model classes now
   keep every tensor they own on their `device`: the `temperature` buffer, the
   support set, the GP's Laplace `seen_data` counter and the covariances it

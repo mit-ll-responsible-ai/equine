@@ -113,8 +113,10 @@ def test_gp_untrained_forward_and_predict_violate_precondition():
     seen_data = model.model.seen_data.clone()
     with pytest.raises(icontract.ViolationError):
         model.forward(x[:5])
+    assert model.training and model.model.training  # nn.Module's default, kept
     with pytest.raises(icontract.ViolationError):
         model.predict(x[:5])
+    assert model.training and model.model.training  # restored on the way out
     torch.testing.assert_close(model.model.precision, precision, atol=0, rtol=0)
     torch.testing.assert_close(model.model.seen_data, seen_data, atol=0, rtol=0)
 

@@ -21,6 +21,10 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "accelerator: needs a CUDA or MPS device (skipped without one)"
     )
+    config.addinivalue_line(
+        "markers",
+        "device: parametrized over available_devices() (informational)",
+    )
 
 
 def _rewrite_zip(src: str, dst: str, edit) -> None:
@@ -175,6 +179,56 @@ def assert_valid_prediction(
     row_sums = out.classes.sum(dim=1)
     assert torch.allclose(row_sums, torch.ones_like(row_sums), atol=1e-5)
     assert torch.all(out.ood_scores >= 0) and torch.all(out.ood_scores <= 1)
+
+
+def available_devices() -> list[str]:
+    """CPU plus whichever accelerator this machine has. CI (Ubuntu) has none."""
+    devices = ["cpu"]
+    if torch.cuda.is_available():
+        devices.append("cuda")
+    if torch.backends.mps.is_available():
+        devices.append("mps")
+    return devices
+
+
+def stored_tensors(model: eq.Equine) -> dict[str, torch.Tensor]:
+    """Every tensor a trained equine model keeps: parameters, buffers, support,
+    prototypes, covariances. Used to assert device placement after train/load.
+
+    The derived tensors live on the inner module for the Protonet
+    (``model.model.prototypes`` ...) and on the wrapper for the GP
+    (``model.prototypes``, ``model.support``); both are looked up and a
+    missing attribute is simply absent from the result.
+    """
+    found: dict[str, torch.Tensor] = {}
+    for name, t in list(model.named_parameters()) + list(model.named_buffers()):
+        found[name] = t
+    holders = [("", model)]
+    inner = getattr(model, "model", None)
+    if inner is not None:
+        holders.append(("model.", inner))
+    for attr in ("prototypes", "covariance", "global_mean", "global_covariance"):
+        for prefix, holder in holders:
+            t = getattr(holder, attr, None)
+            if torch.is_tensor(t) and t.numel() > 0:
+                found[f"{prefix}{attr}"] = t
+    for attr in ("support", "support_embeddings"):
+        for prefix, holder in holders:
+            d = getattr(holder, attr, None) or {}
+            for label, t in d.items():
+                if torch.is_tensor(t) and t.numel() > 0:
+                    found[f"{prefix}{attr}[{label}]"] = t
+    return found
+
+
+def assert_on_device(model: eq.Equine, device: str) -> None:
+    """Fail unless every tensor in ``stored_tensors(model)`` is on ``device``."""
+    wrong = {
+        name: str(t.device)
+        for name, t in stored_tensors(model).items()
+        if t.device.type != torch.device(device).type
+    }
+    assert wrong == {}, f"tensors not on {device}: {wrong}"
 
 
 def use_save_load_model_tests(model, X, tmp_filename: str = "tmp.eq"):

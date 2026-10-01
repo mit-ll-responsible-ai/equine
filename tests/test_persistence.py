@@ -20,7 +20,14 @@ from typing import Any
 import numpy as np
 import pytest
 import torch
-from conftest import BasicEmbeddingModel, _rewrite_zip
+from beartype.roar import BeartypeCallHintParamViolation
+from conftest import (
+    BasicEmbeddingModel,
+    _rewrite_zip,
+    assert_on_device,
+    available_devices,
+)
+from golden_data import trained_protonet
 
 import equine as eq
 import equine.equine_gp
@@ -201,6 +208,153 @@ def test_protonet_load_onto_an_explicit_device_round_trips(tmp_path) -> None:
     assert_same(model, reloaded, X)
 
 
+def test_generic_loader_takes_a_device_for_a_gp_file(tmp_path) -> None:
+    model, X = train_gp(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    reloaded = eq.load_equine_model(path, device="cpu")
+    assert isinstance(reloaded, eq.EquineGP)
+    assert reloaded.device == "cpu"
+    assert {p.device.type for p in reloaded.embedding_model.parameters()} == {"cpu"}
+    assert_same(model, reloaded, X)
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_requested_meta_device_is_refused(tmp_path, train, cls) -> None:
+    """An explicit device= is validated in load_checkpoint, before the file is
+    read, so every loader refuses 'meta' the same way."""
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(
+            ValueError, match="The requested device is 'meta', which holds no data"
+        ):
+            loader(path, device="meta")
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+@pytest.mark.skipif(torch.cuda.is_available(), reason="cuda is available here")
+def test_requested_unavailable_device_is_refused(tmp_path, train, cls) -> None:
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(
+            ValueError, match="The requested device .* is not available on this machine"
+        ):
+            loader(path, device="cuda")
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_requested_cpu_device_index_is_accepted(tmp_path, train, cls) -> None:
+    """``cpu:0`` loads like ``cpu``: the CPU has no device count to check an index against."""
+    model, X = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (cls.load, eq.load_equine_model):
+        reloaded = loader(path, device="cpu:0")  # index 0 is always the CPU
+        assert reloaded.device == "cpu:0"
+        assert_same(model, reloaded, X)
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_requested_device_index_is_checked_against_the_device_count(
+    tmp_path, monkeypatch, train, cls
+) -> None:
+    """A device ordinal at or above the device count is refused before the file is read.
+
+    CUDA is faked (available, one device) so that CI, which has no
+    accelerator, reaches the index check; the refusal comes before any CUDA
+    call.
+    """
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="names device index 7"):
+            loader(path, device="cuda:7")
+    with pytest.raises(ValueError, match="names device index 7"):
+        equine.utils.load_checkpoint(path, map_location="cuda:7")
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+@pytest.mark.skipif(
+    not torch.cuda.is_available() or torch.cuda.device_count() >= 8,
+    reason="needs a machine with CUDA and fewer than 8 GPUs",
+)
+def test_requested_cuda_index_out_of_range_is_refused(tmp_path, train, cls) -> None:
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="names device index 7"):
+            loader(path, device="cuda:7")
+
+
+@pytest.mark.accelerator
+@pytest.mark.parametrize("train, cls", TRAINERS)
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
+def test_requested_mps_index_is_validated(tmp_path, train, cls) -> None:
+    """MPS exposes one device: ``mps:0`` loads, ``mps:1`` is refused before the file is read."""
+    model, X = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="names device index 1"):
+            loader(path, device="mps:1")
+        reloaded = loader(path, device="mps:0")
+        assert reloaded.device == "mps:0"
+        expected, actual = model.predict(X[:8]), reloaded.predict(X[:8])
+        torch.testing.assert_close(
+            actual.classes.cpu(), expected.classes, atol=1e-4, rtol=0
+        )
+        torch.testing.assert_close(
+            actual.ood_scores.cpu(), expected.ood_scores, atol=1e-4, rtol=0
+        )
+
+
+@pytest.mark.accelerator
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
+def test_float64_file_is_refused_clearly_on_mps(tmp_path) -> None:
+    """MPS has no float64: a file holding float64 tensors is a ValueError naming the dtype, not a torch TypeError."""
+    model = trained_protonet()  # built and trained in float64 on the CPU
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+        with pytest.raises(
+            ValueError, match="float64 tensor, which mps does not support"
+        ):
+            loader(path, device="mps")
+
+
+_ACCELERATOR = next((d for d in available_devices() if d != "cpu"), None)
+
+
+@pytest.mark.accelerator
+@pytest.mark.skipif(_ACCELERATOR is None, reason="needs a CUDA or MPS device")
+def test_gp_saved_on_the_accelerator_loads_onto_cpu(tmp_path) -> None:
+    model, X = train_gp(BasicEmbeddingModel(6, 3), device=_ACCELERATOR)
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    expected = model.predict(X[:8])
+    for loaded in (
+        eq.EquineGP.load(path, device="cpu"),
+        eq.load_equine_model(path, device="cpu"),
+    ):
+        assert loaded.device == "cpu"
+        assert_on_device(loaded, "cpu")
+        actual = loaded.predict(X[:8])
+        torch.testing.assert_close(
+            actual.classes, expected.classes.cpu(), atol=1e-4, rtol=0
+        )
+        torch.testing.assert_close(
+            actual.ood_scores, expected.ood_scores.cpu(), atol=1e-4, rtol=0
+        )
+
+
 @pytest.mark.parametrize("train, cls", TRAINERS)
 def test_save_and_load_flags_are_keyword_only(tmp_path, train, cls) -> None:
     """A positional True must not silently mean allow_executable,
@@ -210,10 +364,18 @@ def test_save_and_load_flags_are_keyword_only(tmp_path, train, cls) -> None:
     with pytest.raises(TypeError):
         model.save(path, True)  # type: ignore[misc]
     model.save(path)
-    positional = (path, None, True) if cls is eq.EquineProtonet else (path, True)
+    # device is the one positional argument after the path on every loader;
+    # a third positional hits the keyword-only flags.
     with pytest.raises(TypeError):
-        cls.load(*positional)  # type: ignore[misc]
+        cls.load(path, None, True)  # type: ignore[misc]
     with pytest.raises(TypeError):
+        eq.load_equine_model(path, None, True)  # type: ignore[misc]
+    # A positional True lands in the device slot and is refused too: by
+    # beartype on the class loaders; load_equine_model is not beartype-checked,
+    # so load_checkpoint's device validation raises the ValueError instead.
+    with pytest.raises(BeartypeCallHintParamViolation):
+        cls.load(path, True)  # type: ignore[misc]
+    with pytest.raises(ValueError, match="not a torch device name"):
         eq.load_equine_model(path, True)  # type: ignore[misc]
 
 
@@ -1558,8 +1720,12 @@ def test_a_device_this_machine_lacks_is_refused(tmp_path, train, cls) -> None:
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="not available on this machine"):
             loader(path)
-    if cls is eq.EquineProtonet:  # the caller's device= replaces the file's
-        assert_same(model, eq.EquineProtonet.load(path, device="cpu"), X)
+    for loader in (cls.load, eq.load_equine_model):
+        reloaded = loader(
+            path, device="cpu"
+        )  # the caller's device= replaces the file's
+        assert reloaded.device == "cpu"
+        assert_same(model, reloaded, X)
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)

@@ -3,12 +3,14 @@ import pytest
 import torch
 import torchmetrics
 from conftest import (
+    BasicEmbeddingModel,
     assert_valid_prediction,
     generate_random_string_list,
     random_dataset,
     use_basic_embedding_model,
     use_save_load_model_tests,
 )
+from golden_data import CLASSES, FEATURES, separable_dataset
 from hypothesis import given, settings
 
 import equine as eq
@@ -263,3 +265,44 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
         "feature_names changed on reload"
     )
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="#171: EquineGP.train_model never resets val_metrics between epochs",
+)
+def test_validation_metrics_are_reset_between_epochs() -> None:
+    dataset, x, y = separable_dataset()
+    # float labels, like the dataset test_equine_gp_train_from_scratch_with_validation passes
+    val = torch.utils.data.TensorDataset(x[:64], y[:64].float())
+    metric = torchmetrics.classification.MulticlassAccuracy(num_classes=CLASSES)
+    # Record how many updates each epoch's compute() sees. train_model calls
+    # compute() once per epoch, after iterating the validation set.
+    seen: list[int] = []
+    orig_compute = metric.compute
+
+    def recording_compute():
+        seen.append(metric.update_count)
+        return orig_compute()
+
+    metric.compute = recording_compute
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.01),
+        num_epochs=3,
+        batch_size=32,
+        validation_dataset=val,
+        val_metrics=[metric],
+    )
+    # train_model iterates the validation set with a DataLoader of the training
+    # batch_size and calls metric.update once per batch: 64 rows / 32 = 2
+    # updates per epoch. reset() zeroes update_count, so an implementation that
+    # resets the metric once per epoch (before its updates or right after
+    # compute()) shows every compute() exactly 2 updates; today the count
+    # accumulates and each epoch's compute() covers all prior epochs.
+    assert seen == [2, 2, 2]

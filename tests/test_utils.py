@@ -239,3 +239,84 @@ def test_prepare_jit_module_makes_module_scriptable(in_dim, out_dim, batch):
     scripted = torch.jit.script(model)  # must not raise on Python 3.14
     x = torch.rand(batch, in_dim)
     assert torch.allclose(scripted(x), model(x))
+
+
+def _probs(rows):
+    return torch.tensor(rows, dtype=torch.float32)
+
+
+def test_brier_score_known_values() -> None:
+    # brier_score = mean over rows of sum_j (f_ij - o_ij)^2, o = one-hot(y)
+    y = torch.tensor([0, 1, 2])
+    # perfect one-hot predictions -> every term is 0
+    assert eq.utils.brier_score(
+        _probs([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), y
+    ) == pytest.approx(0.0)
+    # uniform over K classes: (1 - 1/K)^2 + (K-1)(1/K)^2 = (K-1)/K per row
+    k = 3
+    assert eq.utils.brier_score(_probs([[1 / k] * k] * 3), y) == pytest.approx(
+        (k - 1) / k, abs=1e-6
+    )
+    # confidently wrong: (0-1)^2 + (1-0)^2 = 2 per row
+    assert eq.utils.brier_score(
+        _probs([[0, 1, 0], [0, 0, 1], [1, 0, 0]]), y
+    ) == pytest.approx(2.0)
+
+
+def test_brier_skill_score_known_values() -> None:
+    # brier_skill_score = 1 - BS / BS_ref, where the reference forecast is the
+    # uniform guess 1/K for every class, so BS_ref = (K-1)/K = 2/3 for K=3.
+    y = torch.tensor([0, 1, 2])
+    # perfect: BS=0 -> 1 - 0 = 1
+    assert eq.utils.brier_skill_score(
+        _probs([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), y
+    ) == pytest.approx(1.0, abs=1e-6)
+    # uniform: BS=BS_ref -> 1 - 1 = 0 (no skill over the reference)
+    assert eq.utils.brier_skill_score(_probs([[1 / 3] * 3] * 3), y) == pytest.approx(
+        0.0, abs=1e-6
+    )
+    # confidently wrong: BS=2 -> 1 - 2 / (2/3) = 1 - 3 = -2
+    assert eq.utils.brier_skill_score(
+        _probs([[0, 1, 0], [0, 0, 1], [1, 0, 0]]), y
+    ) == pytest.approx(-2.0, abs=1e-6)
+
+
+def test_expected_calibration_error_known_values() -> None:
+    # ECE (torchmetrics MulticlassCalibrationError, n_bins=25, norm="l1") bins
+    # rows by max probability and sums |accuracy_bin - confidence_bin| weighted
+    # by the fraction of rows in the bin. Every case below puts all rows in a
+    # single bin, so ECE = |accuracy - confidence| of that bin.
+    y = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 1, 1])
+    # confidence 1, accuracy 1 -> 0
+    right = torch.nn.functional.one_hot(y, 2).float()
+    assert eq.utils.expected_calibration_error(right, y) == pytest.approx(0.0, abs=1e-6)
+    # confidence 1, accuracy 0 -> 1
+    wrong = torch.nn.functional.one_hot(1 - y, 2).float()
+    assert eq.utils.expected_calibration_error(wrong, y) == pytest.approx(1.0, abs=1e-6)
+    # confidence 0.6 on every row, 6 of 10 right -> |0.6 - 0.6| = 0
+    calibrated = _probs([[0.6, 0.4]] * 10)
+    y_cal = torch.tensor([0] * 6 + [1] * 4)
+    assert eq.utils.expected_calibration_error(calibrated, y_cal) == pytest.approx(
+        0.0, abs=1e-6
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="#174: generate_model_metrics passes (target, preds) to torchmetrics, "
+    "which expects (preds, target)",
+)
+def test_generate_model_metrics_known_confusion_matrix() -> None:
+    y_true = torch.tensor([0, 0, 0, 0, 1, 2])
+    probs = torch.nn.functional.one_hot(torch.tensor([0, 0, 0, 1, 1, 1]), 3).float()
+    out = eq.EquineOutput(classes=probs, ood_scores=torch.zeros(6), embeddings=probs)
+    metrics = eq.utils.generate_model_metrics(out, y_true)
+    # MulticlassAccuracy(num_classes=3) defaults to average="macro": the mean of
+    # the per-class recalls. class 0 -> 3/4, class 1 -> 1/1, class 2 -> 0/1,
+    # so (0.75 + 1 + 0) / 3 = 7/12. With the arguments swapped the "classes"
+    # are the predicted labels and the value comes out as 4/9.
+    assert metrics["accuracy"] == pytest.approx(7 / 12)
+    # rows = true class, columns = predicted class. The swapped call returns the
+    # transpose, [[3, 0, 0], [1, 1, 1], [0, 0, 0]].
+    assert metrics["confusionMatrix"] == [[3, 1, 0], [0, 1, 0], [0, 1, 0]]

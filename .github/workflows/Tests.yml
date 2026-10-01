@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   tests:
@@ -91,6 +90,6 @@ jobs:
   #       - name: Install dependencies
   #         run: |
   #           python -m pip install --upgrade pip
-  #           pip install tox tox-gh-actions
+  #           pip install tox tox-uv tox-gh-actions
   #       - name: Test with tox
   #         run: tox -e pyright

@@ -55,6 +55,7 @@ coverage.xml
 .pytest_cache/
 # EQUINE model files a failed test run could leave behind (#224)
 *.eq
+!tests/fixtures/*.eq
 
 # Translations
 *.mo

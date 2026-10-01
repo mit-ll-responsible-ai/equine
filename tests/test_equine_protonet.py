@@ -56,10 +56,8 @@ def embeddings(draw):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes(random_dataset):
-    dataset, num_classes, way = random_dataset
-    num_shot = 3
+    dataset, num_classes, train_kwargs = random_dataset
     num_episodes = 10
-    episode_size = 512
 
     X, Y = dataset.tensors
     num_deep_features = 32
@@ -67,10 +65,8 @@ def test_train_episodes(random_dataset):
     model = eq.EquineProtonet(embed_model, num_deep_features)
     model.train_model(
         dataset,
-        way=way,
-        support_size=num_shot,
         num_episodes=num_episodes,
-        episode_size=episode_size,
+        **train_kwargs,
     )
 
     assert model.model.training is False, "Model leaves training mode"
@@ -100,10 +96,8 @@ def test_train_episodes(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes_shared_reg(random_dataset):
-    dataset, num_classes, way = random_dataset
-    num_shot = 3
+    dataset, num_classes, train_kwargs = random_dataset
     num_episodes = 10
-    episode_size = 512
 
     X, Y = dataset.tensors
     num_deep_features = 32
@@ -115,10 +109,8 @@ def test_train_episodes_shared_reg(random_dataset):
     model.model.cov_reg_type = "shared"
     model.train_model(
         dataset,
-        way=way,
-        support_size=num_shot,
         num_episodes=num_episodes,
-        episode_size=episode_size,
+        **train_kwargs,
     )
 
     assert model.model.training is False, "Model leaves training mode"
@@ -145,10 +137,8 @@ def test_train_episodes_shared_reg(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes_full_cov(random_dataset):
-    dataset, num_classes, way = random_dataset
-    num_shot = 20
+    dataset, num_classes, train_kwargs = random_dataset
     num_episodes = 5
-    episode_size = 512
 
     X, Y = dataset.tensors
     num_deep_features = 4
@@ -156,12 +146,12 @@ def test_train_episodes_full_cov(random_dataset):
     model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL)
     model.cov_reg_type = "epsilon"
     model.model.cov_reg_type = "epsilon"
+    # 10 support rows in 4 deep-feature dims keep the full covariance well
+    # conditioned, so the derived support_size is sufficient here.
     model.train_model(
         dataset,
-        way=way,
-        support_size=num_shot,
         num_episodes=num_episodes,
-        episode_size=episode_size,
+        **train_kwargs,
     )
 
     assert model.model.training is False, "Model leaves training mode"
@@ -187,10 +177,8 @@ def test_train_episodes_full_cov(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes_with_temperature(random_dataset):
-    dataset, num_classes, way = random_dataset
-    num_shot = 3
+    dataset, num_classes, train_kwargs = random_dataset
     num_episodes = 10
-    episode_size = 512
 
     X, Y = dataset.tensors
     num_deep_features = 32
@@ -200,10 +188,8 @@ def test_train_episodes_with_temperature(random_dataset):
     assert before == 1.0, "init_temperature defaults to 1.0"
     train_dict = model.train_model(
         dataset,
-        way=way,
-        support_size=num_shot,
         num_episodes=num_episodes,
-        episode_size=episode_size,
+        **train_kwargs,
     )
 
     assert "calib_x" in train_dict
@@ -230,7 +216,9 @@ def test_train_episodes_with_temperature(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_predict_fail_before_training(random_dataset):
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, _ = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineProtonet(embedding_model, num_classes)
     with pytest.raises(ValueError):
@@ -242,10 +230,12 @@ def test_predict_fail_before_training(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_protonet_save_load(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, train_kwargs = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineProtonet(embedding_model, num_classes, relative_mahal=False)
-    model.train_model(dataset, num_episodes=2)
+    model.train_model(dataset, num_episodes=2, **train_kwargs)
 
     use_save_load_model_tests(model, X, tmp_filename="protonet_save_load.eq")
 
@@ -253,11 +243,13 @@ def test_equine_protonet_save_load(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, train_kwargs = use_basic_embedding_model(
+        random_dataset
+    )
 
     model = eq.EquineProtonet(embedding_model, num_classes, use_temperature=True)
     before = model.temperature.item()
-    model.train_model(dataset, num_episodes=2)
+    model.train_model(dataset, num_episodes=2, **train_kwargs)
     calibrated = model.temperature.item()
     assert calibrated != before, "train_model(use_temperature=True) must calibrate"
     assert calibrated > 0
@@ -273,11 +265,13 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) -> None:
-    dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
+    dataset, num_classes, X, embedding_model, train_kwargs = use_basic_embedding_model(
+        random_dataset
+    )
 
     # without feature and label names
     model = eq.EquineProtonet(embedding_model, num_classes)
-    model.train_model(dataset, num_episodes=2)
+    model.train_model(dataset, num_episodes=2, **train_kwargs)
 
     new_model = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load_no_feature_and_label_names.eq"
@@ -296,7 +290,7 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
         feature_names=feature_names,
         label_names=label_names,
     )
-    model.train_model(dataset, num_episodes=2)
+    model.train_model(dataset, num_episodes=2, **train_kwargs)
 
     new_model = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load_with_feature_and_label_names.eq"

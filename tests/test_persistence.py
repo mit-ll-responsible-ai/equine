@@ -452,6 +452,18 @@ def test_override_with_no_weights_in_file_is_refused(tmp_path, train, cls) -> No
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
+def test_file_with_neither_recipe_nor_archive_is_refused(tmp_path, train, cls) -> None:
+    """Without an override there is nothing to rebuild the embedding from."""
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    _rewrite(path, embedding_recipe=..., embedding_state_dict=...)
+    for loader in (cls.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="no recipe and no archive"):
+            loader(path)
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
 def test_weights_that_fail_to_load_raise_value_error(tmp_path, train, cls) -> None:
     """Failures inside load_state_dict (here: bad extra state) surface as ValueError."""
 

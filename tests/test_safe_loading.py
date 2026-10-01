@@ -701,6 +701,17 @@ def test_unreadable_archive_is_refused(tmp_path) -> None:
         load_checkpoint(str(path))
 
 
+def test_stored_archive_without_a_pickle_is_refused(tmp_path) -> None:
+    """A well-formed, uncompressed zip that is not a PyTorch archive passes the
+    zipfile pre-check; torch's own failure to read it surfaces as a bounded
+    ValueError rather than a RuntimeError."""
+    path = tmp_path / "no_pickle.pt"
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
+        archive.writestr("no_pickle/version", "3\n")
+    with pytest.raises(ValueError, match="could not be read as a PyTorch archive"):
+        load_checkpoint(str(path))
+
+
 # ---------------------------------------------------------------------------
 # A storage's size comes from the pickle, not from the bytes in the file, so
 # the safe path maps the file (mmap), refuses storages that claim more than

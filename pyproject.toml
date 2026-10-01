@@ -110,8 +110,6 @@ omit = ["src/equine/_version.py"]
 exclude_lines = [
        'pragma: no cover',
        'def __repr__',
-       'raise NotImplementedError',
-       'raise ValueError',
        '@(abc\.)?abstractmethod',
        '@(typing\.)?overload',
        'except ImportError:',

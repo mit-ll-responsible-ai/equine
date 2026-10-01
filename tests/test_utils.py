@@ -76,6 +76,22 @@ def test_generate_episode(dataset) -> None:
         )
 
 
+def test_generate_support_refuses_support_size_larger_than_a_class() -> None:
+    # Class 0 has three examples; a support of four cannot be drawn from it.
+    # Labels are a float tensor, so the message names the class as 0.0.
+    x = torch.rand(8, 2)
+    y = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1]).float()
+    with pytest.raises(ValueError, match="Not enough support examples in class 0.0"):
+        eq.generate_support(x, y, support_size=4, selected_labels=[0, 1])
+
+
+def test_generate_episode_refuses_support_size_larger_than_a_class() -> None:
+    x = torch.rand(8, 2)
+    y = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1]).float()
+    with pytest.raises(ValueError, match="Not enough support examples in class 0.0"):
+        eq.generate_episode(x, y, support_size=4, way=2, episode_size=2)
+
+
 @st.composite
 def draw_two_tensors(draw: st.DrawFn) -> tuple[torch.Tensor, torch.Tensor]:
     num_classes = draw(st.integers(min_value=2, max_value=128))

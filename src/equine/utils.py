@@ -2,9 +2,12 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import io
+import pickle
 import sys
+import warnings
 from collections import OrderedDict
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import icontract
 import torch
@@ -18,6 +21,180 @@ from torchmetrics.classification import (
 
 from .equine import Equine
 from .equine_output import EquineOutput
+
+# Version of the on-disk layout written by ``EquineProtonet.save`` and
+# ``EquineGP.save``. Version 2 contains only tensors, containers and plain
+# Python scalars/strings, so it can be read with ``torch.load(weights_only=True)``
+# on every supported torch version. Files without this key are "legacy" files
+# that pickled arbitrary Python objects and need unrestricted unpickling.
+EQUINE_FORMAT_VERSION = 2
+
+_UNSAFE_LOAD_WARNING = (
+    "Loading '{path}' with allow_unsafe_legacy_format=True fell back to "
+    "unrestricted unpickling (torch.load(weights_only=False)), which can execute "
+    "arbitrary code embedded in the file. Only do this for files you trust, and "
+    "call save() afterwards to rewrite the model in the safe format."
+)
+
+_UNSAFE_LOAD_ERROR = (
+    "Could not safely load '{path}'. EQUINE reads model files with "
+    "torch.load(weights_only=True), which refuses pickled Python objects that "
+    "could run code when the file is opened, on torch >= 2.6. This file either "
+    "was written by an EQUINE version that used the legacy pickle format, or is "
+    "not an EQUINE model. If you created the file yourself and trust it, load it "
+    "with allow_unsafe_legacy_format=True and call save() to rewrite it in the "
+    "safe format."
+)
+
+# torch.load(weights_only=True) has a known unpickling bypass on every torch
+# release before 2.6.0 (CVE-2025-32434 / GHSA-53q9-r3pm-6pq6), so the safe load
+# path below is only trustworthy on torch >= 2.6.
+_MIN_SAFE_TORCH = (2, 6)
+
+_OLD_TORCH_ERROR = (
+    "Restricted unpickling (torch.load(weights_only=True)) has a known bypass "
+    "on torch < 2.6 (CVE-2025-32434); installed torch is {version}. Upgrade "
+    "torch, or pass allow_unsafe_legacy_format=True only for files you trust."
+)
+
+
+def _torch_version() -> tuple[int, int]:
+    """Return the installed torch version as an ``(major, minor)`` tuple."""
+    return tuple(int(p) for p in torch.__version__.split("+")[0].split(".")[:2])
+
+
+def load_checkpoint(
+    path: str,
+    map_location: Optional[str] = None,
+    allow_unsafe_legacy_format: bool = False,
+    _stacklevel: int = 3,
+) -> dict[str, Any]:
+    """
+    Read a saved EQUINE model file with restricted unpickling.
+
+    The file is read with ``torch.load(weights_only=True)``, which only
+    reconstructs tensors and plain Python containers, so a crafted pickle
+    payload cannot run when the file is opened, provided torch >= 2.6 (the
+    minimum EQUINE requires) is installed. Files written by EQUINE versions
+    before the safe format (see ``EQUINE_FORMAT_VERSION``) stored Python
+    objects that require unrestricted unpickling; they are rejected unless
+    ``allow_unsafe_legacy_format`` is set, in which case the unrestricted
+    load is used only after the safe load has failed.
+
+    Note that the embedded TorchScript module is executable code that is run by
+    ``torch.jit.load`` when the model is reconstructed. Restricted unpickling
+    closes the pickle vector (issue #168) but does not make an EQUINE model file
+    from an unknown source safe to open. Only load files you trust.
+
+    Parameters
+    ----------
+    path : str
+        Filename of the saved model.
+    map_location : Optional[str]
+        Device to map saved tensors onto (passed to ``torch.load``).
+    allow_unsafe_legacy_format : bool, optional
+        If the safe load fails, fall back to ``weights_only=False`` with a
+        ``UserWarning``. This can execute arbitrary code embedded in the file,
+        so only enable it for files you created or fully trust. Re-saving the
+        loaded model rewrites it in the safe format. Defaults to False.
+    _stacklevel : int, optional
+        Stack depth at which the fallback warning is reported, so it points at
+        the user's call site rather than at EQUINE internals.
+
+    Returns
+    -------
+    dict[str, Any]
+        The saved checkpoint dictionary.
+
+    Raises
+    ------
+    ValueError
+        If the file cannot be loaded safely and
+        ``allow_unsafe_legacy_format`` is False.
+    """
+    if _torch_version() < _MIN_SAFE_TORCH:
+        if not allow_unsafe_legacy_format:
+            raise ValueError(_OLD_TORCH_ERROR.format(version=torch.__version__))
+        warnings.warn(
+            _UNSAFE_LOAD_WARNING.format(path=path),
+            UserWarning,
+            stacklevel=_stacklevel,
+        )
+        return torch.load(path, map_location=map_location, weights_only=False)
+
+    try:
+        checkpoint = torch.load(path, map_location=map_location, weights_only=True)
+    except pickle.UnpicklingError as err:
+        if not allow_unsafe_legacy_format:
+            raise ValueError(_UNSAFE_LOAD_ERROR.format(path=path)) from err
+    else:
+        _validate_format_version(checkpoint)
+        return checkpoint
+
+    warnings.warn(
+        _UNSAFE_LOAD_WARNING.format(path=path), UserWarning, stacklevel=_stacklevel
+    )
+    return torch.load(path, map_location=map_location, weights_only=False)
+
+
+def _validate_format_version(checkpoint: Any) -> None:
+    """
+    Raise if a loaded checkpoint declares a format version newer than this
+    EQUINE build understands.
+
+    Files without an ``equine_format_version`` key are legacy files written
+    before the key existed and are left alone here.
+    """
+    if isinstance(checkpoint, dict) and "equine_format_version" in checkpoint:
+        version = checkpoint["equine_format_version"]
+        if version > EQUINE_FORMAT_VERSION:
+            raise ValueError(
+                f"Unsupported EQUINE model format version {version}; this "
+                f"EQUINE supports up to {EQUINE_FORMAT_VERSION}. Upgrade EQUINE."
+            )
+
+
+def jit_archive_to_tensor(buffer: io.BytesIO) -> torch.Tensor:
+    """
+    Convert a serialized TorchScript archive into a ``uint8`` tensor for saving.
+
+    The archive travels as a uint8 tensor so the checkpoint contains only
+    tensors and plain values.
+    """
+    return torch.frombuffer(bytearray(buffer.getvalue()), dtype=torch.uint8)
+
+
+def _archive_bytes(archive: torch.Tensor) -> bytes:
+    """
+    Return the exact bytes of a ``uint8`` archive tensor.
+
+    Uses ``.numpy().tobytes()`` rather than iterating ``untyped_storage()``
+    element-by-element, which is dramatically faster for large archives.
+    ``.numpy()`` operates on the tensor's own data (respecting its shape,
+    stride and storage offset), so a non-full or offset view still yields
+    exactly that view's bytes, not the whole backing storage.
+    """
+    return archive.detach().cpu().contiguous().numpy().tobytes()
+
+
+def load_jit_archive(
+    archive: Union[torch.Tensor, bytes, bytearray, io.BytesIO],
+    map_location: Optional[str] = None,
+) -> torch.jit.ScriptModule:
+    """
+    Reconstruct a TorchScript module from an archive stored in a checkpoint.
+
+    Accepts the ``uint8`` tensor written by the current ``save``, as well as the
+    ``bytes`` and ``io.BytesIO`` forms found in older files.
+    """
+    if isinstance(archive, torch.Tensor):
+        buffer = io.BytesIO(_archive_bytes(archive))
+    elif isinstance(archive, (bytes, bytearray)):
+        buffer = io.BytesIO(archive)
+    else:
+        buffer = archive
+    buffer.seek(0)
+    return torch.jit.load(buffer, map_location=map_location)
 
 
 @icontract.ensure(lambda result, module: result is module)

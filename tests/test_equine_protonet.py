@@ -1,12 +1,12 @@
 # Copyright 2024, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
-import os
 
 import pytest
 import torch
 from conftest import (
     BasicEmbeddingModel,
+    assert_valid_prediction,
     generate_random_string_list,
     random_dataset,
     use_basic_embedding_model,
@@ -29,7 +29,8 @@ def test_compute_embeddings(data_shape, num_classes):
     queries = torch.rand(data_shape)
     embed_model = BasicEmbeddingModel(data_shape[1], num_classes)
     model = eq.EquineProtonet(embed_model, num_classes)
-    model.model.compute_embeddings(queries)
+    embeddings = model.model.compute_embeddings(queries)
+    assert embeddings.shape == (data_shape[0], num_classes)
 
 
 @st.composite
@@ -76,13 +77,12 @@ def test_train_episodes(random_dataset):
     assert len(model.model.support) == num_classes  # type: ignore
     # Test on multiple predictions
     eq_out = model.predict(X)
-    assert len(eq_out.classes) == len(X)
-    assert len(eq_out.ood_scores) == len(X)
+    assert_valid_prediction(eq_out, len(X), num_classes)
     # Test on single prediction
     pred_out = model(X[0])
     assert len(pred_out) == 1, "Single prediction works"
     eq_out = model.predict(X[0])
-    assert len(eq_out.classes) == 1, "Single prediction works"
+    assert_valid_prediction(eq_out, 1, num_classes)
 
     support = model.get_support()
     assert support is not None and len(support) == num_classes, (
@@ -125,13 +125,12 @@ def test_train_episodes_shared_reg(random_dataset):
     assert len(model.model.support) == num_classes  # type: ignore
     # Test on multiple predictions
     eq_out = model.predict(X)
-    assert len(eq_out.classes) == len(X)
-    assert len(eq_out.ood_scores) == len(X)
+    assert_valid_prediction(eq_out, len(X), num_classes)
     # Test on single prediction
     pred_out = model(X[0])
     assert len(pred_out) == 1, "Single prediction works"
     eq_out = model.predict(X[0])
-    assert len(eq_out.classes) == 1, "Single prediction works"
+    assert_valid_prediction(eq_out, 1, num_classes)
 
     support = model.get_support()
     assert support is not None and len(support) == num_classes, (
@@ -169,13 +168,12 @@ def test_train_episodes_full_cov(random_dataset):
     assert len(model.model.support) == num_classes  # type: ignore
     # Test on multiple predictions
     eq_out = model.predict(X)
-    assert len(eq_out.classes) == len(X)
-    assert len(eq_out.ood_scores) == len(X)
+    assert_valid_prediction(eq_out, len(X), num_classes)
     # Test on single prediction
     pred_out = model(X[0])
     assert len(pred_out) == 1, "Single prediction works"
     eq_out = model.predict(X[0])
-    assert len(eq_out.classes) == 1, "Single prediction works"
+    assert_valid_prediction(eq_out, 1, num_classes)
 
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
@@ -189,7 +187,7 @@ def test_train_episodes_full_cov(random_dataset):
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
 def test_train_episodes_with_temperature(random_dataset):
-    dataset, _, way = random_dataset
+    dataset, num_classes, way = random_dataset
     num_shot = 3
     num_episodes = 10
     episode_size = 512
@@ -198,6 +196,8 @@ def test_train_episodes_with_temperature(random_dataset):
     num_deep_features = 32
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
     model = eq.EquineProtonet(embed_model, num_deep_features, use_temperature=True)
+    before = model.temperature.item()
+    assert before == 1.0, "init_temperature defaults to 1.0"
     train_dict = model.train_model(
         dataset,
         way=way,
@@ -208,18 +208,23 @@ def test_train_episodes_with_temperature(random_dataset):
 
     assert "calib_x" in train_dict
     assert "calib_y" in train_dict
+    after_train = model.temperature.item()
+    assert after_train != before, "train_model(use_temperature=True) must calibrate"
+    assert after_train > 0
 
     model.calibrate_temperature(train_dict["calib_x"], train_dict["calib_y"], 1, 0.01)
+    after_calibration = model.temperature.item()
+    assert after_calibration != after_train, "calibrate_temperature must move it"
+    assert after_calibration > 0
 
     # Test on multiple predictions
     eq_out = model.predict(X)
-    assert len(eq_out.classes) == len(X)
-    assert len(eq_out.ood_scores) == len(X)
+    assert_valid_prediction(eq_out, len(X), num_classes)
     # Test on single prediction
     pred_out = model(X[0])
     assert len(pred_out) == 1, "Single prediction works"
     eq_out = model.predict(X[0])
-    assert len(eq_out.classes) == 1, "Single prediction works"
+    assert_valid_prediction(eq_out, 1, num_classes)
 
 
 @given(random_dataset=random_dataset())
@@ -242,12 +247,7 @@ def test_equine_protonet_save_load(random_dataset) -> None:
     model = eq.EquineProtonet(embedding_model, num_classes, relative_mahal=False)
     model.train_model(dataset, num_episodes=2)
 
-    _, tmp_filename = use_save_load_model_tests(
-        model, X, tmp_filename="protonet_save_load.eq"
-    )
-
-    if os.path.exists(tmp_filename):
-        os.remove(tmp_filename)  # Cleanup
+    use_save_load_model_tests(model, X, tmp_filename="protonet_save_load.eq")
 
 
 @given(random_dataset=random_dataset())
@@ -256,14 +256,18 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     dataset, num_classes, X, embedding_model = use_basic_embedding_model(random_dataset)
 
     model = eq.EquineProtonet(embedding_model, num_classes, use_temperature=True)
+    before = model.temperature.item()
     model.train_model(dataset, num_episodes=2)
+    calibrated = model.temperature.item()
+    assert calibrated != before, "train_model(use_temperature=True) must calibrate"
+    assert calibrated > 0
 
-    new_model, tmp_filename = use_save_load_model_tests(
+    new_model = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load_with_temperature.eq"
     )
-
-    if os.path.exists(tmp_filename):
-        os.remove(tmp_filename)  # Cleanup
+    assert new_model.temperature.item() == pytest.approx(calibrated), (
+        "temperature changed on reload"
+    )
 
 
 @given(random_dataset=random_dataset())
@@ -275,15 +279,12 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
     model = eq.EquineProtonet(embedding_model, num_classes)
     model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(
+    new_model = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load_no_feature_and_label_names.eq"
     )
 
     assert new_model.get_feature_names() is None, "feature_names changed on reload"
     assert new_model.get_label_names() is None, "label_names changed on reload"
-
-    if os.path.exists(tmp_filename):
-        os.remove(tmp_filename)  # Cleanup
 
     # with feature and label names
     feature_names = generate_random_string_list(X.shape[1])
@@ -297,7 +298,7 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
     )
     model.train_model(dataset, num_episodes=2)
 
-    new_model, tmp_filename = use_save_load_model_tests(
+    new_model = use_save_load_model_tests(
         model, X, tmp_filename="protonet_save_load_with_feature_and_label_names.eq"
     )
 
@@ -305,6 +306,3 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
         "feature_names changed on reload"
     )
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
-
-    if os.path.exists(tmp_filename):
-        os.remove(tmp_filename)  # Cleanup

@@ -53,6 +53,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+# EQUINE model files
+*.eq
 
 # Translations
 *.mo

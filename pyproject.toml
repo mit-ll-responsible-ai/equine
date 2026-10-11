@@ -229,7 +229,7 @@ commands=
 [testenv:docs]
 description = Uses mkdocs to generate html for the docs. Stores the
               results in `.tox/docs/build/html/`.
-basepython=python3.11
+basepython=python3.12
 deps=[docs]
 commands=
     mkdocs build --clean --strict

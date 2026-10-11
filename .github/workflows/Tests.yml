@@ -5,7 +5,7 @@ name: Tests
 on:
   push:
     branches: [ "main" ]
-  # Every pull request, including stacked layers whose base is another branch.
+  # Every pull request, including stacks
   pull_request:
 
 permissions:

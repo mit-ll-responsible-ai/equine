@@ -1590,7 +1590,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">brier_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the Brier score for a multiclass problem:</span>
 <span class="sd">    $$ \\frac{1}{N} \\sum_{i=1}^{N} \\sum_{j=1}^{M} (f_{ij} - o_{ij})^2 , $$</span>
 <span class="sd">    where $f_{ij}$ is the predicted probability of class $j$ for inference sample $i$</span>
@@ -1607,7 +1607,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Brier score.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">num_classes</span> <span class="o">=</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
     <span class="n">one_hot_y_test</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">y_test</span><span class="o">.</span><span class="n">long</span><span class="p">(),</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">)</span>
     <span class="n">bs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">one_hot_y_test</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
@@ -1732,7 +1732,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">brier_skill_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the Brier skill score as compared to randomly guessing.</span>
 
 <span class="sd">    Parameters</span>
@@ -1746,7 +1746,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Brier skill score.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">num_classes</span> <span class="o">=</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
     <span class="n">random_guess</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">num_classes</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">())</span>
     <span class="n">bs0</span> <span class="o">=</span> <span class="n">brier_score</span><span class="p">(</span><span class="n">random_guess</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span>
@@ -1871,7 +1871,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">expected_calibration_error</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute the expected calibration error (ECE) for a multiclass problem.</span>
 
 <span class="sd">    Parameters</span>
@@ -1885,9 +1885,9 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    float</span>
 <span class="sd">        Expected calibration error.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">num_classes</span> <span class="o">=</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
-    <span class="n">metric</span> <span class="o">=</span> <span class="n">MulticlassCalibrationError</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="s2">&quot;l1&quot;</span><span class="p">)</span>
+    <span class="n">metric</span> <span class="o">=</span> <span class="n">MulticlassCalibrationError</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">n_bins</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="s2">"l1"</span><span class="p">)</span>
     <span class="n">ece</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">ece</span>
 </code></pre></div></td></tr></table></div>
@@ -2143,7 +2143,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
     <span class="n">way</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">episode_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generate a single episode of data for a few-shot learning task.</span>
 
 <span class="sd">    Parameters</span>
@@ -2163,11 +2163,11 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]</span>
 <span class="sd">        tuple of support examples, query examples, and query labels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">way</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The way (#classes in each episode), </span><span class="si">{</span><span class="n">way</span><span class="si">}</span><span class="s2">, must be &lt;= number of labels, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"The way (#classes in each episode), </span><span class="si">{</span><span class="n">way</span><span class="si">}</span><span class="s2">, must be &lt;= number of labels, </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="n">selected_labels</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
@@ -2176,7 +2176,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 
     <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">_get_shuffle_idxs_by_class</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">)</span>
 
     <span class="n">support</span> <span class="o">=</span> <span class="n">generate_support</span><span class="p">(</span>
@@ -2196,13 +2196,13 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 
         <span class="n">num_remaining_examples</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">support_size</span>
         <span class="k">assert</span> <span class="n">num_remaining_examples</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span>
-            <span class="s2">&quot;Cannot have &quot;</span>
+            <span class="s2">"Cannot have "</span>
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">num_remaining_examples</span><span class="p">)</span>
-            <span class="o">+</span> <span class="s2">&quot; left with support_size &quot;</span>
+            <span class="o">+</span> <span class="s2">" left with support_size "</span>
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">support_size</span><span class="p">)</span>
-            <span class="o">+</span> <span class="s2">&quot; and shape &quot;</span>
+            <span class="o">+</span> <span class="s2">" and shape "</span>
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-            <span class="o">+</span> <span class="s2">&quot; from train_x shaped &quot;</span>
+            <span class="o">+</span> <span class="s2">" from train_x shaped "</span>
             <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">episode_end_idx</span> <span class="o">=</span> <span class="n">support_size</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_remaining_examples</span><span class="p">,</span> <span class="n">examples_per_task</span><span class="p">)</span>
@@ -2355,8 +2355,8 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="k">def</span><span class="w"> </span><span class="nf">generate_model_metrics</span><span class="p">(</span>
     <span class="n">eq_preds</span><span class="p">:</span> <span class="n">EquineOutput</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generate various metrics for evaluating a model&#39;s performance.</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Generate various metrics for evaluating a model's performance.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -2369,18 +2369,18 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary of model metrics.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">pred_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">accuracy</span> <span class="o">=</span> <span class="n">MulticlassAccuracy</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-    <span class="n">f1_score</span> <span class="o">=</span> <span class="n">MulticlassF1Score</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">average</span><span class="o">=</span><span class="s2">&quot;micro&quot;</span><span class="p">)</span>
+    <span class="n">f1_score</span> <span class="o">=</span> <span class="n">MulticlassF1Score</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">average</span><span class="o">=</span><span class="s2">"micro"</span><span class="p">)</span>
     <span class="n">confusion_matrix</span> <span class="o">=</span> <span class="n">MulticlassConfusionMatrix</span><span class="p">(</span><span class="n">num_classes</span><span class="o">=</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
     <span class="n">metrics</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
-        <span class="s2">&quot;microF1Score&quot;</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
-        <span class="s2">&quot;confusionMatrix&quot;</span><span class="p">:</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
-        <span class="s2">&quot;brierScore&quot;</span><span class="p">:</span> <span class="n">brier_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
-        <span class="s2">&quot;brierSkillScore&quot;</span><span class="p">:</span> <span class="n">brier_skill_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
-        <span class="s2">&quot;expectedCalibrationError&quot;</span><span class="p">:</span> <span class="n">expected_calibration_error</span><span class="p">(</span>
+        <span class="s2">"accuracy"</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
+        <span class="s2">"microF1Score"</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
+        <span class="s2">"confusionMatrix"</span><span class="p">:</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s2">"brierScore"</span><span class="p">:</span> <span class="n">brier_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
+        <span class="s2">"brierSkillScore"</span><span class="p">:</span> <span class="n">brier_skill_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
+        <span class="s2">"expectedCalibrationError"</span><span class="p">:</span> <span class="n">expected_calibration_error</span><span class="p">(</span>
             <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span>
         <span class="p">),</span>
     <span class="p">}</span>
@@ -2537,8 +2537,8 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
     <span class="n">eq_preds</span><span class="p">:</span> <span class="n">EquineOutput</span><span class="p">,</span>
     <span class="n">test_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generate a summary of the model&#39;s performance.</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Generate a summary of the model's performance.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -2553,9 +2553,9 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary containing model summary.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">summary</span> <span class="o">=</span> <span class="n">generate_model_metrics</span><span class="p">(</span><span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">)</span>
-    <span class="n">summary</span><span class="p">[</span><span class="s2">&quot;numTestExamples&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_num_examples_per_label</span><span class="p">(</span><span class="n">test_y</span><span class="p">)</span>
+    <span class="n">summary</span><span class="p">[</span><span class="s2">"numTestExamples"</span><span class="p">]</span> <span class="o">=</span> <span class="n">get_num_examples_per_label</span><span class="p">(</span><span class="n">test_y</span><span class="p">)</span>
     <span class="n">summary</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">train_summary</span><span class="p">)</span>  <span class="c1"># union of train_summary and generated metrics</span>
 
     <span class="k">return</span> <span class="n">summary</span>
@@ -2805,7 +2805,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
     <span class="n">selected_labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">shuffled_indexes</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Randomly select `support_size` examples of `way` classes from the examples in</span>
 <span class="sd">    `train_x` with corresponding labels in `train_y` and return them as a dictionary.</span>
 
@@ -2826,12 +2826,12 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    OrderedDict[int, torch.Tensor]</span>
 <span class="sd">        Ordered dictionary of class labels with corresponding support examples.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">shuffled_indexes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">_get_shuffle_idxs_by_class</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">selected_labels</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">shuffled_idxs</span> <span class="o">=</span> <span class="n">shuffled_indexes</span>
@@ -2841,7 +2841,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
         <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">train_x</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]]</span>
 
         <span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">==</span> <span class="p">[</span><span class="n">label</span><span class="p">],</span> <span class="p">(</span>
-            <span class="s2">&quot;Not enough support for label &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+            <span class="s2">"Not enough support for label "</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">selected_support</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="p">[:</span><span class="n">support_size</span><span class="p">]</span>
         <span class="n">support</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">label</span><span class="p">)]</span> <span class="o">=</span> <span class="n">selected_support</span>
@@ -2987,7 +2987,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="k">def</span><span class="w"> </span><span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generate a summary of the training data.</span>
 
 <span class="sd">    Parameters</span>
@@ -3003,11 +3003,11 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary containing training summary.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">train_summary</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;numTrainExamples&quot;</span><span class="p">:</span> <span class="n">get_num_examples_per_label</span><span class="p">(</span><span class="n">train_y</span><span class="p">),</span>
-        <span class="s2">&quot;dateTrained&quot;</span><span class="p">:</span> <span class="n">date_trained</span><span class="p">,</span>
-        <span class="s2">&quot;modelType&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+        <span class="s2">"numTrainExamples"</span><span class="p">:</span> <span class="n">get_num_examples_per_label</span><span class="p">(</span><span class="n">train_y</span><span class="p">),</span>
+        <span class="s2">"dateTrained"</span><span class="p">:</span> <span class="n">date_trained</span><span class="p">,</span>
+        <span class="s2">"modelType"</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
     <span class="p">}</span>
     <span class="k">return</span> <span class="n">train_summary</span>
 </code></pre></div></td></tr></table></div>
@@ -3116,12 +3116,12 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="normal">410</span>
 <span class="normal">411</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">Y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
-    <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="s2">&quot;label&quot;</span> <span class="ow">in</span> <span class="n">d</span> <span class="ow">and</span> <span class="s2">&quot;numExamples&quot;</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">)</span>
+    <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="s2">"label"</span> <span class="ow">in</span> <span class="n">d</span> <span class="ow">and</span> <span class="s2">"numExamples"</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">)</span>
 <span class="p">)</span>
-<span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;numExamples&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">))</span>
+<span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">"numExamples"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">))</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_num_examples_per_label</span><span class="p">(</span><span class="n">Y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the number of examples per label in the given tensor.</span>
 
 <span class="sd">    Parameters</span>
@@ -3133,13 +3133,13 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">    -------</span>
 <span class="sd">    list[dict[str, Any]]</span>
 <span class="sd">        list of dictionaries containing label and number of examples.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">tensor_labels</span><span class="p">,</span> <span class="n">tensor_counts</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">examples_per_label</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tensor_labels</span><span class="p">):</span>
         <span class="n">examples_per_label</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="p">{</span><span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="s2">&quot;numExamples&quot;</span><span class="p">:</span> <span class="n">tensor_counts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()}</span>
+            <span class="p">{</span><span class="s2">"label"</span><span class="p">:</span> <span class="n">label</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="s2">"numExamples"</span><span class="p">:</span> <span class="n">tensor_counts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()}</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="n">examples_per_label</span>
@@ -3232,7 +3232,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="normal">494</span>
 <span class="normal">495</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">mahalanobis_distance_nosq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute Mahalanobis distance $x^T C x$ (without square root), assume cov is symmetric positive definite</span>
 
 <span class="sd">    Parameters</span>
@@ -3241,7 +3241,7 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 <span class="sd">        vectors to compute distances for</span>
 <span class="sd">    cov : torch.Tensor</span>
 <span class="sd">        covariance matrix, assumes first dimension is number of classes</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">cov</span><span class="p">)</span>
     <span class="n">S_inv_sqrt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
         <span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">S</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
@@ -3371,17 +3371,17 @@ Python &lt; 3.14.</p>
 <span class="normal">56</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">result</span> <span class="ow">is</span> <span class="n">module</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">prepare_jit_module</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Make an ``nn.Module`` safe to pass to ``torch.jit.script`` on Python 3.14+.</span>
 
-<span class="sd">    Starting with Python 3.14 (PEP 649/749) a class&#39;s ``__annotations__`` is</span>
+<span class="sd">    Starting with Python 3.14 (PEP 649/749) a class's ``__annotations__`` is</span>
 <span class="sd">    exposed through a ``type`` getset descriptor instead of being stored in the</span>
-<span class="sd">    class ``__dict__``. ``torch.jit``&#39;s scripting checker reads</span>
+<span class="sd">    class ``__dict__``. ``torch.jit``'s scripting checker reads</span>
 <span class="sd">    ``__annotations__`` from the module *instance*, where attribute lookup only</span>
 <span class="sd">    consults the ``__dict__`` of each class in the MRO. For any ``nn.Module``</span>
 <span class="sd">    that declares no class-level annotations this lookup misses and</span>
 <span class="sd">    ``nn.Module.__getattr__`` raises ``AttributeError``, breaking</span>
-<span class="sd">    ``torch.jit.script``. Materializing each submodule&#39;s own class annotations</span>
+<span class="sd">    ``torch.jit.script``. Materializing each submodule's own class annotations</span>
 <span class="sd">    onto its instance ``__dict__`` lets that lookup succeed. This is a no-op on</span>
 <span class="sd">    Python &lt; 3.14.</span>
 
@@ -3394,11 +3394,11 @@ Python &lt; 3.14.</p>
 <span class="sd">    -------</span>
 <span class="sd">    torch.nn.Module</span>
 <span class="sd">        The same module, returned for convenient inline use.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">submodule</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
-            <span class="k">if</span> <span class="s2">&quot;__annotations__&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">submodule</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
-                <span class="n">submodule</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">&quot;__annotations__&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+            <span class="k">if</span> <span class="s2">"__annotations__"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">submodule</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">:</span>
+                <span class="n">submodule</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="s2">"__annotations__"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
                     <span class="nb">type</span><span class="p">(</span><span class="n">submodule</span><span class="p">)</span><span class="o">.</span><span class="vm">__annotations__</span>
                 <span class="p">)</span>
     <span class="k">return</span> <span class="n">module</span>
@@ -3616,36 +3616,36 @@ Python &lt; 3.14.</p>
 <span class="normal">571</span>
 <span class="normal">572</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;X and Y must have the same number of samples.&quot;</span><span class="p">,</span>
+    <span class="s2">"X and Y must have the same number of samples."</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
-    <span class="k">lambda</span> <span class="n">test_size</span><span class="p">:</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">test_size</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">&quot;test_size must be between 0 and 1.&quot;</span>
+    <span class="k">lambda</span> <span class="n">test_size</span><span class="p">:</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">test_size</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">,</span> <span class="s2">"test_size must be between 0 and 1."</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
-    <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Function must return four elements.&quot;</span>
+    <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">"Function must return four elements."</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">X</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;Total samples must be preserved.&quot;</span><span class="p">,</span>
+    <span class="s2">"Total samples must be preserved."</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">Y</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;Total labels must be preserved.&quot;</span><span class="p">,</span>
+    <span class="s2">"Total labels must be preserved."</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;Train features and labels must match in size.&quot;</span><span class="p">,</span>
+    <span class="s2">"Train features and labels must match in size."</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">result</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;Test features and labels must match in size.&quot;</span><span class="p">,</span>
+    <span class="s2">"Test features and labels must match in size."</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stratified_train_test_split</span><span class="p">(</span>
     <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">test_size</span><span class="p">:</span> <span class="nb">float</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    A pytorch-ified version of sklearn&#39;s train_test_split with data stratification</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    A pytorch-ified version of sklearn's train_test_split with data stratification</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -3666,7 +3666,7 @@ Python &lt; 3.14.</p>
 <span class="sd">        Training set labels.</span>
 <span class="sd">    calib_y : torch.Tensor</span>
 <span class="sd">        Test set labels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">unique_classes</span><span class="p">,</span> <span class="n">class_counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">test_counts</span> <span class="o">=</span> <span class="p">(</span><span class="n">class_counts</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">*</span> <span class="n">test_size</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
     <span class="n">train_indices</span> <span class="o">=</span> <span class="p">[]</span>

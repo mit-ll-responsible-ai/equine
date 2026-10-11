@@ -2013,9 +2013,9 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">836</span>
 <span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    An example of an EQUINE model that builds upon the approach in &quot;Spectral Norm</span>
-<span class="sd">    Gaussian Processes&quot; (SNGP). This wraps any pytorch embedding neural network and provides</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    An example of an EQUINE model that builds upon the approach in "Spectral Norm</span>
+<span class="sd">    Gaussian Processes" (SNGP). This wraps any pytorch embedding neural network and provides</span>
 <span class="sd">    the `forward`, `predict`, `save`, and `load` methods required by Equine.</span>
 
 <span class="sd">    Notes</span>
@@ -2023,7 +2023,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    Although this model build upon the approach in SNGP, it does not enforce the spectral normalization</span>
 <span class="sd">    and ResNet architecture required for SNGP. Instead, it is a simple wrapper around</span>
 <span class="sd">    any pytorch embedding neural network. Your mileage may vary.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -2032,11 +2032,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">num_random_features</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
         <span class="n">init_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
         <span class="n">feature_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Initialize the EquineGP model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2052,12 +2052,12 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        init_temperature : float, optional</span>
 <span class="sd">            What to use as the initial temperature (1.0 has no effect).</span>
 <span class="sd">        device : str, optional</span>
-<span class="sd">            Either &#39;cuda&#39; or &#39;cpu&#39;.</span>
+<span class="sd">            Either 'cuda' or 'cpu'.</span>
 <span class="sd">        feature_names : list[str], optional</span>
-<span class="sd">            List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">            List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">        label_names : list[str], optional</span>
-<span class="sd">            List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
+<span class="sd">        """</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">embedding_model</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="n">label_names</span>
         <span class="p">)</span>
@@ -2071,7 +2071,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">feature_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">=</span> <span class="n">init_temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
-            <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">_Laplace</span> <span class="o">=</span> <span class="n">_Laplace</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">,</span>
@@ -2101,7 +2101,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">vis_support</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Train or fine-tune an EquineGP model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2126,7 +2126,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        dict[str, Any]</span>
 <span class="sd">            A dict containing a dict of summary stats and a dataloader for the calibration data.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">validate_feature_label_names</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">)</span>
 
@@ -2184,22 +2184,22 @@ any pytorch embedding neural network. Your mileage may vary.</p>
             <span class="bp">self</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">tensors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dataset</span><span class="o">.</span><span class="n">tensors</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">support_size</span><span class="p">)</span>
 
         <span class="n">_</span><span class="p">,</span> <span class="n">train_y</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[:]</span>
-        <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span>
         <span class="p">)</span>
 
         <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;train_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
+        <span class="n">return_dict</span><span class="p">[</span><span class="s2">"train_summary"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
         <span class="k">if</span> <span class="n">validation_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;val_metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">val_metrics_outputs</span>
+            <span class="n">return_dict</span><span class="p">[</span><span class="s2">"val_metrics"</span><span class="p">]</span> <span class="o">=</span> <span class="n">val_metrics_outputs</span>
 
         <span class="k">return</span> <span class="n">return_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">support_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to update protonet support examples with given examples.</span>
+<span class="w">        </span><span class="sd">"""Function to update protonet support examples with given examples.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -2211,7 +2211,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">support_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
@@ -2234,7 +2234,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_prototypes</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for computing deep embeddings for given input tensor.</span>
 
 <span class="sd">        Parameters</span>
@@ -2246,7 +2246,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Output embeddings .</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_extractor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">f_reduc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">jl</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">normalize_gp_features</span><span class="p">:</span>
@@ -2256,15 +2256,15 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for computing class prototypes based on given support examples.</span>
-<span class="sd">        ``Prototypes&#39;&#39; in this context are the means of the support embeddings for each class.</span>
+<span class="sd">        ``Prototypes'' in this context are the means of the support embeddings for each class.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Compute support embeddings</span>
         <span class="n">support_embeddings</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">:</span>
@@ -2282,26 +2282,26 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for returning support examples used in training.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">            OrderedDict[int, torch.Tensor]</span>
 <span class="sd">            Dictionary containing support examples for each class.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for returning class prototypes.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">num_calibration_epochs</span><span class="p">)</span>
@@ -2313,7 +2313,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
         <span class="n">calibration_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2324,7 +2324,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">            Number of epochs to tune temperature.</span>
 <span class="sd">        calibration_lr : float, optional</span>
 <span class="sd">            Learning rate for temperature optimization.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="n">calibration_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
             <span class="n">dataset</span><span class="p">,</span>
@@ -2350,7 +2350,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        EquineGP forward function, generates logits for classification.</span>
 
 <span class="sd">        Parameters</span>
@@ -2362,7 +2362,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Output probabilities computed.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">preds</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -2371,7 +2371,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">((</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Predict function for EquineGP, inherited and implemented from Equine.</span>
 
 <span class="sd">        Parameters</span>
@@ -2383,7 +2383,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        -------</span>
 <span class="sd">        EquineOutput</span>
 <span class="sd">            Output object containing prediction probabilities and OOD scores.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">logits</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">equiprobable</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span>
@@ -2399,20 +2399,20 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="k">return</span> <span class="n">eq_out</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Function to save all model parameters to a file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            Filename to write the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
-            <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
-            <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
-            <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
-            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
+            <span class="s2">"emb_out_dim"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
+            <span class="s2">"num_classes"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+            <span class="s2">"num_random_features"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
+            <span class="s2">"init_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+            <span class="s2">"device"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="n">prepare_jit_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_extractor</span><span class="p">))</span>
@@ -2423,28 +2423,28 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">laplace_sd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
         <span class="n">keys_to_delete</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">laplace_sd</span><span class="p">:</span>
-            <span class="k">if</span> <span class="s2">&quot;feature_extractor&quot;</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">"feature_extractor"</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
                 <span class="n">keys_to_delete</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys_to_delete</span><span class="p">:</span>
             <span class="k">del</span> <span class="n">laplace_sd</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
 
         <span class="n">save_data</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;embed_jit_save&quot;</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
-            <span class="s2">&quot;feature_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
-            <span class="s2">&quot;label_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
-            <span class="s2">&quot;laplace_model_save&quot;</span><span class="p">:</span> <span class="n">laplace_sd</span><span class="p">,</span>
-            <span class="s2">&quot;num_data&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_data</span><span class="p">,</span>
-            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
-            <span class="s2">&quot;support&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
-            <span class="s2">&quot;train_batch_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train_batch_size</span><span class="p">,</span>
-            <span class="s2">&quot;train_summary&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
+            <span class="s2">"embed_jit_save"</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
+            <span class="s2">"feature_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+            <span class="s2">"label_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
+            <span class="s2">"laplace_model_save"</span><span class="p">:</span> <span class="n">laplace_sd</span><span class="p">,</span>
+            <span class="s2">"num_data"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_data</span><span class="p">,</span>
+            <span class="s2">"settings"</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
+            <span class="s2">"support"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
+            <span class="s2">"train_batch_size"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train_batch_size</span><span class="p">,</span>
+            <span class="s2">"train_summary"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Function to load previously saved EquineGP model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2456,26 +2456,26 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        -------</span>
 <span class="sd">        EquineGP</span>
 <span class="sd">            The reconstituted EquineGP object.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">))</span>
-        <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">))</span>
+        <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"embed_jit_save"</span><span class="p">))</span>
+        <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">))</span>
 
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feature_names&quot;</span><span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label_names&quot;</span><span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_summary&quot;</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_names"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label_names"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
 
         <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;laplace_model_save&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
+            <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"laplace_model_save"</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">seen_data</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;laplace_model_save&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seen_data&quot;</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">seen_data</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"laplace_model_save"</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"seen_data"</span><span class="p">)</span>
 
         <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">set_training_params</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_data&quot;</span><span class="p">),</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_batch_size&quot;</span><span class="p">)</span>
+            <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_data"</span><span class="p">),</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_batch_size"</span><span class="p">)</span>
         <span class="p">)</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-        <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+        <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"support"</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">eq_model</span><span class="o">.</span><span class="n">support</span> <span class="o">=</span> <span class="n">support</span>
             <span class="n">eq_model</span><span class="o">.</span><span class="n">prototypes</span> <span class="o">=</span> <span class="n">eq_model</span><span class="o">.</span><span class="n">compute_prototypes</span><span class="p">()</span>
@@ -2501,7 +2501,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
 
 <h3 id="equine.equine_gp.EquineGP.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">,</span> <span class="n">num_random_features</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">init_temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">,</span> <span class="n">num_random_features</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">init_temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#equine.equine_gp.EquineGP.__init__" class="headerlink" title="Permanent link">¤</a></h3>
 
@@ -2724,11 +2724,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">num_random_features</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1024</span><span class="p">,</span>
     <span class="n">init_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
     <span class="n">feature_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Initialize the EquineGP model.</span>
 
 <span class="sd">    Parameters</span>
@@ -2744,12 +2744,12 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    init_temperature : float, optional</span>
 <span class="sd">        What to use as the initial temperature (1.0 has no effect).</span>
 <span class="sd">    device : str, optional</span>
-<span class="sd">        Either &#39;cuda&#39; or &#39;cpu&#39;.</span>
+<span class="sd">        Either 'cuda' or 'cpu'.</span>
 <span class="sd">    feature_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">    label_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
+<span class="sd">    """</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
         <span class="n">embedding_model</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="n">label_names</span>
     <span class="p">)</span>
@@ -2763,7 +2763,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="bp">self</span><span class="o">.</span><span class="n">feature_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">=</span> <span class="n">init_temperature</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
-        <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
     <span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">_Laplace</span> <span class="o">=</span> <span class="n">_Laplace</span><span class="p">(</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">,</span>
@@ -2916,7 +2916,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
     <span class="n">calibration_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">256</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.</span>
 
 <span class="sd">    Parameters</span>
@@ -2927,7 +2927,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        Number of epochs to tune temperature.</span>
 <span class="sd">    calibration_lr : float, optional</span>
 <span class="sd">        Learning rate for temperature optimization.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">calibration_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
         <span class="n">dataset</span><span class="p">,</span>
@@ -3047,7 +3047,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">607</span>
 <span class="normal">608</span>
 <span class="normal">609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for computing deep embeddings for given input tensor.</span>
 
 <span class="sd">    Parameters</span>
@@ -3059,7 +3059,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Output embeddings .</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_extractor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">f_reduc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">jl</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">normalize_gp_features</span><span class="p">:</span>
@@ -3138,15 +3138,15 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">634</span>
 <span class="normal">635</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for computing class prototypes based on given support examples.</span>
-<span class="sd">    ``Prototypes&#39;&#39; in this context are the means of the support embeddings for each class.</span>
+<span class="sd">    ``Prototypes'' in this context are the means of the support embeddings for each class.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Compute support embeddings</span>
     <span class="n">support_embeddings</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
     <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">:</span>
@@ -3254,7 +3254,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">720</span>
 <span class="normal">721</span>
 <span class="normal">722</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    EquineGP forward function, generates logits for classification.</span>
 
 <span class="sd">    Parameters</span>
@@ -3266,7 +3266,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Output probabilities computed.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
     <span class="n">preds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
@@ -3327,14 +3327,14 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">658</span>
 <span class="normal">659</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for returning class prototypes.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3393,14 +3393,14 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">646</span>
 <span class="normal">647</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for returning support examples used in training.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">        OrderedDict[int, torch.Tensor]</span>
 <span class="sd">        Dictionary containing support examples for each class.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3522,7 +3522,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">836</span>
 <span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Function to load previously saved EquineGP model.</span>
 
 <span class="sd">    Parameters</span>
@@ -3534,26 +3534,26 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    -------</span>
 <span class="sd">    EquineGP</span>
 <span class="sd">        The reconstituted EquineGP object.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">))</span>
-    <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">))</span>
+    <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"embed_jit_save"</span><span class="p">))</span>
+    <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">))</span>
 
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feature_names&quot;</span><span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label_names&quot;</span><span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_summary&quot;</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_names"</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label_names"</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
 
     <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span>
-        <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;laplace_model_save&quot;</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
+        <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"laplace_model_save"</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">seen_data</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;laplace_model_save&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;seen_data&quot;</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">seen_data</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"laplace_model_save"</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"seen_data"</span><span class="p">)</span>
 
     <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">set_training_params</span><span class="p">(</span>
-        <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;num_data&quot;</span><span class="p">),</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_batch_size&quot;</span><span class="p">)</span>
+        <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"num_data"</span><span class="p">),</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_batch_size"</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
-    <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+    <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"support"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">support</span> <span class="o">=</span> <span class="n">support</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">prototypes</span> <span class="o">=</span> <span class="n">eq_model</span><span class="o">.</span><span class="n">compute_prototypes</span><span class="p">()</span>
@@ -3673,7 +3673,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">((</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Predict function for EquineGP, inherited and implemented from Equine.</span>
 
 <span class="sd">    Parameters</span>
@@ -3685,7 +3685,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    -------</span>
 <span class="sd">    EquineOutput</span>
 <span class="sd">        Output object containing prediction probabilities and OOD scores.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">logits</span> <span class="o">=</span> <span class="bp">self</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="n">preds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logits</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="n">equiprobable</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span>
@@ -3795,20 +3795,20 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">795</span>
 <span class="normal">796</span>
 <span class="normal">797</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Function to save all model parameters to a file.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        Filename to write the model.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
-        <span class="s2">&quot;num_classes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
-        <span class="s2">&quot;num_random_features&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
-        <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
-        <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
+        <span class="s2">"emb_out_dim"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
+        <span class="s2">"num_classes"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">,</span>
+        <span class="s2">"num_random_features"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_random_features</span><span class="p">,</span>
+        <span class="s2">"init_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+        <span class="s2">"device"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_type</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="n">prepare_jit_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">feature_extractor</span><span class="p">))</span>
@@ -3819,21 +3819,21 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">laplace_sd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
     <span class="n">keys_to_delete</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">laplace_sd</span><span class="p">:</span>
-        <span class="k">if</span> <span class="s2">&quot;feature_extractor&quot;</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">"feature_extractor"</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
             <span class="n">keys_to_delete</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys_to_delete</span><span class="p">:</span>
         <span class="k">del</span> <span class="n">laplace_sd</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
 
     <span class="n">save_data</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;embed_jit_save&quot;</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
-        <span class="s2">&quot;feature_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
-        <span class="s2">&quot;label_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
-        <span class="s2">&quot;laplace_model_save&quot;</span><span class="p">:</span> <span class="n">laplace_sd</span><span class="p">,</span>
-        <span class="s2">&quot;num_data&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_data</span><span class="p">,</span>
-        <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
-        <span class="s2">&quot;support&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
-        <span class="s2">&quot;train_batch_size&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train_batch_size</span><span class="p">,</span>
-        <span class="s2">&quot;train_summary&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
+        <span class="s2">"embed_jit_save"</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
+        <span class="s2">"feature_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+        <span class="s2">"label_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
+        <span class="s2">"laplace_model_save"</span><span class="p">:</span> <span class="n">laplace_sd</span><span class="p">,</span>
+        <span class="s2">"num_data"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">num_data</span><span class="p">,</span>
+        <span class="s2">"settings"</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
+        <span class="s2">"support"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
+        <span class="s2">"train_batch_size"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">train_batch_size</span><span class="p">,</span>
+        <span class="s2">"train_summary"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
@@ -4128,7 +4128,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
     <span class="n">vis_support</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">25</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Train or fine-tune an EquineGP model.</span>
 
 <span class="sd">    Parameters</span>
@@ -4153,7 +4153,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    dict[str, Any]</span>
 <span class="sd">        A dict containing a dict of summary stats and a dataloader for the calibration data.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="bp">self</span><span class="o">.</span><span class="n">validate_feature_label_names</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_outputs</span><span class="p">)</span>
 
@@ -4211,15 +4211,15 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">tensors</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dataset</span><span class="o">.</span><span class="n">tensors</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">support_size</span><span class="p">)</span>
 
     <span class="n">_</span><span class="p">,</span> <span class="n">train_y</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[:]</span>
-    <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S&quot;</span><span class="p">)</span>
+    <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S"</span><span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span>
     <span class="p">)</span>
 
     <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-    <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;train_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
+    <span class="n">return_dict</span><span class="p">[</span><span class="s2">"train_summary"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
     <span class="k">if</span> <span class="n">validation_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;val_metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">val_metrics_outputs</span>
+        <span class="n">return_dict</span><span class="p">[</span><span class="s2">"val_metrics"</span><span class="p">]</span> <span class="o">=</span> <span class="n">val_metrics_outputs</span>
 
     <span class="k">return</span> <span class="n">return_dict</span>
 </code></pre></div></td></tr></table></div>
@@ -4352,7 +4352,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">588</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">support_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to update protonet support examples with given examples.</span>
+<span class="w">    </span><span class="sd">"""Function to update protonet support examples with given examples.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -4364,7 +4364,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">support_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>

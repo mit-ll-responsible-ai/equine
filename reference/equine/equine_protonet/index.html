@@ -1839,13 +1839,13 @@
 <span class="normal">39</span>
 <span class="normal">40</span>
 <span class="normal">41</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CovType</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Enum class for covariance types used in EQUINE.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
-    <span class="n">UNIT</span> <span class="o">=</span> <span class="s2">&quot;unit&quot;</span>
-    <span class="n">DIAGONAL</span> <span class="o">=</span> <span class="s2">&quot;diag&quot;</span>
-    <span class="n">FULL</span> <span class="o">=</span> <span class="s2">&quot;full&quot;</span>
+    <span class="n">UNIT</span> <span class="o">=</span> <span class="s2">"unit"</span>
+    <span class="n">DIAGONAL</span> <span class="o">=</span> <span class="s2">"diag"</span>
+    <span class="n">FULL</span> <span class="o">=</span> <span class="s2">"full"</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -2419,11 +2419,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">971</span>
 <span class="normal">972</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
 <span class="sd">    to generate OOD and model confidence scores. This wraps any pytorch embedding neural network</span>
 <span class="sd">    and provides the `forward`, `predict`, `save`, and `load` methods required by Equine.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -2433,11 +2433,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">relative_mahal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">use_temperature</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">init_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
         <span class="n">feature_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        EquineProtonet class constructor</span>
 
 <span class="sd">        Parameters</span>
@@ -2457,10 +2457,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        device : str, optional</span>
 <span class="sd">            The device to train the equine model on (defaults to cpu).</span>
 <span class="sd">        feature_names : list[str], optional</span>
-<span class="sd">            List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">            List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">        label_names : list[str], optional</span>
-<span class="sd">            List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
+<span class="sd">        """</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">embedding_model</span><span class="p">,</span>
             <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
@@ -2477,7 +2477,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span> <span class="o">=</span> <span class="n">use_temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">=</span> <span class="n">init_temperature</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
-            <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+            <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
@@ -2490,7 +2490,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Generates logits for classification based on the input tensor.</span>
 
 <span class="sd">        Parameters</span>
@@ -2502,7 +2502,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            The output class predictions.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">preds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">preds</span>
 
@@ -2520,7 +2520,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
         <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Train or fine-tune an EquineProtonet model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2550,7 +2550,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        tuple[dict[str, Any], torch.Tensor, torch.Tensor]</span>
 <span class="sd">            A tuple containing the model summary, the held out calibration data, and the calibration labels.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">:</span>
@@ -2609,14 +2609,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
                 <span class="n">calib_x</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">,</span> <span class="n">num_calibration_epochs</span><span class="p">,</span> <span class="n">calibration_lr</span>
             <span class="p">)</span>
 
-        <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S"</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span>
         <span class="p">)</span>
         <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-        <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;train_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
-        <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;calib_x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_x</span>
-        <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;calib_y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_y</span>
+        <span class="n">return_dict</span><span class="p">[</span><span class="s2">"train_summary"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
+        <span class="n">return_dict</span><span class="p">[</span><span class="s2">"calib_x"</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_x</span>
+        <span class="n">return_dict</span><span class="p">[</span><span class="s2">"calib_y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_y</span>
         <span class="k">return</span> <span class="n">return_dict</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
@@ -2626,7 +2626,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2643,7 +2643,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">],</span> <span class="n">lr</span><span class="o">=</span><span class="n">calibration_lr</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_calibration_epochs</span><span class="p">):</span>
@@ -2662,7 +2662,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">def</span><span class="w"> </span><span class="nf">_fit_outlier_scores</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">ood_dists</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Private function to fit outlier scores with a kernel density estimate (KDE).</span>
 
 <span class="sd">        Parameters</span>
@@ -2675,14 +2675,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support_embeddings</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">class_ood_dists</span> <span class="o">=</span> <span class="n">ood_dists</span><span class="p">[</span><span class="n">calib_y</span> <span class="o">==</span> <span class="nb">int</span><span class="p">(</span><span class="n">label</span><span class="p">)]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
             <span class="n">class_kde</span> <span class="o">=</span> <span class="n">gaussian_kde</span><span class="p">(</span><span class="n">class_ood_dists</span><span class="p">)</span>  <span class="c1"># TODO convert to torch func</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">class_kde</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_compute_outlier_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ood_dists</span><span class="p">,</span> <span class="n">predictions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Private function to compute OOD scores using the calculated kernel density estimate (KDE).</span>
 
 <span class="sd">        Parameters</span>
@@ -2696,7 +2696,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor of OOD scores for the given examples.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">ood_scores</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">ood_dists</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">predictions</span><span class="p">)):</span>
             <span class="c1"># Use KDE and RMD corresponding to the predicted class</span>
@@ -2715,7 +2715,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">predictions</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
         <span class="n">distances</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Private function to compute OOD distances using a distance function.</span>
 
 <span class="sd">        Parameters</span>
@@ -2731,7 +2731,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor of OOD distances for the given embeddings.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">preds</span> <span class="o">=</span> <span class="n">preds</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
         <span class="c1"># Calculate (Relative) Mahalanobis Distance:</span>
@@ -2748,7 +2748,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="k">return</span> <span class="n">ood_dist</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict function for EquineProtonet, inherited and implemented from Equine.</span>
+<span class="w">        </span><span class="sd">"""Predict function for EquineProtonet, inherited and implemented from Equine.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -2759,7 +2759,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        EquineOutput</span>
 <span class="sd">            Output object containing prediction probabilities and OOD scores.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">X_embed</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">]):</span>
             <span class="n">X_embed</span> <span class="o">=</span> <span class="n">X_embed</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Handle single examples</span>
@@ -2782,7 +2782,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">calib_frac</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function to update protonet support examples with given examples.</span>
+<span class="w">        </span><span class="sd">"""Function to update protonet support examples with given examples.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -2793,12 +2793,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        calib_frac : float</span>
 <span class="sd">            Fraction of given support data to use for OOD calibration.</span>
 <span class="sd">        label_names : list[str], optional</span>
-<span class="sd">            List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
+<span class="sd">            List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="n">support_x</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">calib_y</span> <span class="o">=</span> <span class="n">stratified_train_test_split</span><span class="p">(</span>
             <span class="n">support_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">calib_frac</span>
@@ -2828,30 +2828,30 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get the support examples for the model.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">            OrderedDict[int, torch.Tensor]</span>
 <span class="sd">            The support examples for the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Get the prototypes for the model (the class means of the support embeddings).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            The prototpes for the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Save all model parameters to a file.</span>
 
 <span class="sd">        Parameters</span>
@@ -2862,14 +2862,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        None</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;cov_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
-            <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
-            <span class="s2">&quot;use_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
-            <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
-            <span class="s2">&quot;relative_mahal&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
-            <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+            <span class="s2">"cov_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
+            <span class="s2">"emb_out_dim"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
+            <span class="s2">"use_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
+            <span class="s2">"init_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+            <span class="s2">"relative_mahal"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
+            <span class="s2">"device"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="n">prepare_jit_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">))</span>
@@ -2878,21 +2878,21 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
         <span class="n">save_data</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;embed_jit_save&quot;</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
-            <span class="s2">&quot;feature_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
-            <span class="s2">&quot;label_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
-            <span class="s2">&quot;model_head_save&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
-            <span class="s2">&quot;outlier_kde&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">,</span>
-            <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
-            <span class="s2">&quot;support&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
-            <span class="s2">&quot;train_summary&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
+            <span class="s2">"embed_jit_save"</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
+            <span class="s2">"feature_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+            <span class="s2">"label_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
+            <span class="s2">"model_head_save"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+            <span class="s2">"outlier_kde"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">,</span>
+            <span class="s2">"settings"</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
+            <span class="s2">"support"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
+            <span class="s2">"train_summary"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Load a previously saved EquineProtonet model.</span>
 
 <span class="sd">        Parameters</span>
@@ -2907,32 +2907,32 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        EquineProtonet</span>
 <span class="sd">            The reconstituted EquineProtonet object.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="c1"># Added map_location so internal tensors map to the correct device</span>
         <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+        <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"support"</span><span class="p">)</span>
 
         <span class="c1"># Explicitly pass map_location for the jit_model as well</span>
-        <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">)</span>
+        <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"embed_jit_save"</span><span class="p">)</span>
         <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
+        <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">)</span>
         <span class="c1"># Allow the user to override the saved device state dynamically</span>
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
+            <span class="n">settings</span><span class="p">[</span><span class="s2">"device"</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
 
         <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">settings</span><span class="p">)</span>
 
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_head_save&quot;</span><span class="p">))</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model_head_save"</span><span class="p">))</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
 
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feature_names&quot;</span><span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label_names&quot;</span><span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">outlier_score_kde</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;outlier_kde&quot;</span><span class="p">)</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_summary&quot;</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_names"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label_names"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">outlier_score_kde</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"outlier_kde"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
@@ -2955,7 +2955,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h3 id="equine.equine_protonet.EquineProtonet.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">cov_type</span><span class="o">=</span><span class="n">CovType</span><span class="o">.</span><span class="n">UNIT</span><span class="p">,</span> <span class="n">relative_mahal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_temperature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">init_temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">cov_type</span><span class="o">=</span><span class="n">CovType</span><span class="o">.</span><span class="n">UNIT</span><span class="p">,</span> <span class="n">relative_mahal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">use_temperature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">init_temperature</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">feature_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#equine.equine_protonet.EquineProtonet.__init__" class="headerlink" title="Permanent link">¤</a></h3>
 
@@ -3196,11 +3196,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">relative_mahal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">use_temperature</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">init_temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
     <span class="n">feature_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    EquineProtonet class constructor</span>
 
 <span class="sd">    Parameters</span>
@@ -3220,10 +3220,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    device : str, optional</span>
 <span class="sd">        The device to train the equine model on (defaults to cpu).</span>
 <span class="sd">    feature_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">    label_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
+<span class="sd">    """</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
         <span class="n">embedding_model</span><span class="p">,</span>
         <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
@@ -3240,7 +3240,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span> <span class="o">=</span> <span class="n">use_temperature</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">=</span> <span class="n">init_temperature</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span>
-        <span class="s2">&quot;temperature&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
     <span class="p">)</span>
 
     <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
@@ -3419,7 +3419,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
     <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.</span>
 
 <span class="sd">    Parameters</span>
@@ -3436,7 +3436,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="p">],</span> <span class="n">lr</span><span class="o">=</span><span class="n">calibration_lr</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_calibration_epochs</span><span class="p">):</span>
@@ -3542,7 +3542,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">540</span>
 <span class="normal">541</span>
 <span class="normal">542</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generates logits for classification based on the input tensor.</span>
 
 <span class="sd">    Parameters</span>
@@ -3554,7 +3554,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        The output class predictions.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">preds</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">preds</span>
 </code></pre></div></td></tr></table></div>
@@ -3614,14 +3614,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">885</span>
 <span class="normal">886</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the prototypes for the model (the class means of the support embeddings).</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        The prototpes for the model.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3680,14 +3680,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">873</span>
 <span class="normal">874</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the support examples for the model.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">        OrderedDict[int, torch.Tensor]</span>
 <span class="sd">        The support examples for the model.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3831,7 +3831,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">971</span>
 <span class="normal">972</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a previously saved EquineProtonet model.</span>
 
 <span class="sd">    Parameters</span>
@@ -3846,32 +3846,32 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    -------</span>
 <span class="sd">    EquineProtonet</span>
 <span class="sd">        The reconstituted EquineProtonet object.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="c1"># Added map_location so internal tensors map to the correct device</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">)</span>
+    <span class="n">support</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"support"</span><span class="p">)</span>
 
     <span class="c1"># Explicitly pass map_location for the jit_model as well</span>
-    <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;embed_jit_save&quot;</span><span class="p">)</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"embed_jit_save"</span><span class="p">)</span>
     <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;settings&quot;</span><span class="p">)</span>
+    <span class="n">settings</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"settings"</span><span class="p">)</span>
     <span class="c1"># Allow the user to override the saved device state dynamically</span>
     <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">settings</span><span class="p">[</span><span class="s2">&quot;device&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="n">settings</span><span class="p">[</span><span class="s2">"device"</span><span class="p">]</span> <span class="o">=</span> <span class="n">device</span>
 
     <span class="n">eq_model</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="n">jit_model</span><span class="p">,</span> <span class="o">**</span><span class="n">settings</span><span class="p">)</span>
 
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_head_save&quot;</span><span class="p">))</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model_head_save"</span><span class="p">))</span>
     <span class="n">eq_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
     <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
 
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;feature_names&quot;</span><span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label_names&quot;</span><span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">outlier_score_kde</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;outlier_kde&quot;</span><span class="p">)</span>
-    <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train_summary&quot;</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_names"</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label_names"</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">outlier_score_kde</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"outlier_kde"</span><span class="p">)</span>
+    <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
@@ -3981,7 +3981,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">808</span>
 <span class="normal">809</span>
 <span class="normal">810</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Predict function for EquineProtonet, inherited and implemented from Equine.</span>
+<span class="w">    </span><span class="sd">"""Predict function for EquineProtonet, inherited and implemented from Equine.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -3992,7 +3992,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    -------</span>
 <span class="sd">    EquineOutput</span>
 <span class="sd">        Output object containing prediction probabilities and OOD scores.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">X_embed</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">]):</span>
         <span class="n">X_embed</span> <span class="o">=</span> <span class="n">X_embed</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Handle single examples</span>
@@ -4121,7 +4121,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">924</span>
 <span class="normal">925</span>
 <span class="normal">926</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
 <span class="sd">    Parameters</span>
@@ -4132,14 +4132,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;cov_type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
-        <span class="s2">&quot;emb_out_dim&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
-        <span class="s2">&quot;use_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
-        <span class="s2">&quot;init_temperature&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
-        <span class="s2">&quot;relative_mahal&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
-        <span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+        <span class="s2">"cov_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
+        <span class="s2">"emb_out_dim"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
+        <span class="s2">"use_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">,</span>
+        <span class="s2">"init_temperature"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperature</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span>
+        <span class="s2">"relative_mahal"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">relative_mahal</span><span class="p">,</span>
+        <span class="s2">"device"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">jit_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script</span><span class="p">(</span><span class="n">prepare_jit_module</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">))</span>
@@ -4148,14 +4148,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
     <span class="n">save_data</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;embed_jit_save&quot;</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
-        <span class="s2">&quot;feature_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
-        <span class="s2">&quot;label_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
-        <span class="s2">&quot;model_head_save&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
-        <span class="s2">&quot;outlier_kde&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">,</span>
-        <span class="s2">&quot;settings&quot;</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
-        <span class="s2">&quot;support&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
-        <span class="s2">&quot;train_summary&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
+        <span class="s2">"embed_jit_save"</span><span class="p">:</span> <span class="n">buffer</span><span class="p">,</span>
+        <span class="s2">"feature_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span>
+        <span class="s2">"label_names"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">,</span>
+        <span class="s2">"model_head_save"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
+        <span class="s2">"outlier_kde"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">outlier_score_kde</span><span class="p">,</span>
+        <span class="s2">"settings"</span><span class="p">:</span> <span class="n">model_settings</span><span class="p">,</span>
+        <span class="s2">"support"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">,</span>
+        <span class="s2">"train_summary"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">,</span>
     <span class="p">}</span>
 
     <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_data</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>  <span class="c1"># TODO allow model checkpointing</span>
@@ -4504,7 +4504,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="n">calibration_lr</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Train or fine-tune an EquineProtonet model.</span>
 
 <span class="sd">    Parameters</span>
@@ -4534,7 +4534,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    -------</span>
 <span class="sd">    tuple[dict[str, Any], torch.Tensor, torch.Tensor]</span>
 <span class="sd">        A tuple containing the model summary, the held out calibration data, and the calibration labels.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_temperature</span><span class="p">:</span>
@@ -4593,14 +4593,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="n">calib_x</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">,</span> <span class="n">num_calibration_epochs</span><span class="p">,</span> <span class="n">calibration_lr</span>
         <span class="p">)</span>
 
-    <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S&quot;</span><span class="p">)</span>
+    <span class="n">date_trained</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%m/</span><span class="si">%d</span><span class="s2">/%Y, %H:%M:%S"</span><span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">generate_train_summary</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">train_y</span><span class="p">,</span> <span class="n">date_trained</span>
     <span class="p">)</span>
     <span class="n">return_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-    <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;train_summary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
-    <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;calib_x&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_x</span>
-    <span class="n">return_dict</span><span class="p">[</span><span class="s2">&quot;calib_y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_y</span>
+    <span class="n">return_dict</span><span class="p">[</span><span class="s2">"train_summary"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span>
+    <span class="n">return_dict</span><span class="p">[</span><span class="s2">"calib_x"</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_x</span>
+    <span class="n">return_dict</span><span class="p">[</span><span class="s2">"calib_y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">calib_y</span>
     <span class="k">return</span> <span class="n">return_dict</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -4784,7 +4784,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">calib_frac</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function to update protonet support examples with given examples.</span>
+<span class="w">    </span><span class="sd">"""Function to update protonet support examples with given examples.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -4795,12 +4795,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    calib_frac : float</span>
 <span class="sd">        Fraction of given support data to use for OOD calibration.</span>
 <span class="sd">    label_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    None</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="n">support_x</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">calib_y</span> <span class="o">=</span> <span class="n">stratified_train_test_split</span><span class="p">(</span>
         <span class="n">support_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">calib_frac</span>
@@ -5269,9 +5269,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">450</span>
 <span class="normal">451</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Protonet</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Private class that implements a prototypical neural network for use in EQUINE.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -5280,9 +5280,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span>
         <span class="n">cov_reg_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Protonet class constructor.</span>
 
 <span class="sd">        Parameters</span>
@@ -5290,7 +5290,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        embedding_model : torch.nn.Module</span>
 <span class="sd">            The PyTorch embedding model to generate logits with.</span>
 <span class="sd">        emb_out_dim : int</span>
-<span class="sd">            Dimension size of given embedding model&#39;s output.</span>
+<span class="sd">            Dimension size of given embedding model's output.</span>
 <span class="sd">        cov_type : CovType</span>
 <span class="sd">            Type of covariance to use when computing distances [unit, diag, full].</span>
 <span class="sd">        cov_reg_type : str</span>
@@ -5299,7 +5299,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            Epsilon value to use for covariance regularization.</span>
 <span class="sd">        device : str, optional</span>
 <span class="sd">            The device to train the protonet model on (defaults to cpu).</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span> <span class="o">=</span> <span class="n">embedding_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span> <span class="o">=</span> <span class="n">cov_type</span>
@@ -5315,7 +5315,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for adding a PyTorch layer on top of the given embedding model. This layer</span>
 <span class="sd">        is intended to offer extra degrees of freedom for distance learning in the embedding space.</span>
 
@@ -5328,11 +5328,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.nn.Linear</span>
 <span class="sd">            The created PyTorch model layer.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>  <span class="c1"># (emb_out_dim, emb_out_dim)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for calculating model embeddings using both the given embedding model and the added model head.</span>
 
 <span class="sd">        Parameters</span>
@@ -5344,22 +5344,22 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Fully computed embedding tensors for the given X tensor.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">model_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
         <span class="n">head_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="p">(</span><span class="n">model_embeddings</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">head_embeddings</span>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for computing class prototypes based on given support examples.</span>
-<span class="sd">        ``Prototypes&#39;&#39; in this context are the means of the support embeddings for each class.</span>
+<span class="sd">        ``Prototypes'' in this context are the means of the support embeddings for each class.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="c1"># Compute prototype for each class</span>
         <span class="n">proto_list</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">:</span>  <span class="c1"># look at doing functorch</span>
@@ -5372,7 +5372,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_covariance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.</span>
 <span class="sd">        Note that this method is only called once per episode, and the resulting tensor is used for all queries.</span>
 
@@ -5385,7 +5385,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor containing the generated regularized covariance matrix.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">class_cov_dict</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">()</span>
         <span class="p">)</span>
@@ -5405,13 +5405,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_covariance_by_type</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span> <span class="n">embedding</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Select the appropriate covariance matrix type based on cov_type.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        cov_type : str</span>
-<span class="sd">            Type of covariance to use. Options are [&#39;unit&#39;, &#39;diag&#39;, &#39;full&#39;].</span>
+<span class="sd">            Type of covariance to use. Options are ['unit', 'diag', 'full'].</span>
 <span class="sd">        embedding : torch.Tensor</span>
 <span class="sd">            Embedding tensor to use when generating the covariance matrix.</span>
 
@@ -5419,7 +5419,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor containing the requested covariance matrix.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
             <span class="n">class_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">DIAGONAL</span><span class="p">:</span>
@@ -5437,7 +5437,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span>
         <span class="n">cov_reg_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method to add regularization to each class covariance matrix based on the selected regularization type.</span>
 
 <span class="sd">        Parameters</span>
@@ -5451,7 +5451,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        dict[float, torch.Tensor]</span>
 <span class="sd">            Dictionary containing the regularized class covariance matrices.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
 
         <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
             <span class="n">regularization</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
@@ -5462,13 +5462,13 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="k">elif</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">UNIT</span><span class="p">:</span>
             <span class="n">regularization</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">&quot;shared&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">"shared"</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">cov_type</span> <span class="o">!=</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span> <span class="ow">and</span> <span class="n">cov_type</span> <span class="o">!=</span> <span class="n">CovType</span><span class="o">.</span><span class="n">DIAGONAL</span><span class="p">:</span>
                 <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">:</span>
                     <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+</span> <span class="n">regularization</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="s2">&quot;Covariance type UNIT is incompatible with shared regularization, </span><span class="se">\</span>
-<span class="s2">                    reverting to epsilon regularization&quot;</span>
+                    <span class="s2">"Covariance type UNIT is incompatible with shared regularization, </span><span class="se">\</span>
+<span class="s2">                    reverting to epsilon regularization"</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">class_cov_dict</span>
 
@@ -5484,7 +5484,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
                     <span class="o">+</span> <span class="n">regularization</span>
                 <span class="p">)</span>
 
-        <span class="k">elif</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">&quot;epsilon&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">"epsilon"</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
                 <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
                     <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">+</span> <span class="n">regularization</span>
@@ -5495,7 +5495,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_shared_covariance</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">class_cov_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method to calculate a shared covariance matrix.</span>
 
 <span class="sd">        The shared covariance matrix is calculated as the weighted average of the class covariance matrices,</span>
@@ -5513,7 +5513,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor containing the shared covariance matrix.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">total_support</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
 
         <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
@@ -5522,7 +5522,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="n">shared_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types&quot;</span>
+                <span class="s2">"Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types"</span>
             <span class="p">)</span>
 
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="p">:</span>
@@ -5542,7 +5542,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_distance</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">X_embed</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method to compute the distances to class prototypes for the given embeddings.</span>
 
 <span class="sd">        Parameters</span>
@@ -5558,7 +5558,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            The calculated distances from each of the class prototypes for the given embeddings.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">_queries</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">X_embed</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># examples x 1 x dimension</span>
         <span class="n">diff</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">_queries</span><span class="p">)</span>
 
@@ -5578,7 +5578,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="k">return</span> <span class="n">dist</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_classes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distances</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method to compute predicted classes from distances via a softmax function.</span>
 
 <span class="sd">        Parameters</span>
@@ -5590,12 +5590,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            Tensor of class predictions.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">softmax</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">neg</span><span class="p">(</span><span class="n">distances</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">softmax</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Protonet forward function, generates class probability predictions and distances from prototypes.</span>
 
 <span class="sd">        Parameters</span>
@@ -5607,11 +5607,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        -------</span>
 <span class="sd">        tuple[torch.Tensor, torch.Tensor]</span>
 <span class="sd">            tuple containing class probability predictions, and class distances from prototypes.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;No support examples found. Protonet Model requires model support to </span><span class="se">\</span>
-<span class="s2">                    be set with the &#39;update_support()&#39; method before calling forward.&quot;</span>
+                <span class="s2">"No support examples found. Protonet Model requires model support to </span><span class="se">\</span>
+<span class="s2">                    be set with the 'update_support()' method before calling forward."</span>
             <span class="p">)</span>
 
         <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
@@ -5623,14 +5623,14 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="k">return</span> <span class="n">classes</span><span class="p">,</span> <span class="n">distances</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">support</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Method to update the support examples, and all the calculations that rely on them.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        support : OrderedDict</span>
 <span class="sd">            Ordered dict containing class labels and their associated support examples.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">support</span> <span class="o">=</span> <span class="n">support</span>  <span class="c1"># TODO torch.nn.ParameterDict(support)</span>
 
         <span class="n">support_embs</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">support</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>
@@ -5655,7 +5655,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">compute_global_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to calculate the global moments of the support embeddings for use in OOD score generation&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Method to calculate the global moments of the support embeddings for use in OOD score generation"""</span>
         <span class="n">embeddings</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">compute_covariance_by_type</span><span class="p">(</span><span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
@@ -5663,7 +5663,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">global_reg_input</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>
         <span class="n">global_reg_input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regularize_covariance</span><span class="p">(</span>
-            <span class="n">global_reg_input</span><span class="p">,</span> <span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="s2">&quot;epsilon&quot;</span>
+            <span class="n">global_reg_input</span><span class="p">,</span> <span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="s2">"epsilon"</span>
         <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">global_mean</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -5686,7 +5686,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h3 id="equine.equine_protonet.Protonet.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">,</span> <span class="n">cov_reg_type</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;cpu&#39;</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">,</span> <span class="n">cov_reg_type</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">)</span></code>
 
 <a href="#equine.equine_protonet.Protonet.__init__" class="headerlink" title="Permanent link">¤</a></h3>
 
@@ -5855,9 +5855,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span>
     <span class="n">cov_reg_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">epsilon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Protonet class constructor.</span>
 
 <span class="sd">    Parameters</span>
@@ -5865,7 +5865,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    embedding_model : torch.nn.Module</span>
 <span class="sd">        The PyTorch embedding model to generate logits with.</span>
 <span class="sd">    emb_out_dim : int</span>
-<span class="sd">        Dimension size of given embedding model&#39;s output.</span>
+<span class="sd">        Dimension size of given embedding model's output.</span>
 <span class="sd">    cov_type : CovType</span>
 <span class="sd">        Type of covariance to use when computing distances [unit, diag, full].</span>
 <span class="sd">    cov_reg_type : str</span>
@@ -5874,7 +5874,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Epsilon value to use for covariance regularization.</span>
 <span class="sd">    device : str, optional</span>
 <span class="sd">        The device to train the protonet model on (defaults to cpu).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span> <span class="o">=</span> <span class="n">embedding_model</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span> <span class="o">=</span> <span class="n">cov_type</span>
@@ -5980,7 +5980,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">376</span>
 <span class="normal">377</span>
 <span class="normal">378</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_classes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distances</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method to compute predicted classes from distances via a softmax function.</span>
 
 <span class="sd">    Parameters</span>
@@ -5992,7 +5992,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensor of class predictions.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">softmax</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">neg</span><span class="p">(</span><span class="n">distances</span><span class="p">),</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">softmax</span>
 </code></pre></div></td></tr></table></div>
@@ -6104,7 +6104,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="normal">185</span>
 <span class="normal">186</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_covariance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for generating the (regularized) support example covariance matrix(es) used for calculating distances.</span>
 <span class="sd">    Note that this method is only called once per episode, and the resulting tensor is used for all queries.</span>
 
@@ -6117,7 +6117,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensor containing the generated regularized covariance matrix.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">class_cov_dict</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">()</span>
     <span class="p">)</span>
@@ -6255,13 +6255,13 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="normal">215</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_covariance_by_type</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span> <span class="n">embedding</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Select the appropriate covariance matrix type based on cov_type.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    cov_type : str</span>
-<span class="sd">        Type of covariance to use. Options are [&#39;unit&#39;, &#39;diag&#39;, &#39;full&#39;].</span>
+<span class="sd">        Type of covariance to use. Options are ['unit', 'diag', 'full'].</span>
 <span class="sd">    embedding : torch.Tensor</span>
 <span class="sd">        Embedding tensor to use when generating the covariance matrix.</span>
 
@@ -6269,7 +6269,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensor containing the requested covariance matrix.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
         <span class="n">class_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span><span class="n">embedding</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">DIAGONAL</span><span class="p">:</span>
@@ -6431,7 +6431,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_distance</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">X_embed</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method to compute the distances to class prototypes for the given embeddings.</span>
 
 <span class="sd">    Parameters</span>
@@ -6447,7 +6447,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        The calculated distances from each of the class prototypes for the given embeddings.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_queries</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">X_embed</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># examples x 1 x dimension</span>
     <span class="n">diff</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">_queries</span><span class="p">)</span>
 
@@ -6558,7 +6558,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="normal">131</span>
 <span class="normal">132</span>
 <span class="normal">133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for calculating model embeddings using both the given embedding model and the added model head.</span>
 
 <span class="sd">    Parameters</span>
@@ -6570,7 +6570,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Fully computed embedding tensors for the given X tensor.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">model_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">))</span>
     <span class="n">head_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_head</span><span class="p">(</span><span class="n">model_embeddings</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">head_embeddings</span>
@@ -6610,7 +6610,7 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="normal">450</span>
 <span class="normal">451</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_global_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Method to calculate the global moments of the support embeddings for use in OOD score generation&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Method to calculate the global moments of the support embeddings for use in OOD score generation"""</span>
     <span class="n">embeddings</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compute_covariance_by_type</span><span class="p">(</span><span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span>
@@ -6618,7 +6618,7 @@ Note that this method is only called once per episode, and the resulting tensor 
     <span class="n">global_reg_input</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">([</span><span class="mi">0</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>
     <span class="n">global_reg_input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">global_covariance</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regularize_covariance</span><span class="p">(</span>
-        <span class="n">global_reg_input</span><span class="p">,</span> <span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="s2">&quot;epsilon&quot;</span>
+        <span class="n">global_reg_input</span><span class="p">,</span> <span class="n">OOD_COV_TYPE</span><span class="p">,</span> <span class="s2">"epsilon"</span>
     <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">global_mean</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">embeddings</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -6688,15 +6688,15 @@ Note that this method is only called once per episode, and the resulting tensor 
 <span class="normal">153</span>
 <span class="normal">154</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for computing class prototypes based on given support examples.</span>
-<span class="sd">    ``Prototypes&#39;&#39; in this context are the means of the support embeddings for each class.</span>
+<span class="sd">    ``Prototypes'' in this context are the means of the support embeddings for each class.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensors of prototypes for each of the given classes in the support.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Compute prototype for each class</span>
     <span class="n">proto_list</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">:</span>  <span class="c1"># look at doing functorch</span>
@@ -6847,7 +6847,7 @@ support examples for each class is small.</p>
 <span class="normal">321</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_shared_covariance</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">class_cov_dict</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method to calculate a shared covariance matrix.</span>
 
 <span class="sd">    The shared covariance matrix is calculated as the weighted average of the class covariance matrices,</span>
@@ -6865,7 +6865,7 @@ support examples for each class is small.</p>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        Tensor containing the shared covariance matrix.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">total_support</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
 
     <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
@@ -6874,7 +6874,7 @@ support examples for each class is small.</p>
         <span class="n">shared_covariance</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types&quot;</span>
+            <span class="s2">"Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types"</span>
         <span class="p">)</span>
 
     <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="p">:</span>
@@ -6981,7 +6981,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="normal">113</span>
 <span class="normal">114</span>
 <span class="normal">115</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_model_head</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for adding a PyTorch layer on top of the given embedding model. This layer</span>
 <span class="sd">    is intended to offer extra degrees of freedom for distance learning in the embedding space.</span>
 
@@ -6994,7 +6994,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="sd">    -------</span>
 <span class="sd">    torch.nn.Linear</span>
 <span class="sd">        The created PyTorch model layer.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>  <span class="c1"># (emb_out_dim, emb_out_dim)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -7099,7 +7099,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="normal">404</span>
 <span class="normal">405</span>
 <span class="normal">406</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Protonet forward function, generates class probability predictions and distances from prototypes.</span>
 
 <span class="sd">    Parameters</span>
@@ -7111,11 +7111,11 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="sd">    -------</span>
 <span class="sd">    tuple[torch.Tensor, torch.Tensor]</span>
 <span class="sd">        tuple containing class probability predictions, and class distances from prototypes.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;No support examples found. Protonet Model requires model support to </span><span class="se">\</span>
-<span class="s2">                be set with the &#39;update_support()&#39; method before calling forward.&quot;</span>
+            <span class="s2">"No support examples found. Protonet Model requires model support to </span><span class="se">\</span>
+<span class="s2">                be set with the 'update_support()' method before calling forward."</span>
         <span class="p">)</span>
 
     <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
@@ -7282,7 +7282,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     <span class="n">cov_type</span><span class="p">:</span> <span class="n">CovType</span><span class="p">,</span>
     <span class="n">cov_reg_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method to add regularization to each class covariance matrix based on the selected regularization type.</span>
 
 <span class="sd">    Parameters</span>
@@ -7296,7 +7296,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="sd">    -------</span>
 <span class="sd">    dict[float, torch.Tensor]</span>
 <span class="sd">        Dictionary containing the regularized class covariance matrices.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">if</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span><span class="p">:</span>
         <span class="n">regularization</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span>
@@ -7307,13 +7307,13 @@ is intended to offer extra degrees of freedom for distance learning in the embed
     <span class="k">elif</span> <span class="n">cov_type</span> <span class="o">==</span> <span class="n">CovType</span><span class="o">.</span><span class="n">UNIT</span><span class="p">:</span>
         <span class="n">regularization</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">&quot;shared&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">"shared"</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">cov_type</span> <span class="o">!=</span> <span class="n">CovType</span><span class="o">.</span><span class="n">FULL</span> <span class="ow">and</span> <span class="n">cov_type</span> <span class="o">!=</span> <span class="n">CovType</span><span class="o">.</span><span class="n">DIAGONAL</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">:</span>
                 <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">+</span> <span class="n">regularization</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;Covariance type UNIT is incompatible with shared regularization, </span><span class="se">\</span>
-<span class="s2">                reverting to epsilon regularization&quot;</span>
+                <span class="s2">"Covariance type UNIT is incompatible with shared regularization, </span><span class="se">\</span>
+<span class="s2">                reverting to epsilon regularization"</span>
             <span class="p">)</span>
             <span class="k">return</span> <span class="n">class_cov_dict</span>
 
@@ -7329,7 +7329,7 @@ is intended to offer extra degrees of freedom for distance learning in the embed
                 <span class="o">+</span> <span class="n">regularization</span>
             <span class="p">)</span>
 
-    <span class="k">elif</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">&quot;epsilon&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">cov_reg_type</span> <span class="o">==</span> <span class="s2">"epsilon"</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">class_cov_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">class_cov_dict</span><span class="p">[</span><span class="n">label</span><span class="p">]</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="p">)</span> <span class="o">+</span> <span class="n">regularization</span>
@@ -7419,14 +7419,14 @@ is intended to offer extra degrees of freedom for distance learning in the embed
 <span class="normal">435</span>
 <span class="normal">436</span>
 <span class="normal">437</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">support</span><span class="p">:</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method to update the support examples, and all the calculations that rely on them.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    support : OrderedDict</span>
 <span class="sd">        Ordered dict containing class labels and their associated support examples.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">support</span> <span class="o">=</span> <span class="n">support</span>  <span class="c1"># TODO torch.nn.ParameterDict(support)</span>
 
     <span class="n">support_embs</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">support</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>

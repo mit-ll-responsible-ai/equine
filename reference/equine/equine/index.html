@@ -1895,8 +1895,8 @@ EquineOutput object that contains both the class probabilities
 <span class="normal">241</span>
 <span class="normal">242</span>
 <span class="normal">243</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Equine</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;EQUINE Abstract Base Class (ABC):</span>
-<span class="sd">    EQUINE is set up to extend torch&#39;s nn.Module to enrich it with</span>
+<span class="w">    </span><span class="sd">"""EQUINE Abstract Base Class (ABC):</span>
+<span class="sd">    EQUINE is set up to extend torch's nn.Module to enrich it with</span>
 <span class="sd">    a method that enables uncertainty quantification and visualization. Most</span>
 <span class="sd">    importantly, the `.predict()` method must be outfitted to return an</span>
 <span class="sd">    EquineOutput object that contains both the class probabilities</span>
@@ -1911,9 +1911,9 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">    device : str, optional</span>
 <span class="sd">        The device to train the equine model on (defaults to cpu).</span>
 <span class="sd">    feature_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">    label_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -1922,11 +1922,11 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">    embedding_model : torch.nn.Module</span>
 <span class="sd">        The neural embedding model to enrich with uncertainty quantification.</span>
 <span class="sd">    feature_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the tabular features (ex [&quot;duration&quot;, &quot;fiat_mean&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])</span>
 <span class="sd">    head_layers : int</span>
 <span class="sd">        The number of linear layers to append to the embedding model (default 1, not always used).</span>
 <span class="sd">    label_names : list[str], optional</span>
-<span class="sd">        List of strings of the names of the labels (ex [&quot;streaming&quot;, &quot;voip&quot;, ...])</span>
+<span class="sd">        List of strings of the names of the labels (ex ["streaming", "voip", ...])</span>
 <span class="sd">    train_summary : dict[str, Any]</span>
 <span class="sd">        A dictionary containing information about the model training.</span>
 
@@ -1934,13 +1934,13 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">    ------</span>
 <span class="sd">    NotImplementedError</span>
 <span class="sd">        If any of the abstract methods are not implemented.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
         <span class="n">head_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"cpu"</span><span class="p">,</span>
         <span class="n">feature_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">label_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -1948,9 +1948,9 @@ EquineOutput object that contains both the class probabilities
         <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span> <span class="o">=</span> <span class="n">embedding_model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">head_layers</span> <span class="o">=</span> <span class="n">head_layers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">train_summary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;numTrainExamples&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-            <span class="s2">&quot;dateTrained&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;modelType&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+            <span class="s2">"numTrainExamples"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="s2">"dateTrained"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span>
+            <span class="s2">"modelType"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -1964,7 +1964,7 @@ EquineOutput object that contains both the class probabilities
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Forward pass of the model. This is to preserve the usual behavior</span>
 <span class="sd">        of torch.nn.Module.</span>
 
@@ -1978,12 +1978,12 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            The output of the model.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the</span>
 <span class="sd">        given input data.</span>
 
@@ -1996,14 +1996,14 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        -------</span>
 <span class="sd">        EquineOutput</span>
 <span class="sd">            An EquineOutput object containing the class probabilities and OOD scores.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="n">TensorDataset</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, train the model on the given dataset.</span>
 
 <span class="sd">        Parameters</span>
@@ -2017,37 +2017,37 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        -------</span>
 <span class="sd">        dict[str, Any]</span>
 <span class="sd">            Dictionary containing summary training information and any other data</span>
-<span class="sd">            Note that at least one key should be &#39;train_summary&#39;</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">            Note that at least one key should be 'train_summary'</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, returns the prototype embeddings</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        torch.Tensor</span>
 <span class="sd">            A torch tensor of the prototype embeddings</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, save the model to the given file path.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            File path to save the model to.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@classmethod</span>  <span class="c1"># type: ignore</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="n">AnyEquine</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AnyEquine</span><span class="p">:</span>  <span class="c1"># noqa: F821 # type: ignore</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, load the model from the given file path.</span>
 
 <span class="sd">        Parameters</span>
@@ -2059,32 +2059,32 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        -------</span>
 <span class="sd">        Equine</span>
 <span class="sd">            Loaded model object.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Retrieve the label names used in the model.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Optional[list[str]]</span>
 <span class="sd">            A list of label names if available; otherwise, None.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;label_names&quot;</span><span class="p">):</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"label_names"</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span>
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Retrieve the feature names used in the model.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Optional[list[str]]</span>
 <span class="sd">            A list of feature names if available; otherwise, None.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feature_names&quot;</span><span class="p">):</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"feature_names"</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span>
         <span class="k">return</span> <span class="kc">None</span>
 
@@ -2092,7 +2092,7 @@ EquineOutput object that contains both the class probabilities
         <span class="k">lambda</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="n">num_features</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_classes</span> <span class="o">&gt;</span> <span class="mi">0</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_feature_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_features</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Validate that the feature names and label names, if provided, match the expected counts.</span>
 
 <span class="sd">        Parameters</span>
@@ -2107,17 +2107,17 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        ValueError</span>
 <span class="sd">            If the length of `feature_names` does not match `num_features`, or</span>
 <span class="sd">            if the length of `label_names` does not match `num_classes`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">feature_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_feature_names</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">feature_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_features</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The length of feature_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of data features (</span><span class="si">{</span><span class="n">num_features</span><span class="si">}</span><span class="s2">). Update feature_names or set feature_names to None.&quot;</span>
+                <span class="sa">f</span><span class="s2">"The length of feature_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of data features (</span><span class="si">{</span><span class="n">num_features</span><span class="si">}</span><span class="s2">). Update feature_names or set feature_names to None."</span>
             <span class="p">)</span>
 
         <span class="n">label_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_label_names</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">label_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_classes</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The length of label_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of classes (</span><span class="si">{</span><span class="n">num_classes</span><span class="si">}</span><span class="s2">). Update label_names or set label_names to None.&quot;</span>
+                <span class="sa">f</span><span class="s2">"The length of label_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of classes (</span><span class="si">{</span><span class="n">num_classes</span><span class="si">}</span><span class="s2">). Update label_names or set label_names to None."</span>
             <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -2229,7 +2229,7 @@ of torch.nn.Module.</p>
 <span class="normal">103</span>
 <span class="normal">104</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Forward pass of the model. This is to preserve the usual behavior</span>
 <span class="sd">    of torch.nn.Module.</span>
 
@@ -2243,7 +2243,7 @@ of torch.nn.Module.</p>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        The output of the model.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2302,15 +2302,15 @@ of torch.nn.Module.</p>
 <span class="normal">209</span>
 <span class="normal">210</span>
 <span class="normal">211</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Retrieve the feature names used in the model.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    Optional[list[str]]</span>
 <span class="sd">        A list of feature names if available; otherwise, None.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feature_names&quot;</span><span class="p">):</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"feature_names"</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span>
     <span class="k">return</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
@@ -2370,15 +2370,15 @@ of torch.nn.Module.</p>
 <span class="normal">196</span>
 <span class="normal">197</span>
 <span class="normal">198</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Retrieve the label names used in the model.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    Optional[list[str]]</span>
 <span class="sd">        A list of label names if available; otherwise, None.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;label_names&quot;</span><span class="p">):</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"label_names"</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span>
     <span class="k">return</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
@@ -2442,14 +2442,14 @@ of torch.nn.Module.</p>
 <span class="normal">155</span>
 <span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, returns the prototype embeddings</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    torch.Tensor</span>
 <span class="sd">        A torch tensor of the prototype embeddings</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2548,7 +2548,7 @@ of torch.nn.Module.</p>
 <span class="normal">184</span>
 <span class="normal">185</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>  <span class="c1"># type: ignore</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="n">AnyEquine</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AnyEquine</span><span class="p">:</span>  <span class="c1"># noqa: F821 # type: ignore</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, load the model from the given file path.</span>
 
 <span class="sd">    Parameters</span>
@@ -2560,7 +2560,7 @@ of torch.nn.Module.</p>
 <span class="sd">    -------</span>
 <span class="sd">    Equine</span>
 <span class="sd">        Loaded model object.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2666,7 +2666,7 @@ given input data.</p>
 <span class="normal">121</span>
 <span class="normal">122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the</span>
 <span class="sd">    given input data.</span>
 
@@ -2679,7 +2679,7 @@ given input data.</p>
 <span class="sd">    -------</span>
 <span class="sd">    EquineOutput</span>
 <span class="sd">        An EquineOutput object containing the class probabilities and OOD scores.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2750,14 +2750,14 @@ given input data.</p>
 <span class="normal">167</span>
 <span class="normal">168</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, save the model to the given file path.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        File path to save the model to.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2880,7 +2880,7 @@ Note that at least one key should be 'train_summary'</p>
 <span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="n">TensorDataset</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, train the model on the given dataset.</span>
 
 <span class="sd">    Parameters</span>
@@ -2894,8 +2894,8 @@ Note that at least one key should be 'train_summary'</p>
 <span class="sd">    -------</span>
 <span class="sd">    dict[str, Any]</span>
 <span class="sd">        Dictionary containing summary training information and any other data</span>
-<span class="sd">        Note that at least one key should be &#39;train_summary&#39;</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        Note that at least one key should be 'train_summary'</span>
+<span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3024,7 +3024,7 @@ if the length of <code>label_names</code> does not match <code>num_classes</code
     <span class="k">lambda</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="n">num_features</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_classes</span> <span class="o">&gt;</span> <span class="mi">0</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_feature_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_features</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Validate that the feature names and label names, if provided, match the expected counts.</span>
 
 <span class="sd">    Parameters</span>
@@ -3039,17 +3039,17 @@ if the length of <code>label_names</code> does not match <code>num_classes</code
 <span class="sd">    ValueError</span>
 <span class="sd">        If the length of `feature_names` does not match `num_features`, or</span>
 <span class="sd">        if the length of `label_names` does not match `num_classes`.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">feature_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_feature_names</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">feature_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_features</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The length of feature_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of data features (</span><span class="si">{</span><span class="n">num_features</span><span class="si">}</span><span class="s2">). Update feature_names or set feature_names to None.&quot;</span>
+            <span class="sa">f</span><span class="s2">"The length of feature_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">feature_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of data features (</span><span class="si">{</span><span class="n">num_features</span><span class="si">}</span><span class="s2">). Update feature_names or set feature_names to None."</span>
         <span class="p">)</span>
 
     <span class="n">label_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_label_names</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">label_names</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_classes</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The length of label_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of classes (</span><span class="si">{</span><span class="n">num_classes</span><span class="si">}</span><span class="s2">). Update label_names or set label_names to None.&quot;</span>
+            <span class="sa">f</span><span class="s2">"The length of label_names (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">label_names</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match the number of classes (</span><span class="si">{</span><span class="n">num_classes</span><span class="si">}</span><span class="s2">). Update label_names or set label_names to None."</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>

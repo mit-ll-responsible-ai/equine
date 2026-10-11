@@ -54,6 +54,7 @@ tests = [
 docs = [
     "mkdocs>=1.3",
     "mkdocs-material",
+    "mkdocstrings>=1.0.7",
     "mkdocstrings-python",
     "mkdocs-jupyter",
     "mkdocs-literate-nav",

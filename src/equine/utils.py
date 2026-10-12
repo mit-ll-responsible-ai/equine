@@ -158,7 +158,10 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
         Filename of the saved model.
     map_location : Optional[str]
         Device to move the loaded tensors to; with None they stay on the CPU,
-        whatever device they were saved from.
+        whatever device they were saved from. It must name the CPU or an
+        accelerator available on this machine, with an index below its device
+        count (``meta`` holds no data); anything else is refused before the
+        file is opened.
 
     Returns
     -------
@@ -168,13 +171,19 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
     Raises
     ------
     ValueError
-        If torch is older than 2.6, if the file is not in the current format
-        (not a zip archive, pickled objects, or no ``equine_format_version``),
-        if it declares a format version this EQUINE does not know, or if its
-        layout could exhaust memory (compressed or oversized entries, no
-        dictionary at the top level, a set, a tensor whose storage is smaller
-        than its shape or larger than the file, aliased support/KDE tensors).
+        If ``map_location`` names a device this machine cannot build on, or an
+        accelerator without a dtype the file holds (float64 on MPS). If torch
+        is older than 2.6, if the file is not in the current format (not a zip
+        archive, pickled objects, or no ``equine_format_version``), if it
+        declares a format version this EQUINE does not know, or if its layout
+        could exhaust memory (compressed or oversized entries, no dictionary at
+        the top level, a set, a tensor whose storage is smaller than its shape
+        or larger than the file, aliased support/KDE tensors).
     """
+    if map_location is not None:
+        # 'meta' or an absent accelerator would otherwise fail deep inside the
+        # load with an opaque error; every loader passes its device= here.
+        _require_device({"device": map_location}, what="The requested device")
     if _torch_version() < _MIN_SAFE_TORCH:
         raise ValueError(_OLD_TORCH_ERROR.format(version=torch.__version__))
     if not _check_zip_archive(path):
@@ -436,12 +445,20 @@ def _copy_off_the_file(
     """
     Give every tensor its own copy of its storage, on ``map_location``.
 
-    The safe path loads with ``mmap=True``, so tensors first view a mapping of
-    the file; copying keeps them valid if the file later changes or shrinks
-    (which would otherwise fault on access). Each storage is copied once and
-    its tensors are re-pointed in place, so views and tied tensors keep
-    sharing, containers are untouched, and the copies add up to no more than
-    the storages already checked.
+    ``load_checkpoint`` loads with ``mmap=True``, so tensors first view a
+    mapping of the file; copying keeps them valid if the file later changes or
+    shrinks (which would otherwise fault on access), and refuses a dtype the
+    device lacks with a clear error. Each storage is copied once and its
+    tensors are re-pointed in place, so views and tied tensors keep sharing,
+    containers are untouched, and the copies add up to no more than the
+    storages already checked.
+
+    Raises
+    ------
+    ValueError
+        If ``map_location`` names an accelerator that does not support a
+        tensor's dtype (MPS has no float64; a file saved from a float64 model,
+        or holding float64 support, loads there only with ``device="cpu"``).
     """
     device = torch.device(map_location if map_location is not None else "cpu")
     copies: dict[tuple[int, int], torch.UntypedStorage] = {}
@@ -464,9 +481,16 @@ def _copy_off_the_file(
             if device.type == "cpu":
                 tensor.set_(*layout)
             else:
-                tensor.data = torch.empty(0, dtype=tensor.dtype, device=device).set_(
-                    *layout
-                )
+                try:
+                    tensor.data = torch.empty(
+                        0, dtype=tensor.dtype, device=device
+                    ).set_(*layout)
+                except (TypeError, RuntimeError) as err:
+                    raise ValueError(
+                        f"Model file holds a {str(tensor.dtype).removeprefix('torch.')} "
+                        f"tensor, which {device.type} does not support; load it with "
+                        "device='cpu'"
+                    ) from err
 
 
 def _jit_archive_to_tensor(buffer: io.BytesIO) -> torch.Tensor:
@@ -672,13 +696,41 @@ def _shown(value: Any) -> str:
     return f"a {type(value).__name__}"
 
 
-def _require_device(settings: dict[str, Any], hint: str = "") -> None:
+def _input_to_model(
+    X: torch.Tensor, module: torch.nn.Module, device: str
+) -> torch.Tensor:
+    """
+    Move ``X`` to ``device`` for ``module``, casting a floating input to its dtype.
+
+    A floating-point input is cast to the dtype of the module's first
+    registered parameter (a mixed-dtype module follows whichever parameter is
+    registered first), so a float64 input to a float32 model is accepted and
+    MPS, which has no float64, works. A non-floating input (integer indices
+    for an ``nn.Embedding``, booleans) keeps its dtype and is only moved, as
+    is any input to a module without parameters.
+    """
+    param = next(module.parameters(), None)
+    if param is None or not X.is_floating_point():
+        return X.to(device=device)
+    return X.to(device=device, dtype=param.dtype)
+
+
+def _require_device(
+    settings: dict[str, Any],
+    hint: str = "",
+    what: str = "Model file's settings['device']",
+) -> None:
     """
     Refuse a file's ``settings["device"]`` unless this machine can build on it.
 
     It must name a torch device that is the CPU or an accelerator available
-    here; ``meta`` (no data) is refused. ``hint`` is appended to the message
-    for an unavailable device.
+    here, with an index below that accelerator's device count when it has
+    one (``cuda:7`` on a one-GPU machine, or ``mps:1``, is refused; torch
+    would otherwise fail deep inside the load, or silently use device 0);
+    ``meta`` (no data) is refused. ``hint`` is appended to the message for an
+    unavailable device or index. ``what`` opens every message and names the
+    value being checked (``load_checkpoint`` passes "The requested device"
+    for a caller's ``map_location``).
     """
     if "device" not in settings:
         return
@@ -689,16 +741,12 @@ def _require_device(settings: dict[str, Any], hint: str = "") -> None:
         device = torch.device(value)
     except (TypeError, ValueError, RuntimeError) as err:
         raise ValueError(
-            f"Model file's settings['device'] is not a torch device name "
-            f"({_shown(value)})."
+            f"{what} is not a torch device name ({_shown(value)})."
         ) from err
     if device.type == "cpu":
         return
     if device.type == "meta":
-        raise ValueError(
-            "Model file's settings['device'] is 'meta', which holds no data; "
-            "refusing to load."
-        )
+        raise ValueError(f"{what} is 'meta', which holds no data; refusing to load.")
     try:
         is_available = getattr(torch.get_device_module(device.type), "is_available")
         available = bool(is_available())
@@ -706,9 +754,18 @@ def _require_device(settings: dict[str, Any], hint: str = "") -> None:
         available = False
     if not available:
         raise ValueError(
-            f"Model file's settings['device'] ({_shown(value)}) is not available on "
-            f"this machine{hint}."
+            f"{what} ({_shown(value)}) is not available on this machine{hint}."
         )
+    if device.index is not None:
+        device_count = getattr(
+            torch.get_device_module(device.type), "device_count", None
+        )
+        count = device_count() if device_count is not None else None
+        if count is not None and device.index >= count:
+            raise ValueError(
+                f"{what} ({_shown(value)}) names device index {device.index}, but "
+                f"this machine has {count} {device.type} device(s){hint}."
+            )
 
 
 def _int_label(label: Any) -> Optional[int]:

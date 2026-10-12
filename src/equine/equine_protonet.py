@@ -433,6 +433,22 @@ class Protonet(torch.nn.Module):
         tuple[torch.Tensor, torch.Tensor]
             tuple containing class probability predictions, and class distances from prototypes.
         """
+        classes, distances, _ = self._forward_with_embeddings(X)
+        return classes, distances
+
+    def _forward_with_embeddings(
+        self, X: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        ``forward`` that also returns the embeddings it computed.
+
+        Returns
+        -------
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            Class probability predictions, class distances from prototypes,
+            and the embeddings (``compute_embeddings(X)``, single examples
+            unsqueezed to a batch of one).
+        """
         if len(self.support) == 0 or len(self.support_embeddings) == 0:
             raise ValueError(
                 "No support examples found. Protonet Model requires model support to \
@@ -445,7 +461,7 @@ class Protonet(torch.nn.Module):
         distances = self.compute_distance(X_embed, self.prototypes, self.covariance)
         classes = self.compute_classes(distances)
 
-        return classes, distances
+        return classes, distances, X_embed
 
     def update_support(self, support: OrderedDict[int, torch.Tensor]) -> None:
         """
@@ -689,10 +705,13 @@ class EquineProtonet(Equine):
             full_support
         )  # update support with final selected examples
 
-        X_embed = self.model.compute_embeddings(model_calib_x)
-        pred_probs, dists = self.model(model_calib_x)
-        ood_dists = self._compute_ood_dist(X_embed, pred_probs, dists)
-        self._fit_outlier_scores(ood_dists, model_calib_y)
+        # The OOD-calibration pass records no autograd graph.
+        with torch.no_grad():
+            pred_probs, dists, X_embed = self.model._forward_with_embeddings(
+                model_calib_x
+            )
+            ood_dists = self._compute_ood_dist(X_embed, pred_probs, dists)
+            self._fit_outlier_scores(ood_dists, model_calib_y)
 
         if self.use_temperature:
             self.calibrate_temperature(
@@ -849,17 +868,19 @@ class EquineProtonet(Equine):
         Returns
         -------
         EquineOutput
-            Output object containing prediction probabilities and OOD scores.
+            Output object containing prediction probabilities, OOD scores and
+            embeddings. Computed under ``torch.no_grad()``: the tensors carry
+            no autograd graph but are ordinary tensors (not inference-mode
+            tensors), which a caller can use in autograd.
         """
-        X_embed = self.model.compute_embeddings(X)
-        if X_embed.shape == torch.Size([self.model.emb_out_dim]):
-            X_embed = X_embed.unsqueeze(dim=0)  # Handle single examples
-        preds, dists = self.model(X)
-        if self.use_temperature:
-            dists = dists / self.temperature
-            preds = torch.softmax(torch.negative(dists), dim=1)
-        ood_dist = self._compute_ood_dist(X_embed, preds, dists)
-        ood_scores = self._compute_outlier_scores(ood_dist, preds)
+        # One embedding pass, under no_grad.
+        with torch.no_grad():
+            preds, dists, X_embed = self.model._forward_with_embeddings(X)
+            if self.use_temperature:
+                dists = dists / self.temperature
+                preds = torch.softmax(torch.negative(dists), dim=1)
+            ood_dist = self._compute_ood_dist(X_embed, preds, dists)
+            ood_scores = self._compute_outlier_scores(ood_dist, preds)
 
         self.validate_feature_label_names(X.shape[-1], preds.shape[-1])
 
@@ -911,11 +932,11 @@ class EquineProtonet(Equine):
 
         self.model.update_support(support)
 
-        X_embed = self.model.compute_embeddings(calib_x)
-        preds, dists = self.model(calib_x)
-        ood_dists = self._compute_ood_dist(X_embed, preds, dists)
-
-        self._fit_outlier_scores(ood_dists, calib_y)
+        # The calibration pass records no autograd graph.
+        with torch.no_grad():
+            preds, dists, X_embed = self.model._forward_with_embeddings(calib_x)
+            ood_dists = self._compute_ood_dist(X_embed, preds, dists)
+            self._fit_outlier_scores(ood_dists, calib_y)
 
     @icontract.require(lambda self: len(self.model.support) > 0)
     def get_support(self) -> OrderedDict[int, torch.Tensor]:

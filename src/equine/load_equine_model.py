@@ -11,11 +11,12 @@ from .equine import Equine
 from .equine_gp import EquineGP
 from .equine_protonet import EquineProtonet
 from .registry import _truncate
-from .utils import load_checkpoint
+from .utils import _load_checkpoint_for_device
 
 
 def load_equine_model(
     model_path: str,
+    device: Optional[str] = None,
     *,
     trust_executable: bool = False,
     embedding_model: Optional[torch.nn.Module] = None,
@@ -27,6 +28,9 @@ def load_equine_model(
     ----------
     model_path : str
         The path to the model file
+    device : Optional[str]
+        The device to load the model onto. Overrides the device recorded in
+        the file; by default the model lands on the saved device.
     trust_executable : bool, optional
         Keyword-only. Permit running the TorchScript module embedded in a file
         saved with ``allow_executable=True``; keeping that module as the
@@ -48,7 +52,9 @@ def load_equine_model(
         current EQUINE format (files from earlier releases must first be
         rewritten with ``python -m equine.upgrade``), its recipe names an
         unregistered architecture, or it contains executable content without
-        ``trust_executable``.
+        ``trust_executable``. If ``device`` is unavailable here, names an
+        index at or above its device count, or lacks a dtype the file holds
+        (float64 on MPS: load such a file with ``device="cpu"``).
 
     Notes
     -----
@@ -58,7 +64,7 @@ def load_equine_model(
     Files saved with ``allow_executable=True`` embed a TorchScript module, which
     is executable code, and need ``trust_executable=True``.
     """
-    model_save = load_checkpoint(model_path)
+    model_save = _load_checkpoint_for_device(model_path, device)
     summary = model_save.get("train_summary")
     model_type = summary.get("modelType") if isinstance(summary, dict) else None
     if not isinstance(model_type, str):
@@ -74,6 +80,7 @@ def load_equine_model(
         raise ValueError(f"Unknown model type {_truncate(repr(model_type), 80)}")
     return classes[model_type]._from_checkpoint(
         model_save,
+        device,
         trust_executable=trust_executable,
         embedding_model=embedding_model,
         # _from_checkpoint, behind a beartype wrapper (none under -O).

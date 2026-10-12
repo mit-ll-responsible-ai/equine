@@ -4,6 +4,8 @@
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from collections.abc import Callable
+from itertools import chain
 from typing import Any, Optional, TypeVar
 
 import icontract
@@ -14,6 +16,63 @@ from .equine_output import EquineOutput
 
 # A type variable for Equine objects
 AnyEquine = TypeVar("AnyEquine", bound="Equine")
+
+
+def _named_device(name: str) -> Optional[torch.device]:
+    """The device a tensor created with ``device=name`` lands on; None if this process has no such device."""
+    try:
+        return torch.empty(0, dtype=torch.uint8, device=name).device
+    except Exception:  # by backend: AssertionError, RuntimeError or ImportError
+        return None
+
+
+def _apply_to_stored_tensors(
+    module: torch.nn.Module,
+    fn: Callable[[torch.Tensor], torch.Tensor],
+    recurse: bool = True,
+) -> None:
+    """
+    Apply ``fn`` to the tensors ``module`` keeps outside its parameters and buffers.
+
+    ``nn.Module._apply``, which ``to``, ``cpu``, ``cuda`` and the dtype casts call,
+    reaches parameters and buffers only. The model classes call this from their
+    ``_apply``, after ``nn.Module._apply`` with the same ``recurse``. It applies ``fn``
+    to the plain tensor attributes ``prototypes``, ``covariance``, ``global_mean`` and
+    ``global_covariance`` and to every tensor in ``support`` and ``support_embeddings``.
+
+    ``module.device`` then names the device the tensors are on (that of its
+    first parameter, buffer or stored tensor): it is kept as given when it
+    names that device, and otherwise becomes that device's name (``"mps:0"``
+    after ``to("mps")`` from the CPU; ``"cpu"`` after ``cpu()`` or ``float()``
+    on a CPU model whose ``device`` names a device this process lacks). A
+    module without tensors applies ``fn`` to an empty tensor on ``device``
+    instead, or on the CPU when this process lacks ``device``.
+    """
+    stored: list[torch.Tensor] = []
+    for name in ("prototypes", "covariance", "global_mean", "global_covariance"):
+        value = module.__dict__.get(name)
+        if isinstance(value, torch.Tensor):
+            moved = fn(value)
+            setattr(module, name, moved)
+            stored.append(moved)
+    for name in ("support", "support_embeddings"):
+        value = module.__dict__.get(name)
+        if isinstance(value, dict):
+            moved_dict = OrderedDict((label, fn(x)) for label, x in value.items())
+            setattr(module, name, moved_dict)
+            stored.extend(moved_dict.values())
+    device = module.__dict__.get("device")
+    if isinstance(device, str):
+        named = _named_device(device)
+        held = chain(
+            module.parameters(recurse=recurse), module.buffers(recurse=recurse), stored
+        )
+        reference = next(held, None)
+        if reference is None:
+            probe = torch.empty(0, dtype=torch.uint8, device=named or "cpu")
+            reference = fn(probe)
+        if reference.device != named:
+            setattr(module, "device", str(reference.device))
 
 
 class Equine(torch.nn.Module, ABC):
@@ -83,6 +142,20 @@ class Equine(torch.nn.Module, ABC):
         self.support: OrderedDict[int, torch.Tensor] = OrderedDict()
         self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
         self.prototypes: torch.Tensor = torch.Tensor()
+
+    def _apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
+    ) -> "Equine":
+        """
+        ``nn.Module._apply``, extended to the support, its embeddings and the prototypes.
+
+        ``to``, ``cpu``, ``cuda`` and the dtype casts call it. ``model.to(device)``
+        moves every tensor the model keeps and updates ``device`` (see
+        ``_apply_to_stored_tensors``).
+        """
+        super()._apply(fn, recurse)
+        _apply_to_stored_tensors(self, fn, recurse)
+        return self
 
     @abstractmethod
     def forward(self, X: torch.Tensor) -> torch.Tensor:

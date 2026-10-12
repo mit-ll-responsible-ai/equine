@@ -4,10 +4,11 @@
 
 import math
 import sys
+import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import icontract
 import torch
@@ -23,6 +24,8 @@ from .utils import (
     _adopt_stored_dtypes,
     _checked_settings,
     _embedding_checkpoint,
+    _input_to_model,
+    _load_checkpoint_for_device,
     _plain_names,
     _plain_train_summary,
     _rebuild_embedding,
@@ -33,7 +36,6 @@ from .utils import (
     _support_from_file,
     generate_support,
     generate_train_summary,
-    load_checkpoint,
 )
 
 BatchType = tuple[torch.Tensor, ...]
@@ -177,6 +179,31 @@ class _RandomFourierFeatures(torch.nn.Module):
         return k
 
 
+def _inverse_via_cholesky(a: torch.Tensor) -> torch.Tensor:
+    """
+    Invert the symmetric positive-definite ``a`` through its Cholesky factor.
+
+    On MPS the factorization and the inverse run on a CPU copy and the result returns to
+    MPS. On the CPU and CUDA the ops run where ``a`` is.
+    """
+    work = a.cpu() if a.device.type == "mps" else a
+    u, info = torch.linalg.cholesky_ex(work)
+    assert (info == 0).all(), "Precision matrix inversion failed!"
+    return torch.cholesky_inverse(u).to(a.device)
+
+
+def _entr(x: torch.Tensor) -> torch.Tensor:
+    """``torch.special.entr``, computed on a CPU copy for an MPS tensor."""
+    if x.device.type == "mps":
+        return torch.special.entr(x.cpu()).to(x.device)
+    return torch.special.entr(x)
+
+
+def _sync_seen_count(module: "_Laplace", incompatible_keys: Any) -> None:
+    """``load_state_dict`` post hook: the Python ``_seen_count`` follows the loaded ``seen_data``."""
+    module._seen_count = int(module.seen_data)
+
+
 class _Laplace(torch.nn.Module):
     """
     A private class to compute a Laplace approximation to a Gaussian Process (GP)
@@ -249,6 +276,9 @@ class _Laplace(torch.nn.Module):
 
         self.num_data = 0  # to be set later
         self.register_buffer("seen_data", torch.tensor(0))
+        # A Python mirror of seen_data, read back from the buffer after load_state_dict.
+        self._seen_count: int = 0
+        self.register_load_state_dict_post_hook(_sync_seen_count)
 
         precision = torch.eye(num_random_features) * self.ridge_penalty
         self.register_buffer("precision", precision)
@@ -263,7 +293,8 @@ class _Laplace(torch.nn.Module):
         """
         identity = torch.eye(self.precision.shape[0], device=self.precision.device)
         self.precision: torch.Tensor = identity * self.ridge_penalty
-        self.seen_data: torch.Tensor = torch.tensor(0)
+        self.seen_data: torch.Tensor = torch.tensor(0, device=self.precision.device)
+        self._seen_count = 0
         self.recompute_covariance = True
 
     @icontract.require(lambda num_data: num_data > 0)
@@ -347,12 +378,13 @@ class _Laplace(torch.nn.Module):
             precision_minibatch = k.t() @ k
             self.precision += precision_minibatch
             self.seen_data += x.shape[0]
+            self._seen_count += x.shape[0]
 
-            assert self.seen_data <= self.num_data, (
+            assert self._seen_count <= self.num_data, (
                 "Did not reset precision matrix at start of epoch"
             )
         else:
-            assert self.seen_data > (self.num_data - self.train_batch_size), (
+            assert self._seen_count > (self.num_data - self.train_batch_size), (
                 "Not seen sufficient data for precision matrix"
             )
 
@@ -363,9 +395,8 @@ class _Laplace(torch.nn.Module):
                         self.precision.shape[1],
                         device=self.precision.device,
                     )
-                    u, info = torch.linalg.cholesky_ex(self.precision + jitter)
-                    assert (info == 0).all(), "Precision matrix inversion failed!"
-                    torch.cholesky_inverse(u, out=self.covariance)
+                    covariance = cast(torch.Tensor, self.covariance)
+                    covariance.copy_(_inverse_via_cholesky(self.precision + jitter))
 
                 self.recompute_covariance: bool = False
 
@@ -381,6 +412,12 @@ class _Laplace(torch.nn.Module):
 
 
 _DEFAULT_NUM_RANDOM_FEATURES = 1024
+
+_DEVICE_TYPE_DEPRECATION = (
+    "EquineGP.device_type is deprecated and will be removed in the next release: "
+    "read EquineGP.device (a str) instead; to move the model, call "
+    "model.to(value)."
+)
 
 
 def _expected_laplace_state(settings: dict[str, Any]) -> dict[str, torch.Tensor]:
@@ -465,14 +502,18 @@ class EquineGP(Equine):
         init_temperature : float, optional
             What to use as the initial temperature (1.0 has no effect).
         device : str, optional
-            Either 'cuda' or 'cpu'.
+            The device to train the equine model on ('cpu', 'cuda' or 'mps';
+            defaults to cpu).
         feature_names : list[str], optional
             List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...])
         """
         super().__init__(
-            embedding_model, feature_names=feature_names, label_names=label_names
+            embedding_model,
+            device=device,
+            feature_names=feature_names,
+            label_names=label_names,
         )
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
@@ -497,9 +538,34 @@ class EquineGP(Equine):
             self.mean_field_factor,
             self.ridge_penalty,
         )
-        self.device_type = device
-        self.device: torch.device = torch.device(self.device_type)
-        self.model.to(self.device)
+        # Moves the temperature buffer and the Laplace head onto the model's device.
+        self.to(self.device)
+
+    @property
+    def device_type(self) -> str:
+        """Deprecated alias of ``device``."""
+        warnings.warn(
+            _DEVICE_TYPE_DEPRECATION,
+            DeprecationWarning,
+            # Past the beartype wrapper (none under -O), to the caller's line.
+            stacklevel=2 + (0 if sys.flags.optimize else 1),
+        )
+        return self.device
+
+    @device_type.setter
+    def device_type(self, value: str) -> None:
+        """
+        Deprecated: moves the model with ``model.to(value)``, then assigns ``device``.
+        """
+        warnings.warn(
+            _DEVICE_TYPE_DEPRECATION,
+            DeprecationWarning,
+            # Past nn.Module.__setattr__ and the beartype wrapper (none under -O).
+            stacklevel=3 + (0 if sys.flags.optimize else 1),
+        )
+        # The module moves before ``device`` changes.
+        self.to(value)
+        self.device = value
 
     def train_model(
         self,
@@ -568,7 +634,7 @@ class EquineGP(Equine):
             epoch_loss = 0.0
             for i, (xs, labels) in enumerate(train_loader):
                 opt.zero_grad()
-                xs = xs.to(self.device)
+                xs = self._input_to_model(xs)
                 labels = labels.to(self.device)
                 yhats = self.model(xs)
                 loss = loss_fn(yhats, labels.to(torch.long))
@@ -586,7 +652,7 @@ class EquineGP(Equine):
                 and val_metrics_outputs is not None
             ):
                 for _, (xs_val, labels_val) in enumerate(val_loader):
-                    xs_val = xs_val.to(self.device)
+                    xs_val = self._input_to_model(xs_val)
                     labels_val = labels_val.to(self.device)
                     yhats_val = self.model(xs_val)
                     for metric in val_metrics:
@@ -637,11 +703,15 @@ class EquineGP(Equine):
             )
             support.update(class_support)
 
-        self.support = support
+        # Through the model boundary: on the device and, for floating support, in the
+        # model's dtype.
+        self.support = OrderedDict(
+            (label, self._input_to_model(x)) for label, x in support.items()
+        )
 
         support_embeddings = OrderedDict().fromkeys(self.support.keys(), torch.Tensor())
-        for label in support:
-            support_embeddings[label] = self.compute_embeddings(support[label])
+        for label in self.support:
+            support_embeddings[label] = self.compute_embeddings(self.support[label])
 
         self.support_embeddings = support_embeddings
         self.prototypes: torch.Tensor = self.compute_prototypes()
@@ -660,6 +730,7 @@ class EquineGP(Equine):
         torch.Tensor
             Output embeddings .
         """
+        x = self._input_to_model(x)
         f = self.model.feature_extractor(x)
         f_reduc = self.model.jl(f)
         if self.model.normalize_gp_features:
@@ -752,7 +823,7 @@ class EquineGP(Equine):
         for _ in range(num_calibration_epochs):
             for xs, labels in calibration_loader:
                 optimizer.zero_grad()
-                xs = xs.to(self.device)
+                xs = self._input_to_model(xs)
                 labels = labels.to(self.device)
                 with torch.no_grad():
                     logits = self.model(xs)
@@ -762,6 +833,18 @@ class EquineGP(Equine):
                 optimizer.step()
         self.temperature.requires_grad = False
 
+    def _input_to_model(self, X: torch.Tensor) -> torch.Tensor:
+        """
+        Move ``X`` to the model device; a floating input is cast to the model's dtype.
+
+        The reference is the Laplace head (``self.model``, see
+        ``utils._input_to_model``): its first parameter is the embedding
+        model's when that has one, else the head's own (``normalize.weight`` or
+        ``beta``). A parameter-less embedding such as ``nn.Identity`` gets an input in
+        the head's dtype.
+        """
+        return _input_to_model(X, self.model, self.device)
+
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
         EquineGP forward function, generates logits for classification.
@@ -769,14 +852,15 @@ class EquineGP(Equine):
         Parameters
         ----------
         X : torch.Tensor
-            Input tensor for generating predictions.
+            Input tensor for generating predictions. Moved to the model device
+            and cast to the embedding model's parameter dtype.
 
         Returns
         -------
         torch.Tensor
             Output probabilities computed.
         """
-        X = X.to(self.device)
+        X = self._input_to_model(X)
         preds = self.model(X)
         return preds / self.temperature.to(self.device)
 
@@ -790,18 +874,22 @@ class EquineGP(Equine):
         Parameters
         ----------
         X : torch.Tensor
-            Input tensor.
+            Input tensor. It is moved to the model device and cast to the embedding
+            model's parameter dtype; a float64 input to a float32 model is accepted.
 
         Returns
         -------
         EquineOutput
             Output object containing prediction probabilities and OOD scores.
         """
+        X = self._input_to_model(X)
         logits = self(X)
         preds = torch.softmax(logits, dim=1)
-        equiprobable = torch.ones(self.num_outputs) / self.num_outputs
-        max_entropy = torch.sum(torch.special.entr(equiprobable))
-        ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
+        equiprobable = (
+            torch.ones(self.num_outputs, device=logits.device) / self.num_outputs
+        )
+        max_entropy = torch.sum(_entr(equiprobable))
+        ood_score = torch.sum(_entr(preds), dim=1) / max_entropy
         embeddings = self.compute_embeddings(X)
         eq_out = EquineOutput(
             classes=preds, ood_scores=ood_score, embeddings=embeddings
@@ -852,7 +940,7 @@ class EquineGP(Equine):
             "num_classes": self.num_outputs,
             "num_random_features": self.num_random_features,
             "init_temperature": self.temperature.item(),
-            "device": self.device_type,
+            "device": self.device,
         }
         # The feature extractor is the embedding model, stored separately.
         laplace_sd = {
@@ -884,6 +972,7 @@ class EquineGP(Equine):
     def load(
         cls,
         path: str,
+        device: Optional[str] = None,
         *,
         trust_executable: bool = False,
         embedding_model: Optional[torch.nn.Module] = None,
@@ -899,6 +988,9 @@ class EquineGP(Equine):
         ----------
         path : str
             Input filename.
+        device : Optional[str]
+            The device to load the model onto. Overrides the device recorded
+            in the file; by default the model lands on the saved device.
         trust_executable : bool, optional
             Keyword-only. Permit running the TorchScript module embedded in a
             file saved with ``allow_executable=True`` or rewritten by
@@ -923,11 +1015,14 @@ class EquineGP(Equine):
             If the file is not in the current EQUINE format (files from earlier
             releases must first be rewritten with ``python -m equine.upgrade``),
             names an unregistered architecture, or contains executable content
-            without trust.
+            without trust. If ``device`` is unavailable here, names an index at
+            or above its device count, or lacks a dtype the file holds (float64
+            on MPS: load such a file with ``device="cpu"``).
         """
-        model_save = load_checkpoint(path)
+        model_save = _load_checkpoint_for_device(path, device)
         return cls._from_checkpoint(
             model_save,
+            device,
             trust_executable=trust_executable,
             embedding_model=embedding_model,
             # Two methods, each behind a beartype wrapper (none under -O).
@@ -938,6 +1033,7 @@ class EquineGP(Equine):
     def _from_checkpoint(
         cls,
         model_save: dict[str, Any],
+        device: Optional[str] = None,
         trust_executable: bool = False,
         embedding_model: Optional[torch.nn.Module] = None,
         _stacklevel: int = 2,
@@ -949,6 +1045,8 @@ class EquineGP(Equine):
         ----------
         model_save : dict[str, Any]
             The dictionary returned by ``utils.load_checkpoint``.
+        device : Optional[str]
+            Device override for the reconstituted model.
         trust_executable : bool, optional
             Permit running an embedded TorchScript module. Defaults to False.
         embedding_model : Optional[torch.nn.Module]
@@ -966,7 +1064,7 @@ class EquineGP(Equine):
         # The embedding is rebuilt first.
         embedding = _rebuild_embedding(
             model_save,
-            None,
+            device,
             trust_executable,
             embedding_model,
             _stacklevel=_stacklevel + 1,
@@ -996,7 +1094,11 @@ class EquineGP(Equine):
         for key in ("feature_names", "label_names"):
             _require_names(model_save.get(key), key)
         settings = _checked_settings(cls, model_save["settings"])
-        _require_device(settings)
+        # Allow the user to override the saved device state dynamically
+        if device is not None:
+            settings["device"] = device
+        else:
+            _require_device(settings, hint=" (pass device= to choose another)")
         # The stored Laplace weights are checked against the settings before the model
         # is built.
         _require_matching_weights(
@@ -1022,7 +1124,12 @@ class EquineGP(Equine):
         eq_model.model.load_state_dict(
             model_save.get("laplace_model_save"), strict=False
         )
-        eq_model.model.seen_data = model_save.get("laplace_model_save").get("seen_data")
+        # The load_state_dict post hook has already updated _seen_count.
+        eq_model.model.seen_data = (
+            model_save.get("laplace_model_save")
+            .get("seen_data")
+            .to(eq_model.model.precision.device)
+        )
 
         eq_model.model.set_training_params(
             model_save.get("num_data"), model_save.get("train_batch_size")

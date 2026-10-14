@@ -21,9 +21,13 @@ from tqdm import tqdm
 
 from .equine import Equine, EquineOutput
 from .utils import (
+    EQUINE_FORMAT_VERSION,
     generate_episode,
     generate_support,
     generate_train_summary,
+    jit_archive_to_tensor,
+    load_checkpoint,
+    load_jit_archive,
     mahalanobis_distance_nosq,
     prepare_jit_module,
     stratified_train_test_split,
@@ -44,6 +48,21 @@ class CovType(Enum):
 PRED_COV_TYPE = CovType.DIAGONAL
 OOD_COV_TYPE = CovType.DIAGONAL
 DEFAULT_EPSILON = 1e-5
+
+
+def _kde_to_state(kde: gaussian_kde) -> dict[str, Any]:
+    """Reduce a fitted ``gaussian_kde`` to tensors/scalars for safe saving."""
+    return {
+        "dataset": torch.as_tensor(kde.dataset).clone(),
+        "bw_factor": float(kde.factor),
+    }
+
+
+def _kde_from_state(state: dict[str, Any]) -> gaussian_kde:
+    """Rebuild a ``gaussian_kde`` saved by ``_kde_to_state``."""
+    return gaussian_kde(state["dataset"].cpu().numpy(), bw_method=state["bw_factor"])
+
+
 COV_REG_TYPE = "epsilon"
 
 
@@ -899,7 +918,7 @@ class EquineProtonet(Equine):
         None
         """
         model_settings = {
-            "cov_type": self.cov_type,
+            "cov_type": self.cov_type.value,
             "emb_out_dim": self.emb_out_dim,
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
@@ -910,16 +929,20 @@ class EquineProtonet(Equine):
         jit_model = torch.jit.script(prepare_jit_module(self.model.embedding_model))
         buffer = io.BytesIO()
         torch.jit.save(jit_model, buffer)
-        buffer.seek(0)
 
+        # Plain values only, so load_checkpoint can read it with weights_only=True.
         save_data = {
-            "embed_jit_save": buffer,
+            "equine_format_version": EQUINE_FORMAT_VERSION,
+            "embed_jit_save": jit_archive_to_tensor(buffer),
             "feature_names": self.feature_names,
             "label_names": self.label_names,
             "model_head_save": self.model.model_head.state_dict(),
-            "outlier_kde": self.outlier_score_kde,
+            "outlier_kde": {
+                int(label): _kde_to_state(kde)
+                for label, kde in self.outlier_score_kde.items()
+            },
             "settings": model_settings,
-            "support": self.model.support,
+            "support": {int(label): x for label, x in self.model.support.items()},
             "train_summary": self.train_summary,
         }
 
@@ -930,30 +953,57 @@ class EquineProtonet(Equine):
         """
         Load a previously saved EquineProtonet model.
 
+        Files from earlier EQUINE releases must first be rewritten with
+        ``python -m equine.upgrade``.
+
         Parameters
         ----------
         path : str
             The filename of the saved model.
-
         device : Optional[str]
-            The device to load the model onto
+            The device to load the model onto.
+
+        Returns
+        -------
+        EquineProtonet
+            The reconstituted EquineProtonet object.
+
+        Raises
+        ------
+        ValueError
+            If the file is not in the current EQUINE format.
+        """
+        model_save = load_checkpoint(path, map_location=device)
+        return cls._from_checkpoint(model_save, device)
+
+    @classmethod
+    def _from_checkpoint(
+        cls, model_save: dict[str, Any], device: Optional[str] = None
+    ) -> Equine:
+        """
+        Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.
+
+        Parameters
+        ----------
+        model_save : dict[str, Any]
+            The dictionary returned by ``utils.load_checkpoint``.
+        device : Optional[str]
+            Device override for the reconstituted model.
 
         Returns
         -------
         EquineProtonet
             The reconstituted EquineProtonet object.
         """
-
-        # Added map_location so internal tensors map to the correct device
-        model_save = torch.load(path, map_location=device, weights_only=False)
-        support = model_save.get("support")
+        support = OrderedDict(
+            (int(label), x) for label, x in model_save.get("support").items()
+        )
 
         # Explicitly pass map_location for the jit_model as well
-        buffer = model_save.get("embed_jit_save")
-        buffer.seek(0)
-        jit_model = torch.jit.load(buffer, map_location=device)
+        jit_model = load_jit_archive(model_save.get("embed_jit_save"), device)
 
-        settings = model_save.get("settings")
+        settings = dict(model_save.get("settings"))
+        settings["cov_type"] = CovType(settings["cov_type"])
         # Allow the user to override the saved device state dynamically
         if device is not None:
             settings["device"] = device
@@ -966,7 +1016,10 @@ class EquineProtonet(Equine):
 
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
-        eq_model.outlier_score_kde = model_save.get("outlier_kde")
+        eq_model.outlier_score_kde = OrderedDict(
+            (int(label), _kde_from_state(kde))
+            for label, kde in model_save.get("outlier_kde").items()
+        )
         eq_model.train_summary = model_save.get("train_summary")
 
         return eq_model

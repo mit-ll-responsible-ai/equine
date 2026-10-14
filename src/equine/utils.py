@@ -2,9 +2,11 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import io
+import pickle
 import sys
 from collections import OrderedDict
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import icontract
 import torch
@@ -18,6 +20,100 @@ from torchmetrics.classification import (
 
 from .equine import Equine
 from .equine_output import EquineOutput
+
+# Layout version written by ``save``. Version 2 holds only tensors, containers
+# and plain scalars/strings, so ``torch.load(weights_only=True)`` reads it.
+EQUINE_FORMAT_VERSION = 2
+
+# torch < 2.6 has a known bypass of weights_only=True (CVE-2025-32434).
+_MIN_SAFE_TORCH = (2, 6)
+
+_LEGACY_FILE_ERROR = (
+    "'{path}' is not in the current EQUINE model format: it has no "
+    "equine_format_version, or it holds pickled Python objects, as files saved "
+    "by earlier EQUINE releases do. Rewrite it once with "
+    "`python -m equine.upgrade {path}`. Only upgrade files you trust: the upgrade "
+    "unpickles the file without restrictions, which can run code embedded in it."
+)
+
+
+class LegacyFormatError(ValueError):
+    """The file predates the current format; ``python -m equine.upgrade`` rewrites it."""
+
+
+def _torch_version() -> tuple[int, int]:
+    major, minor = (int(p) for p in torch.__version__.split("+")[0].split(".")[:2])
+    return (major, minor)
+
+
+def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, Any]:
+    """
+    Read a saved EQUINE model file with ``torch.load(weights_only=True)``.
+
+    Files from earlier releases hold pickled Python objects and are refused;
+    ``python -m equine.upgrade`` rewrites them in the current format.
+
+    Parameters
+    ----------
+    path : str
+        Filename of the saved model.
+    map_location : Optional[str]
+        Device to map the saved tensors onto (passed to ``torch.load``).
+
+    Returns
+    -------
+    dict[str, Any]
+        The saved checkpoint dictionary.
+
+    Raises
+    ------
+    ValueError
+        If torch is older than 2.6, if the file cannot be read as a PyTorch
+        file, if it is not in the current format (a ``LegacyFormatError``), or
+        if it declares a format version this EQUINE does not know.
+    """
+    if _torch_version() < _MIN_SAFE_TORCH:
+        raise ValueError(
+            "EQUINE needs torch >= 2.6 to read model files (installed: "
+            f"{torch.__version__}): torch.load(weights_only=True) has a known "
+            "bypass on earlier releases (CVE-2025-32434)."
+        )
+    try:
+        checkpoint = torch.load(path, map_location=map_location, weights_only=True)
+    except pickle.UnpicklingError as err:
+        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path)) from err
+    except Exception as err:  # not a PyTorch file at all
+        raise ValueError(
+            f"'{path}' could not be read as a PyTorch file "
+            f"({type(err).__name__}: {err})."
+        ) from err
+    if not isinstance(checkpoint, dict) or "equine_format_version" not in checkpoint:
+        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
+    version = checkpoint["equine_format_version"]
+    if version > EQUINE_FORMAT_VERSION:
+        raise ValueError(
+            f"Unsupported EQUINE model format version {version}; this EQUINE "
+            f"supports up to {EQUINE_FORMAT_VERSION}. Upgrade EQUINE."
+        )
+    return checkpoint
+
+
+def jit_archive_to_tensor(buffer: io.BytesIO) -> torch.Tensor:
+    """A serialized TorchScript archive as a ``uint8`` tensor, for ``save``."""
+    return torch.frombuffer(bytearray(buffer.getvalue()), dtype=torch.uint8)
+
+
+def _archive_bytes(archive: torch.Tensor) -> bytes:
+    """The bytes of a ``uint8`` archive tensor (exactly the tensor's own view)."""
+    return archive.detach().cpu().contiguous().numpy().tobytes()
+
+
+def load_jit_archive(
+    archive: torch.Tensor, map_location: Optional[str] = None
+) -> torch.jit.ScriptModule:
+    """Reconstruct the TorchScript module stored by ``jit_archive_to_tensor``."""
+    buffer = io.BytesIO(_archive_bytes(archive))
+    return torch.jit.load(buffer, map_location=map_location)
 
 
 @icontract.ensure(lambda result, module: result is module)

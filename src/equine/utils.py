@@ -9,8 +9,6 @@ import itertools
 import math
 import os
 import pickle
-import sys
-import warnings
 import zipfile
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -41,44 +39,36 @@ from .registry import (
 
 # Layout version written by ``save``. Version 2 holds only tensors, containers
 # and plain scalars/strings, so ``torch.load(weights_only=True)`` reads it.
-# The embedding is a recipe plus a state_dict (see ``equine.registry``); a
-# TorchScript archive appears only in files saved with ``allow_executable=True``.
+# The embedding is a recipe plus a state_dict (see ``equine.registry``).
 EQUINE_FORMAT_VERSION = 2
 
 _UPGRADE_HINT = "python -m equine.upgrade"
 
-_MIGRATION_HINT = (
-    "load it with trust_executable=True and embedding_model=<an instance of your "
-    "registered architecture>, then call save() to rewrite it in the data-only "
-    f"format (a file from an earlier EQUINE release needs `{_UPGRADE_HINT}` first)"
+_UPGRADE_USAGE = (
+    f"`{_UPGRADE_HINT} {{path}} --recipe '<recipe JSON>' [--import MODULE]`, or "
+    "`from equine.upgrade import upgrade_model_file; upgrade_model_file({path!r}, "
+    "<an instance of your registered architecture>)`"
 )
 
-_EXECUTABLE_ERROR = (
-    "This model file embeds an executable TorchScript module (saved with "
-    "allow_executable=True, saved by an earlier version of EQUINE, or upgraded "
-    "from an earlier EQUINE release). Opening it runs that code. If you trust the "
-    f"file, load it with trust_executable=True. To migrate it, {_MIGRATION_HINT}."
+_TORCHSCRIPT_FILE_ERROR = (
+    "'{path}' stores its embedding model as TorchScript, which EQUINE does not "
+    "load. Rewrite it once with "
+    + _UPGRADE_USAGE
+    + ". Only upgrade files you trust: loading TorchScript runs code from the file."
 )
 
-_EXECUTABLE_SAVE_WARNING = (
-    "save(..., allow_executable=True) stored the embedding model as executable "
-    "TorchScript. This option, and loading such files, is removed in the next "
-    "EQUINE release. Register the embedding's architecture with "
-    "@equine.embedding_architecture and save a model built from it instead; for a "
-    f"model loaded from a TorchScript file, {_MIGRATION_HINT}."
-)
-
-_EXECUTABLE_LOAD_WARNING = (
-    "The embedding model was loaded from the file's executable TorchScript archive "
-    "(trust_executable=True). Such files stop loading in the next EQUINE release. "
-    f"To migrate the file, {_MIGRATION_HINT}."
+_TORCHSCRIPT_CHECKPOINT_ERROR = (
+    "Model file stores its embedding model as TorchScript, which EQUINE does not "
+    f"load. Rewrite it once with `{_UPGRADE_HINT}`. Only upgrade files you trust: "
+    "loading TorchScript runs code from the file."
 )
 
 _LEGACY_FILE_ERROR = (
     "'{path}' is not in the current EQUINE model format: it has no "
     "equine_format_version, or it holds pickled Python objects, as files saved "
-    f"by earlier EQUINE releases do. Rewrite it once with `{_UPGRADE_HINT} "
-    "{path}`. Only upgrade files you trust: the upgrade unpickles the file "
+    "by earlier EQUINE releases do. Rewrite it once with "
+    + _UPGRADE_USAGE
+    + ". Only upgrade files you trust: the upgrade unpickles the file "
     "without restrictions, which can run code embedded in it."
 )
 
@@ -195,10 +185,8 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
     support/KDE tensors that alias one another are refused. Every storage is then
     copied once off the mapping, onto ``map_location``.
 
-    A default file stores its embedding as a recipe and weights and contains
-    no executable code. A file saved with ``allow_executable=True`` carries a
-    TorchScript archive, is flagged with ``contains_executable``, and only
-    loads with ``trust_executable=True``.
+    The file contains no executable code: the embedding model is stored as a recipe and
+    weights.
 
     Parameters
     ----------
@@ -708,83 +696,6 @@ def _copy_off_the_file(
                 tensor.data = torch.empty(0, dtype=tensor.dtype, device=device).set_(
                     *layout
                 )
-
-
-def _jit_archive_to_tensor(buffer: io.BytesIO) -> torch.Tensor:
-    """
-    Convert a serialized TorchScript archive into a ``uint8`` tensor for saving.
-
-    As a tensor, the archive is read like every other tensor in the file (memory-mapped,
-    checked against the file's size, and copied off the file).
-    """
-    return torch.frombuffer(bytearray(buffer.getvalue()), dtype=torch.uint8)
-
-
-def _archive_bytes(archive: torch.Tensor) -> bytes:
-    """
-    Return the exact bytes of a ``uint8`` archive tensor.
-
-    A non-full or offset view yields exactly that view's bytes, not the whole backing
-    storage: ``.numpy()`` operates on the tensor's own data (respecting its shape,
-    stride and storage offset).
-    """
-    return archive.detach().cpu().contiguous().numpy().tobytes()
-
-
-def _load_jit_archive(
-    archive: Union[torch.Tensor, bytes, bytearray, io.BytesIO],
-    map_location: Optional[str] = None,
-) -> torch.jit.ScriptModule:
-    """
-    Reconstruct a TorchScript module from an archive stored in a checkpoint.
-
-    Accepts the ``uint8`` tensor written by the current ``save``, as well as the
-    ``bytes`` and ``io.BytesIO`` forms found in older files.
-    """
-    if isinstance(archive, torch.Tensor):
-        buffer = io.BytesIO(_archive_bytes(archive))
-    elif isinstance(archive, (bytes, bytearray)):
-        buffer = io.BytesIO(archive)
-    else:
-        buffer = archive
-    buffer.seek(0)
-    return torch.jit.load(buffer, map_location=map_location)
-
-
-@icontract.ensure(lambda result, module: result is module)
-@beartype
-def prepare_jit_module(module: torch.nn.Module) -> torch.nn.Module:
-    """
-    Make an ``nn.Module`` safe to pass to ``torch.jit.script`` on Python 3.14+.
-
-    Starting with Python 3.14 (PEP 649/749) a class's ``__annotations__`` is
-    exposed through a ``type`` getset descriptor instead of being stored in the
-    class ``__dict__``. ``torch.jit``'s scripting checker reads
-    ``__annotations__`` from the module *instance*, where attribute lookup only
-    consults the ``__dict__`` of each class in the MRO. For any ``nn.Module``
-    that declares no class-level annotations this lookup misses and
-    ``nn.Module.__getattr__`` raises ``AttributeError``, breaking
-    ``torch.jit.script``. Materializing each submodule's own class annotations
-    onto its instance ``__dict__`` lets that lookup succeed. This is a no-op on
-    Python < 3.14.
-
-    Parameters
-    ----------
-    module : torch.nn.Module
-        The module that is about to be scripted with ``torch.jit.script``.
-
-    Returns
-    -------
-    torch.nn.Module
-        The same module, returned for convenient inline use.
-    """
-    if sys.version_info >= (3, 14):
-        for submodule in module.modules():
-            if "__annotations__" not in submodule.__dict__:
-                submodule.__dict__["__annotations__"] = dict(
-                    type(submodule).__annotations__
-                )
-    return module
 
 
 def _is_extra_state_key(key: str) -> bool:
@@ -1380,46 +1291,25 @@ def _require_rebuildable(
         )
 
 
-def _embedding_checkpoint(
-    embedding: torch.nn.Module, allow_executable: bool, _stacklevel: int = 2
-) -> dict[str, Any]:
+def _embedding_checkpoint(embedding: torch.nn.Module) -> dict[str, Any]:
     """
-    The checkpoint entries describing an embedding model.
-
-    A registered architecture is stored as its recipe and ``state_dict``,
-    after checking that the recipe rebuilds the same module (see
-    ``_require_rebuildable``). An unregistered one is refused unless
-    ``allow_executable`` is set, in which case a flagged TorchScript archive is stored
-    instead, with a ``FutureWarning`` reported ``_stacklevel`` frames up.
+    The checkpoint entries describing an embedding model: its recipe and its
+    ``state_dict``, after checking that the recipe rebuilds the same module
+    (see ``_require_rebuildable``).
     """
     recipe = embedding_recipe(embedding)
-    if recipe is not None:
-        state_dict = embedding.state_dict()
-        stored_recipe = copy.deepcopy(recipe)
-        _require_rebuildable(embedding, recipe, state_dict)
-        return {
-            "embedding_recipe": stored_recipe,
-            "embedding_state_dict": state_dict,
-            "contains_executable": False,
-        }
-    if allow_executable:
-        buffer = io.BytesIO()
-        torch.jit.save(torch.jit.script(prepare_jit_module(embedding)), buffer)
-        warnings.warn(_EXECUTABLE_SAVE_WARNING, FutureWarning, stacklevel=_stacklevel)
-        return {
-            "embed_jit_save": _jit_archive_to_tensor(buffer),
-            "contains_executable": True,
-        }
-    raise ValueError(
-        f"Cannot save: the embedding model ({type(embedding).__name__}) is not a "
-        "registered architecture, so it has no recipe to store. Register it with "
-        "@equine.embedding_architecture('yourproject.name') and construct it with "
-        "plain-valued arguments, or pass save(path, allow_executable=True) to embed a "
-        "TorchScript copy (executable content, removed in the next release; the file "
-        "will then require load(..., trust_executable=True)). If this model was "
-        "loaded from a file that stores its embedding as TorchScript, "
-        f"{_MIGRATION_HINT}."
-    )
+    if recipe is None:
+        raise ValueError(
+            f"Cannot save: the embedding model ({type(embedding).__name__}) is not a "
+            "registered architecture, so it has no recipe to store. Register it with "
+            "@equine.embedding_architecture('yourproject.name') and construct it "
+            "with plain-valued arguments."
+        )
+    state_dict = embedding.state_dict()
+    # The check below runs the constructor, which could mutate the recipe.
+    stored_recipe = copy.deepcopy(recipe)
+    _require_rebuildable(embedding, recipe, state_dict)
+    return {"embedding_recipe": stored_recipe, "embedding_state_dict": state_dict}
 
 
 def _load_embedding_weights(
@@ -1435,29 +1325,31 @@ def _load_embedding_weights(
         ) from err
 
 
+def _holds_torchscript(checkpoint: Mapping[str, Any]) -> bool:
+    """Whether a checkpoint stores its embedding model as TorchScript."""
+    return (
+        "embed_jit_save" in checkpoint or checkpoint.get("contains_executable") is True
+    )
+
+
+def _refuse_torchscript(checkpoint: Mapping[str, Any], path: str) -> None:
+    """Raise if the checkpoint read from ``path`` stores its embedding as TorchScript."""
+    if _holds_torchscript(checkpoint):
+        raise ValueError(_TORCHSCRIPT_FILE_ERROR.format(path=path))
+
+
 def _rebuild_embedding(
-    model_save: dict[str, Any],
-    device: Optional[str],
-    trust_executable: bool,
-    embedding_model: Optional[torch.nn.Module],
-    _stacklevel: int = 2,
+    model_save: dict[str, Any], embedding_model: Optional[torch.nn.Module]
 ) -> torch.nn.Module:
     """
-    Reconstitute an embedding model from a checkpoint.
-
-    Order: a caller-supplied module (stored dtypes and weights loaded into it),
-    then the recipe (rebuilt through the registry), then a TorchScript archive.
-    Executable content requires ``trust_executable`` whichever branch is taken: a file
-    with an archive, or with ``contains_executable`` set, is refused without it.
-    Returning the archive's module emits a ``FutureWarning`` reported ``_stacklevel``
-    frames up.
+    Reconstitute an embedding model from a checkpoint: a caller-supplied
+    module (the file's stored dtypes and weights loaded into it), else the
+    file's recipe rebuilt through the registry. A file that stores its
+    embedding as TorchScript is refused first, whatever else it holds.
     """
+    if _holds_torchscript(model_save):
+        raise ValueError(_TORCHSCRIPT_CHECKPOINT_ERROR)
     state_dict = model_save.get("embedding_state_dict")
-    archive = model_save.get("embed_jit_save")
-    # The one place that decides whether a file holds executable content.
-    executable = archive is not None or model_save.get("contains_executable") is True
-    if executable and not trust_executable:
-        raise ValueError(_EXECUTABLE_ERROR)
     if state_dict is not None:
         _require_weights_dict(
             state_dict, "embedding_state_dict", allow_extra_state=True
@@ -1465,12 +1357,10 @@ def _rebuild_embedding(
 
     if embedding_model is not None:
         if state_dict is None:
-            if archive is None:
-                raise ValueError(
-                    "Model file contains no embedding weights to load into the "
-                    "supplied embedding_model (no embedding_state_dict and no archive)."
-                )
-            state_dict = _load_jit_archive(archive, device).state_dict()
+            raise ValueError(
+                "Model file contains no embedding weights to load into the "
+                "supplied embedding_model (no embedding_state_dict)."
+            )
         owned = embedding_model.state_dict(keep_vars=True)
         mismatch = _state_dict_mismatch(owned, state_dict) or _dtype_kind_mismatch(
             owned, state_dict
@@ -1502,12 +1392,7 @@ def _rebuild_embedding(
         _load_embedding_weights(embedding, state_dict or {})
         return embedding
 
-    if archive is not None:
-        warnings.warn(_EXECUTABLE_LOAD_WARNING, FutureWarning, stacklevel=_stacklevel)
-        return _load_jit_archive(archive, device)
-    raise ValueError(
-        "Model file contains no embedding model (no recipe and no archive)."
-    )
+    raise ValueError("Model file contains no embedding model (no recipe).")
 
 
 @icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))

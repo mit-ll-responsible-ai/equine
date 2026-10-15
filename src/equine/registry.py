@@ -4,11 +4,11 @@
 """
 Registry of embedding-model architectures.
 
-An EQUINE model file describes its embedding model as a *recipe*: the name of a
-registered architecture plus the plain-valued constructor arguments it was built with.
-``load()`` rebuilds the module by calling only a registered constructor. A model file
-never names an import path, and carries executable content only when the saver
-explicitly opts in.
+An EQUINE model file describes its embedding model as a *recipe*: the name of
+a registered architecture plus the plain-valued constructor arguments it was
+built with. ``load()`` rebuilds the module by calling only a registered
+constructor, so a model file never names an import path and never carries
+executable content.
 
 Recipes are recorded per exact class (a subclass must register itself to get its own
 recipe) and are deep-copied both when recorded and when handed back. Neither the

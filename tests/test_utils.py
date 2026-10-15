@@ -2,6 +2,9 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import sys
+import warnings
+
 import hypothesis.extra.numpy as hnp
 import icontract
 import numpy as np
@@ -342,3 +345,25 @@ def test_generate_model_metrics_known_confusion_matrix() -> None:
     # rows = true class, columns = predicted class. The swapped call returns the
     # transpose, [[3, 0, 0], [1, 1, 1], [0, 0, 0]].
     assert metrics["confusionMatrix"] == [[3, 1, 0], [0, 1, 0], [0, 1, 0]]
+
+
+@pytest.mark.parametrize(
+    "platform, version, torch_version, warns",
+    [
+        ("darwin", (3, 15, 0), "2.14.1", True),
+        ("darwin", (3, 16, 0), "2.14.1+cpu", True),
+        ("darwin", (3, 15, 0), "2.15.0", False),
+        ("darwin", (3, 14, 3), "2.14.1", False),
+        ("linux", (3, 15, 0), "2.14.1", False),
+    ],
+)
+def test_warns_where_torch_crashes_with_threads(
+    monkeypatch, platform, version, torch_version, warns
+):
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr(sys, "version_info", version)
+    monkeypatch.setattr(torch, "__version__", torch_version)
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        eq.utils._warn_if_torch_crashes_with_threads()
+    assert any("several threads" in str(w.message) for w in record) == warns

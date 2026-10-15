@@ -3,7 +3,7 @@
 ## Developer Installation 
 1. Clone the [git repository](https://github.com/mit-ll-responsible-ai/equine) and navigate to that directory
     
-2. Install a virtual environment. We currently support python versions from 3.10 to 3.14.
+2. Install a virtual environment. We currently support python versions from 3.11 to 3.15.
 
     Using conda:
 
@@ -30,6 +30,15 @@
     ```shell
     uv pip install -e '.[tests]'
     ```
+
+    On Python 3.15, torch is published only on PyTorch's own package index
+    until torch 2.15 reaches PyPI; install it from there first, e.g.
+    `pip install torch --index-url https://download.pytorch.org/whl/cpu`.
+    On macOS with Python 3.15, use torch >= 2.15 (torch 2.14 crashes there
+    when used from several threads, and EQUINE warns at import); until it is
+    released, use `https://download.pytorch.org/whl/test/cpu`, or for tox
+    `EQUINE_TORCH_INDEX=https://download.pytorch.org/whl/test/cpu tox -r -e py315`
+    (`-r` rebuilds an environment that already has an older torch).
 
 4. Activate the pre-commit hooks
     ```console

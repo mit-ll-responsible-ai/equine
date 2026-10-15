@@ -69,7 +69,7 @@
   Files saved after training on an
   accelerator hold accelerator tensors; pass `device="cpu"` when loading them
   on a machine without one.
-- **Model files no longer embed executable code by default** (#191). `save()`
+- **Model files no longer embed executable code** (#191). `save()`
   stores the embedding model as a recipe (the name of a registered architecture
   plus its constructor arguments) and a `state_dict`. Register your embedding
   class once:
@@ -85,26 +85,31 @@
   keys). The shipped `equine.MLP` is already registered. The example
   notebooks now register their embedding architectures.
 - Model files are read with `torch.load(weights_only=True)` (#168). Files
-  written by earlier releases are refused; rewrite each one once with
-  `python -m equine.upgrade old.eq` (only for files you trust: the upgrade
-  unpickles the file without restrictions). The upgraded file keeps its
-  TorchScript embedding, so it is flagged and loads with
-  `trust_executable=True`; to make it data-only, load it with
-  `embedding_model=` an instance of your registered architecture and call
-  `save()`:
+  written by earlier releases are refused. Rewrite each one once, passing the
+  embedding architecture it was built from (only for files you trust: the
+  upgrade unpickles the file without restrictions and loads its TorchScript):
 
   ```python
-  # once, from the command line: python -m equine.upgrade old.eq
-  model = equine.load_equine_model("old.eq", trust_executable=True,
-                                   embedding_model=Encoder(6, 3))
-  model.save("new.eq")   # data-only from here on
+  # from Python
+  from equine.upgrade import upgrade_model_file
+  upgrade_model_file("old.eq", Encoder(6, 3))
   ```
 
-  Reading the old layout is deprecated: `equine.upgrade` is removed in a later
-  release.
-- `load_equine_model` accepts `trust_executable` and `embedding_model`, like
-  `EquineProtonet.load` and `EquineGP.load`. These flags and `save`'s
-  `allow_executable` are keyword-only.
+  ```shell
+  # or from the command line
+  python -m equine.upgrade old.eq --import myproject.models \
+      --recipe '{"builder": "myproject.encoder", "kwargs": {"in_features": 6, "out_features": 3}}'
+  ```
+
+  The upgrade copies the TorchScript weights into the architecture (including
+  tensors the old module kept as plain attributes), writes a data-only file,
+  loads it back and checks that its embedding reproduces the old one on the
+  file's support rows before replacing anything. `EquineGP` files usually
+  store no support rows; pass `check_inputs=` to compare on your own inputs.
+  Reading the old layout is deprecated: `equine.upgrade` is removed in a
+  later release.
+- `load_equine_model` accepts `embedding_model` (keyword-only), like
+  `EquineProtonet.load` and `EquineGP.load`.
 - Requires `torch >= 2.6`: earlier releases have a known bypass of
   `weights_only=True` (CVE-2025-32434), and the safe load path refuses to run
   on them. Intel-macOS installs are no longer supported (no torch 2.6 builds
@@ -123,19 +128,20 @@
   `use_temperature`, which EquineGP has not accepted since 0.1.6 (such files
   failed to load); `equine.upgrade` drops it, and predictions are unchanged.
 
-### Deprecated (removed in the next release)
-- `save(path, allow_executable=True)` embeds a TorchScript copy of an
-  unregistered embedding model and flags the file; such files need
-  `load(..., trust_executable=True)`. Both flags, the TorchScript archive
-  support and the `torch < 2.10` ceiling are removed in the next release;
-  saving with `allow_executable=True`, or loading a TorchScript embedding
-  under `trust_executable=True`, emits a `FutureWarning`. Migrate flagged
-  files with the snippet above (using `trust_executable=True`).
+### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading
   or assigning it emits a `DeprecationWarning`; assigning it moves the module
   and then sets `device`. To move a model yourself, set `model.device = value`
   and call `model.to(value)`: either one alone leaves the inputs and the
   module on different devices.
+
+### Removed
+- TorchScript in model files: `save(..., allow_executable=True)`,
+  `load(..., trust_executable=True)` and the `trust_executable` argument of
+  `load_equine_model`. A file that stores its embedding model as TorchScript
+  is refused with a message that points to `equine.upgrade`, which converts
+  it.
+- The `torch < 2.10` cap; torch is now `>= 2.6, < 3`.
 
 ### Fixed
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).

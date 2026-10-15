@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 import glob
+import io
 import math
 import os
+import sys
 import tempfile
+import warnings
 import zipfile
 from random import choice
 from string import ascii_lowercase, digits
@@ -25,6 +28,32 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "device: parametrized over available_devices() (informational)",
     )
+
+
+def script_module(module: torch.nn.Module) -> torch.jit.ScriptModule:
+    """``torch.jit.script`` for the tests' TorchScript embeddings.
+
+    On Python 3.14+ each submodule gets its class annotations copied onto the instance
+    before scripting.
+    """
+    if sys.version_info >= (3, 14):
+        for submodule in module.modules():
+            if "__annotations__" not in submodule.__dict__:
+                submodule.__dict__["__annotations__"] = dict(
+                    type(submodule).__annotations__
+                )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)  # torch's TorchScript notice
+        return torch.jit.script(module)
+
+
+def archive_tensor(module: torch.nn.Module) -> torch.Tensor:
+    """A scripted copy of ``module`` as the ``uint8`` tensor a file stores."""
+    buffer = io.BytesIO()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        torch.jit.save(script_module(module), buffer)
+    return torch.frombuffer(bytearray(buffer.getvalue()), dtype=torch.uint8)
 
 
 def _rewrite_zip(src: str, dst: str, edit) -> None:

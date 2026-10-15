@@ -257,7 +257,7 @@ class Equine(torch.nn.Module, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save(self, path: str, *, allow_executable: bool = False) -> None:
+    def save(self, path: str) -> None:
         """
         Upon implementation, save the model to the given file path.
 
@@ -265,9 +265,6 @@ class Equine(torch.nn.Module, ABC):
         ----------
         path : str
             File path to save the model to.
-        allow_executable : bool, optional
-            Keyword-only. Permit embedding executable TorchScript when the embedding
-            model has no recipe. Defaults to False.
         """
         raise NotImplementedError
 

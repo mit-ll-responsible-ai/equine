@@ -16,6 +16,7 @@ from .registry import (
     registered_architectures,
 )
 from .utils import (
+    _warn_if_torch_crashes_with_threads,
     brier_score,
     brier_skill_score,
     expected_calibration_error,
@@ -26,6 +27,8 @@ from .utils import (
     generate_train_summary,
     mahalanobis_distance_nosq,
 )
+
+_warn_if_torch_crashes_with_threads()
 
 if not TYPE_CHECKING:  # pragma: no cover
     try:

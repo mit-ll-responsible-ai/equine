@@ -18,11 +18,11 @@ maintainers = [
 ]
 description = "EQUINE^2: Establishing Quantified Uncertainty for Neural Networks"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
         "torch >= 2.6.0, < 3.0.0",
         "torchmetrics >= 0.6.0",
-        "numpy >= 1.22.0, <= 2.4.0",
+        "numpy >= 1.22.0, < 3.0.0",
         "tqdm",
         "beartype",
         "icontract",
@@ -140,15 +140,15 @@ legacy_tox_ini = """
 
 [tox]
 isolated_build = True
-envlist = py310, py311, py312, py313, py314
+envlist = py311, py312, py313, py314, py315
 
 [gh-actions]
 python =
-  3.10: py310
   3.11: py311
   3.12: py312
   3.13: py313
   3.14: py314
+  3.15: py315
 
 
 [testenv]
@@ -157,6 +157,10 @@ description = Runs test suite parallelized in the specified python environment a
               Run `tox -e py311 -- -n 0` to run tests in a python 3.11 with 
               parallelization disabled.
 passenv = *
+setenv =
+    py315: UV_EXTRA_INDEX_URL={env:EQUINE_TORCH_INDEX:https://download.pytorch.org/whl/cpu}
+    py315: PIP_EXTRA_INDEX_URL={env:EQUINE_TORCH_INDEX:https://download.pytorch.org/whl/cpu}
+    py315: UV_INDEX_STRATEGY=unsafe-best-match
 extras = tests
 deps = pytest-xdist
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}

@@ -988,43 +988,27 @@ class EquineGP(Equine):
 
         return eq_out
 
-    def save(self, path: str, *, allow_executable: bool = False) -> None:
+    def save(self, path: str) -> None:
         """
         Save all model parameters to a file.
 
         The embedding model (the feature extractor) is stored as a *recipe*
         (registered architecture name plus constructor arguments) and a
-        ``state_dict``, so the file holds only data. If the embedding model is
-        not a registered architecture (for example a ``torch.jit.ScriptModule``),
-        pass ``allow_executable=True`` to embed a TorchScript copy instead; such
-        a file is flagged and can only be opened with
-        ``load(..., trust_executable=True)``. This opt-in exists for one release
-        to migrate existing files and will then be removed.
+        ``state_dict``, so the file holds only data.
 
         Parameters
         ----------
         path : str
             Filename to write the model.
-        allow_executable : bool, optional
-            Keyword-only. Permit embedding executable TorchScript when no recipe
-            is available; emits a ``FutureWarning``.
 
         Raises
         ------
         ValueError
-            If the embedding model has no recipe and ``allow_executable`` is False.
+            If the embedding model is not a registered architecture.
         """
-        checkpoint = self._to_checkpoint(
-            allow_executable,
-            # _embedding_checkpoint, then _to_checkpoint and save, each behind a
-            # beartype wrapper (none under -O), then the caller.
-            _stacklevel=4 + (0 if sys.flags.optimize else 2),
-        )
-        torch.save(checkpoint, path)
+        torch.save(self._to_checkpoint(), path)
 
-    def _to_checkpoint(
-        self, allow_executable: bool = False, *, _stacklevel: int = 2
-    ) -> dict[str, Any]:
+    def _to_checkpoint(self) -> dict[str, Any]:
         """Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""
         model_settings = {
             "emb_out_dim": self.num_deep_features,
@@ -1042,9 +1026,7 @@ class EquineGP(Equine):
         # Plain values only, so load_checkpoint can read it with weights_only=True.
         save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
-            **_embedding_checkpoint(
-                self.embedding_model, allow_executable, _stacklevel
-            ),
+            **_embedding_checkpoint(self.embedding_model),
             "feature_names": _plain_names(self.feature_names),
             "label_names": _plain_names(self.label_names),
             "laplace_model_save": laplace_sd,
@@ -1065,7 +1047,6 @@ class EquineGP(Equine):
         path: str,
         device: Optional[str] = None,
         *,
-        trust_executable: bool = False,
         embedding_model: Optional[torch.nn.Module] = None,
     ) -> Equine:
         """
@@ -1073,7 +1054,7 @@ class EquineGP(Equine):
 
         The file is read with ``torch.load(weights_only=True)`` and the
         embedding model is rebuilt from its recipe through the architecture
-        registry, so a default file contains nothing executable.
+        registry, so loading runs no code from the file.
 
         Parameters
         ----------
@@ -1082,17 +1063,10 @@ class EquineGP(Equine):
         device : Optional[str]
             The device to load the model onto. Overrides the device recorded
             in the file; by default the model lands on the saved device.
-        trust_executable : bool, optional
-            Keyword-only. Permit running the TorchScript module embedded in a
-            file saved with ``allow_executable=True`` or rewritten by
-            ``equine.upgrade``; keeping that module as the embedding emits a
-            ``FutureWarning``. Defaults to False.
         embedding_model : Optional[torch.nn.Module]
             Keyword-only. Use this module as the embedding architecture instead
             of rebuilding it from the file's recipe; the file's weights are
-            loaded into it. With an executable file (and trust), the archive's
-            weights are copied into it, which migrates the file to the recipe
-            format on the next ``save``.
+            loaded into it.
 
         Returns
         -------
@@ -1102,31 +1076,22 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If the file is not in the current EQUINE format (files from earlier
-            releases must first be rewritten with ``python -m equine.upgrade``),
-            names an unregistered architecture, or contains executable content
-            without trust. If ``device`` is unavailable here, names an index at
+            If the file is not in the current EQUINE format or stores its
+            embedding model as TorchScript (both are rewritten once with
+            ``python -m equine.upgrade``), or names an unregistered
+            architecture. If ``device`` is unavailable here, names an index at
             or above its device count, or lacks a dtype the file holds (float64
             on MPS: load such a file with ``device="cpu"``).
         """
         model_save = load_checkpoint(path, map_location=device)
-        return cls._from_checkpoint(
-            model_save,
-            device,
-            trust_executable=trust_executable,
-            embedding_model=embedding_model,
-            # Two methods, each behind a beartype wrapper (none under -O).
-            _stacklevel=3 + (0 if sys.flags.optimize else 2),
-        )
+        return cls._from_checkpoint(model_save, device, embedding_model=embedding_model)
 
     @classmethod
     def _from_checkpoint(
         cls,
         model_save: dict[str, Any],
         device: Optional[str] = None,
-        trust_executable: bool = False,
         embedding_model: Optional[torch.nn.Module] = None,
-        _stacklevel: int = 2,
     ) -> Equine:
         """
         Rebuild an EquineGP from an already-loaded checkpoint dictionary.
@@ -1137,30 +1102,18 @@ class EquineGP(Equine):
             The dictionary returned by ``utils.load_checkpoint``.
         device : Optional[str]
             Device override for the reconstituted model.
-        trust_executable : bool, optional
-            Permit running an embedded TorchScript module. Defaults to False.
         embedding_model : Optional[torch.nn.Module]
             Use this module as the embedding architecture instead of the file's
-            recipe or archive; the file's weights are loaded into it.
-        _stacklevel : int, optional
-            Stack depth, counted from this method, at which its warnings are
-            reported, so they point at the user's call site rather than at
-            EQUINE internals.
+            recipe; the file's weights are loaded into it.
 
         Returns
         -------
         EquineGP
             The reconstituted EquineGP object.
         """
-        # The embedding first, so a file that needs trust says so before any
-        # other error.
-        embedding = _rebuild_embedding(
-            model_save,
-            device,
-            trust_executable,
-            embedding_model,
-            _stacklevel=_stacklevel + 1,
-        )
+        # The embedding first, so a TorchScript file is reported before any
+        # other problem.
+        embedding = _rebuild_embedding(model_save, embedding_model)
         _require_entries(
             model_save,
             (

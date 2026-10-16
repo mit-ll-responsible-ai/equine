@@ -3,17 +3,14 @@
 # SPDX-License-Identifier: MIT
 """
 The model layer: EquineProtonet and EquineGP save and load (``save``, ``load``,
-``load_equine_model``). Embedding models persist as a recipe + state_dict;
-TorchScript only behind allow_executable / trust_executable for one transition
-release. The file-reading layer underneath (``load_checkpoint``) is
+``load_equine_model``). Embedding models persist as a recipe + state_dict; a
+file that stores its embedding as TorchScript is refused. The file-reading layer underneath (``load_checkpoint``) is
 tested in test_safe_loading.py.
 """
 
-import io
 import os
 import subprocess
 import sys
-import warnings
 from collections import OrderedDict
 from typing import Any
 
@@ -24,6 +21,7 @@ from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
     BasicEmbeddingModel,
     _rewrite_zip,
+    archive_tensor,
     assert_on_device,
     available_devices,
 )
@@ -110,17 +108,6 @@ def _rewrite(path: str, **changes) -> dict:
     return ckpt
 
 
-def _scripted(module: torch.nn.Module) -> torch.jit.ScriptModule:
-    """``torch.jit.script`` that also works on Python 3.14 (see prepare_jit_module)."""
-    return torch.jit.script(equine.utils.prepare_jit_module(module))
-
-
-def _archive_of(module: torch.nn.Module) -> torch.Tensor:
-    buffer = io.BytesIO()
-    torch.jit.save(_scripted(module), buffer)
-    return equine.utils._jit_archive_to_tensor(buffer)
-
-
 def assert_same(a, b, X):
     oa, ob = a.predict(X[:8]), b.predict(X[:8])
     assert torch.allclose(oa.classes, ob.classes, atol=1e-6)
@@ -141,7 +128,7 @@ def test_registered_embedding_saves_data_only_and_round_trips(
 
     ckpt = torch.load(path, weights_only=True)  # must not raise
     assert ckpt["equine_format_version"] == 2
-    assert ckpt["contains_executable"] is False
+    assert "contains_executable" not in ckpt and "embed_jit_save" not in ckpt
     assert "embed_jit_save" not in ckpt
     assert ckpt["embedding_recipe"] == {
         "builder": "equine.tests.basic",
@@ -357,8 +344,7 @@ def test_gp_saved_on_the_accelerator_loads_onto_cpu(tmp_path) -> None:
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
 def test_save_and_load_flags_are_keyword_only(tmp_path, train, cls) -> None:
-    """A positional True must not silently mean allow_executable or
-    trust_executable."""
+    """The arguments after the path and device are keyword-only."""
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     with pytest.raises(TypeError):
@@ -378,145 +364,102 @@ def test_save_and_load_flags_are_keyword_only(tmp_path, train, cls) -> None:
         eq.load_equine_model(path, True)  # type: ignore[misc]
 
 
-# --- transition bridge -------------------------------------------------------------
+# --- TorchScript -----------------------------------------------------------------
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-def test_unregistered_embedding_is_refused_without_opt_in(tmp_path, train, cls) -> None:
+def test_unregistered_embedding_is_refused(tmp_path, train, cls) -> None:
     model, _ = train(UnregisteredNet())
     with pytest.raises(ValueError) as err:
         model.save(str(tmp_path / "m.eq"))
     message = str(err.value)
     assert "UnregisteredNet" in message
     assert "embedding_architecture" in message
-    assert "allow_executable=True" in message
-    assert "trust_executable=True" in message
+    assert "TorchScript" not in message and "allow_executable" not in message
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-# The transition's FutureWarning is asserted in its own test.
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_executable_opt_in_is_flagged_and_needs_trust(tmp_path, train, cls) -> None:
-    model, X = train(_scripted(UnregisteredNet()))
+def test_save_writes_no_executable_entries(tmp_path, train, cls) -> None:
+    model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
-    model.save(path, allow_executable=True)
-
-    ckpt = torch.load(path, weights_only=True)  # still safe to *read*
-    assert ckpt["contains_executable"] is True
-    assert ckpt["embed_jit_save"].dtype == torch.uint8
-
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="trust_executable=True"):
-            loader(path)
-        assert_same(model, loader(path, trust_executable=True), X)
-
-
-def _future_warnings(record) -> list:
-    return [w for w in record if issubclass(w.category, FutureWarning)]
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_executable_branch_warns_that_it_goes_away(tmp_path, train, cls) -> None:
-    """Saving TorchScript and loading it under trust each emit a FutureWarning
-    that points at the caller and names the migration route."""
-    model, _ = train(_scripted(UnregisteredNet()))
-    path = str(tmp_path / "m.eq")
-    with pytest.warns(FutureWarning, match="embedding_model=") as record:
-        model.save(path, allow_executable=True)
-    assert [w.filename for w in _future_warnings(record)] == [__file__]
-
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.warns(FutureWarning, match="embedding_model=") as record:
-            loader(path, trust_executable=True)
-        assert [w.filename for w in _future_warnings(record)] == [__file__]
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_data_only_paths_do_not_warn_about_the_transition(tmp_path, train, cls) -> None:
-    model, _ = train(_scripted(BasicEmbeddingModel(6, 3)))
-    flagged = str(tmp_path / "flagged.eq")
-    with pytest.warns(FutureWarning):
-        model.save(flagged, allow_executable=True)
-    data_only = str(tmp_path / "data_only.eq")
-    with warnings.catch_warnings(record=True) as record:
-        warnings.simplefilter("always")
-        # migrating: the archive's weights go into a registered module
-        migrated = cls.load(
-            flagged, trust_executable=True, embedding_model=BasicEmbeddingModel(6, 3)
-        )
-        migrated.save(data_only)
-        for loader in (cls.load, eq.load_equine_model):
-            loader(data_only)
-    assert _future_warnings(record) == []
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-# The transition's FutureWarning is asserted in its own test.
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_archive_without_flag_still_needs_trust(tmp_path, train, cls) -> None:
-    """A hand-edited file cannot bypass the check by dropping the flag."""
-    model, _ = train(_scripted(UnregisteredNet()))
-    path = str(tmp_path / "m.eq")
-    model.save(path, allow_executable=True)
+    model.save(path)
     ckpt = torch.load(path, weights_only=True)
-    del ckpt["contains_executable"]
-    torch.save(ckpt, path)
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="trust_executable=True"):
-            loader(path)
+    assert "embed_jit_save" not in ckpt and "contains_executable" not in ckpt
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-@pytest.mark.parametrize("with_archive", [True, False], ids=["archive", "flag-only"])
-def test_executable_flag_needs_trust_even_beside_a_recipe(
-    tmp_path, train, cls, with_archive
+@pytest.mark.parametrize("edit", ["archive", "flag", "archive-beside-recipe"])
+def test_file_with_torchscript_is_refused_without_running_it(
+    tmp_path, monkeypatch, train, cls, edit
 ) -> None:
-    """The flag and the archive are each enough to require trust, even when the
-    file also carries a usable recipe."""
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    archive = archive_tensor(BasicEmbeddingModel(6, 3))
+    if edit == "archive":
+        _rewrite(
+            path,
+            embedding_recipe=...,
+            embedding_state_dict=...,
+            embed_jit_save=archive,
+        )
+    elif edit == "flag":
+        _rewrite(path, contains_executable=True)
+    else:
+        _rewrite(path, embed_jit_save=archive)
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the loader ran torch.jit.load")
+
+    monkeypatch.setattr(torch.jit, "load", refuse)
+    for load in (cls.load, eq.load_equine_model):
+        with pytest.raises(
+            ValueError, match="stores its embedding model as TorchScript"
+        ):
+            load(path)
+        with pytest.raises(ValueError, match="--recipe"):
+            load(path, embedding_model=BasicEmbeddingModel(6, 3))
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+@pytest.mark.parametrize("defect", ["no-support", "bad-weights"])
+def test_torchscript_is_reported_before_other_problems(
+    tmp_path, train, cls, defect
+) -> None:
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    if defect == "no-support":
+        _rewrite(path, contains_executable=True, support=...)
+    else:
+        _rewrite(path, contains_executable=True, embedding_state_dict={"w": 1})
+    for load in (cls.load, eq.load_equine_model):
+        with pytest.raises(
+            ValueError, match="stores its embedding model as TorchScript"
+        ):
+            load(path)
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_flag_set_to_false_is_accepted(tmp_path, train, cls) -> None:
     model, X = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    extra = (
-        {"embed_jit_save": _archive_of(BasicEmbeddingModel(6, 3))}
-        if with_archive
-        else {}
-    )
-    _rewrite(path, contains_executable=True, **extra)
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="trust_executable=True"):
-            loader(path)
-        assert_same(model, loader(path, trust_executable=True), X)
+    _rewrite(path, contains_executable=False)
+    assert_same(model, cls.load(path), X)
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-# The transition's FutureWarning is asserted in its own test.
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_migration_from_executable_file_to_recipe(tmp_path, train, cls) -> None:
-    model, X = train(_scripted(BasicEmbeddingModel(6, 3)))
-    flagged = str(tmp_path / "flagged.eq")
-    model.save(flagged, allow_executable=True)
-
-    migrated = cls.load(
-        flagged, trust_executable=True, embedding_model=BasicEmbeddingModel(6, 3)
-    )
-    data_only = str(tmp_path / "migrated.eq")
-    migrated.save(data_only)  # no flag needed any more
-
-    ckpt = torch.load(data_only, weights_only=True)
-    assert ckpt["contains_executable"] is False
-    assert ckpt["embedding_recipe"]["builder"] == "equine.tests.basic"
-    assert_same(model, eq.load_equine_model(data_only), X)
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-# The transition's FutureWarning is asserted in its own test.
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_migration_without_trust_is_refused(tmp_path, train, cls) -> None:
-    model, _ = train(_scripted(BasicEmbeddingModel(6, 3)))
-    flagged = str(tmp_path / "flagged.eq")
-    model.save(flagged, allow_executable=True)
-    with pytest.raises(ValueError, match="trust_executable=True"):
-        cls.load(flagged, embedding_model=BasicEmbeddingModel(6, 3))
+def test_removed_keywords_raise_type_error(tmp_path, train, cls) -> None:
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    with pytest.raises(TypeError):
+        model.save(path, allow_executable=True)  # type: ignore[call-arg]
+    model.save(path)
+    with pytest.raises(TypeError):
+        cls.load(path, trust_executable=True)  # type: ignore[call-arg]
+    with pytest.raises(TypeError):
+        eq.load_equine_model(path, trust_executable=True)  # type: ignore[call-arg]
 
 
 # --- recipe / weights consistency ----------------------------------------------------
@@ -613,14 +556,14 @@ def test_override_with_no_weights_in_file_is_refused(tmp_path, train, cls) -> No
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-def test_file_with_neither_recipe_nor_archive_is_refused(tmp_path, train, cls) -> None:
+def test_file_without_a_recipe_is_refused(tmp_path, train, cls) -> None:
     """Without an override there is nothing to rebuild the embedding from."""
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
     _rewrite(path, embedding_recipe=..., embedding_state_dict=...)
     for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="no recipe and no archive"):
+        with pytest.raises(ValueError, match="no embedding model \\(no recipe\\)"):
             loader(path)
 
 
@@ -1387,6 +1330,8 @@ def test_gp_use_temperature_from_0_1_5_is_dropped_by_the_upgrade(
     ckpt = torch.load(path, weights_only=True)
     ckpt["settings"]["use_temperature"] = use_temperature
     del ckpt["equine_format_version"]  # as a file from that release has none
+    del ckpt["embedding_recipe"], ckpt["embedding_state_dict"]
+    ckpt["embed_jit_save"] = archive_tensor(model.embedding_model)
     old = str(tmp_path / "old.eq")
     torch.save(ckpt, old)
 
@@ -1394,10 +1339,10 @@ def test_gp_use_temperature_from_0_1_5_is_dropped_by_the_upgrade(
         with pytest.raises(ValueError, match="python -m equine.upgrade"):
             loader(old)
 
-    upgrade_model_file(old)
+    upgrade_model_file(old, BasicEmbeddingModel(6, 3))
     upgraded = torch.load(old, weights_only=True)
     assert "use_temperature" not in upgraded["settings"]
-    assert upgraded["contains_executable"] is False  # the recipe is kept
+    assert "embed_jit_save" not in upgraded and "embedding_recipe" in upgraded
     assert_same(without_key, eq.load_equine_model(old), X)
 
 

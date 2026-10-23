@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from conftest import BasicEmbeddingModel, _rewrite_zip
+from conftest import BasicEmbeddingModel, _rewrite_zip, assert_on_device
 
 import equine as eq
 import equine.utils
@@ -132,7 +132,7 @@ def _write_legacy_gp_file(model, path: str) -> None:
                 "num_classes": model.num_outputs,
                 "num_random_features": model.num_random_features,
                 "init_temperature": model.temperature.item(),
-                "device": model.device_type,
+                "device": model.device,
             },
             "support": model.support,
             "train_batch_size": model.model.train_batch_size,
@@ -1107,6 +1107,39 @@ def test_load_checkpoint_maps_tensors_to_the_requested_device(tmp_path) -> None:
     tensors = [v for v in loaded.values() if isinstance(v, torch.Tensor)]
     assert {t.device.type for t in tensors} == {_OTHER_DEVICE}
     assert torch.equal(loaded["view"].cpu(), torch.arange(10.0, 20.0))
+
+
+@pytest.mark.accelerator
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
+@pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
+# The transition's FutureWarning is asserted in its own test.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgraded_legacy_file_loads_onto_mps_and_predicts(
+    tmp_path, train, write_legacy
+) -> None:
+    """A legacy file reaches an accelerator through the upgrade:
+    every tensor lands on the device, and the model predicts there."""
+    model, X = train()  # float32, trained on the CPU
+    path = str(tmp_path / "legacy.eq")
+    write_legacy(model, path)
+    upgrade_model_file(path)
+
+    checkpoint = load_checkpoint(path, map_location="mps")
+    tensors = equine.utils._unique_tensors(checkpoint)
+    assert tensors and {t.device.type for t in tensors} == {"mps"}
+
+    expected = model.predict(X[1:10])
+    for loader in (type(model).load, eq.load_equine_model):
+        loaded = loader(path, device="mps", trust_executable=True)
+        assert loaded.device == "mps"
+        assert_on_device(loaded, "mps")
+        actual = loaded.predict(X[1:10])
+        torch.testing.assert_close(
+            actual.classes.cpu(), expected.classes, atol=1e-4, rtol=0
+        )
+        torch.testing.assert_close(
+            actual.ood_scores.cpu(), expected.ood_scores, atol=1e-4, rtol=0
+        )
 
 
 def test_jit_archive_tensor_round_trips() -> None:

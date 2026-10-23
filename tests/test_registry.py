@@ -6,6 +6,7 @@
 import collections
 import enum
 import re
+import sys
 import threading
 import warnings
 
@@ -15,7 +16,16 @@ import torch
 from conftest import BasicEmbeddingModel
 
 import equine as eq
+import equine.utils
 from equine import architectures, registry
+
+# torch < 2.15 on macOS with Python 3.15 crashes when several threads use it.
+_TORCH_CRASHES_WITH_THREADS = pytest.mark.skipif(
+    sys.platform == "darwin"
+    and sys.version_info >= (3, 15)
+    and equine.utils._torch_version() < (2, 15),
+    reason="torch < 2.15 crashes on macOS with Python 3.15 when threads use it",
+)
 
 
 def _fresh_name(suffix: str) -> str:
@@ -447,6 +457,7 @@ def test_embedding_architecture_decorator_warning_points_at_caller_line() -> Non
 # --------------------------------------------------------------------------- #
 
 
+@_TORCH_CRASHES_WITH_THREADS
 def test_concurrent_registration_of_distinct_names_does_not_crash() -> None:
     errors: list[Exception] = []
 
@@ -471,6 +482,7 @@ def test_concurrent_registration_of_distinct_names_does_not_crash() -> None:
         assert _fresh_name(f"thread_{i}") in registry.registered_architectures()
 
 
+@_TORCH_CRASHES_WITH_THREADS
 def test_concurrent_registration_of_same_name_different_classes_exactly_one_wins() -> (
     None
 ):

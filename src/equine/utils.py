@@ -8,6 +8,8 @@ import itertools
 import math
 import os
 import pickle
+import sys
+import warnings
 import zipfile
 from collections import OrderedDict
 from collections.abc import Mapping
@@ -114,6 +116,27 @@ def _torch_version() -> tuple[int, int]:
     """Return the installed torch version as an ``(major, minor)`` tuple."""
     major, minor = (int(p) for p in torch.__version__.split("+")[0].split(".")[:2])
     return (major, minor)
+
+
+def _warn_if_torch_crashes_with_threads() -> None:
+    """
+    Warn on macOS with Python 3.15 or later and torch older than 2.15, where
+    torch can crash when it runs on several threads at once.
+    """
+    if (
+        sys.platform == "darwin"
+        and sys.version_info >= (3, 15)
+        and _torch_version() < (2, 15)
+    ):
+        warnings.warn(
+            f"torch {torch.__version__} can crash on macOS with Python 3.15 when "
+            "torch runs on several threads at once (for example, two threads "
+            "calling predict). Install torch >= 2.15; until it is on PyPI: "
+            "pip install --upgrade 'torch>=2.15' "
+            "--index-url https://download.pytorch.org/whl/test/cpu",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
 
 def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, Any]:

@@ -8,7 +8,7 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from datetime import datetime
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import icontract
 import torch
@@ -118,7 +118,7 @@ class _RandomFourierFeatures(torch.nn.Module):
     """
 
     def __init__(
-        self, in_dim: int, num_random_features: int, feature_scale: Optional[float]
+        self, in_dim: int, num_random_features: int, feature_scale: float | None
     ) -> None:
         """
         Initialize the _RandomFourierFeatures module, which generates random Fourier features
@@ -130,7 +130,7 @@ class _RandomFourierFeatures(torch.nn.Module):
             The input dimensionality.
         num_random_features : int
             The number of random Fourier features to generate.
-        feature_scale : Optional[float]
+        feature_scale : float | None
             The scaling factor for the random Fourier features. If None, defaults to sqrt(num_random_features / 2).
         """
         super().__init__()
@@ -205,8 +205,8 @@ class _Laplace(torch.nn.Module):
         normalize_gp_features: bool,
         num_random_features: int,
         num_outputs: int,
-        feature_scale: Optional[float],
-        mean_field_factor: Optional[float],  # required for classification problems
+        feature_scale: float | None,
+        mean_field_factor: float | None,  # required for classification problems
         ridge_penalty: float = 1.0,
     ) -> None:
         """
@@ -226,9 +226,9 @@ class _Laplace(torch.nn.Module):
             The number of random Fourier features to use.
         num_outputs : int
             The number of outputs of the model.
-        feature_scale : Optional[float]
+        feature_scale : float | None
             The scaling factor for the random Fourier features.
-        mean_field_factor : Optional[float]
+        mean_field_factor : float | None
             The mean-field factor for the Gaussian-Softmax approximation.
             Required for classification problems.
         ridge_penalty : float, optional
@@ -336,7 +336,7 @@ class _Laplace(torch.nn.Module):
 
     def forward(
         self, x: torch.Tensor
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the forward pass of the Laplace approximation to the Gaussian Process.
 
@@ -349,7 +349,7 @@ class _Laplace(torch.nn.Module):
 
         Returns
         -------
-        Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, torch.Tensor]
             The logits of shape (batch_size, num_outputs). In training mode
             they are the raw GP mean; in evaluation mode they are mean-field
             adjusted with the predictive covariance when ``mean_field_factor``
@@ -362,7 +362,7 @@ class _Laplace(torch.nn.Module):
     @icontract.require(lambda self: self.training_parameters_set)
     def _forward_with_features(
         self, x: torch.Tensor
-    ) -> tuple[Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]], torch.Tensor]:
+    ) -> tuple[torch.Tensor | tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         """
         ``forward`` that also returns the random Fourier features it computed.
 
@@ -498,8 +498,8 @@ class EquineGP(Equine):
         num_random_features: int = _DEFAULT_NUM_RANDOM_FEATURES,
         init_temperature: float = 1.0,
         device: str = "cpu",
-        feature_names: Optional[list[str]] = None,
-        label_names: Optional[list[str]] = None,
+        feature_names: list[str] | None = None,
+        label_names: list[str] | None = None,
     ) -> None:
         """
         Initialize the EquineGP model.
@@ -588,10 +588,10 @@ class EquineGP(Equine):
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
-        scheduler: Optional[torch.optim.lr_scheduler.LRScheduler] = None,
+        scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
         batch_size: int = 64,
-        validation_dataset: Optional[Dataset] = None,
-        val_metrics: Optional[Iterable[Metric]] = None,
+        validation_dataset: Dataset | None = None,
+        val_metrics: Iterable[Metric] | None = None,
         vis_support: bool = False,
         support_size: int = 25,
     ) -> dict[str, Any]:
@@ -638,7 +638,7 @@ class EquineGP(Equine):
             dataset, batch_size=batch_size, shuffle=True, drop_last=False
         )
 
-        val_loader: Optional[DataLoader] = None
+        val_loader: DataLoader | None = None
         if validation_dataset is not None:
             val_loader = DataLoader(
                 validation_dataset,
@@ -648,7 +648,7 @@ class EquineGP(Equine):
             )
 
         self.model.set_training_params(len(dataset), batch_size)
-        val_metrics_outputs: Optional[list[list[Any]]] = None
+        val_metrics_outputs: list[list[Any]] | None = None
 
         if validation_dataset is not None and val_metrics is not None:
             val_metrics_outputs = [[] for i in range(len(list(val_metrics)))]
@@ -1009,9 +1009,9 @@ class EquineGP(Equine):
     def load(
         cls,
         path: str,
-        device: Optional[str] = None,
+        device: str | None = None,
         *,
-        embedding_model: Optional[torch.nn.Module] = None,
+        embedding_model: torch.nn.Module | None = None,
     ) -> Equine:
         """
         Load a previously saved EquineGP model.
@@ -1024,10 +1024,10 @@ class EquineGP(Equine):
         ----------
         path : str
             Input filename.
-        device : Optional[str]
+        device : str | None
             The device to load the model onto. Overrides the device recorded
             in the file; by default the model lands on the saved device.
-        embedding_model : Optional[torch.nn.Module]
+        embedding_model : torch.nn.Module | None
             Keyword-only. Use this module as the embedding architecture instead
             of rebuilding it from the file's recipe; the file's weights are
             loaded into it, and its floating-point tensors take their stored
@@ -1056,8 +1056,8 @@ class EquineGP(Equine):
     def _from_checkpoint(
         cls,
         model_save: dict[str, Any],
-        device: Optional[str] = None,
-        embedding_model: Optional[torch.nn.Module] = None,
+        device: str | None = None,
+        embedding_model: torch.nn.Module | None = None,
     ) -> Equine:
         """
         Rebuild an EquineGP from an already-loaded checkpoint dictionary.
@@ -1066,9 +1066,9 @@ class EquineGP(Equine):
         ----------
         model_save : dict[str, Any]
             The dictionary returned by ``utils.load_checkpoint``.
-        device : Optional[str]
+        device : str | None
             Device override for the reconstituted model.
-        embedding_model : Optional[torch.nn.Module]
+        embedding_model : torch.nn.Module | None
             Use this module as the embedding architecture instead of the file's
             recipe; the file's weights are loaded into it, and its
             floating-point tensors take their stored dtypes.

@@ -119,7 +119,7 @@ def _no_stray_model_files_in_cwd():
 @eq.embedding_architecture("equine.tests.basic")
 class BasicEmbeddingModel(torch.nn.Module):
     def __init__(self, tensor_dim: int, num_classes: int) -> None:
-        super(BasicEmbeddingModel, self).__init__()
+        super().__init__()
         self.linear_relu_stack = torch.nn.Sequential(
             torch.nn.Linear(tensor_dim, 32),
             torch.nn.ReLU(),

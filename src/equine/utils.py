@@ -14,7 +14,7 @@ import warnings
 import zipfile
 from collections import OrderedDict
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any
 
 import icontract
 import torch
@@ -194,7 +194,7 @@ def _warn_if_torch_crashes_with_threads() -> None:
         )
 
 
-def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, Any]:
+def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any]:
     """
     Read a saved EQUINE model file with ``torch.load(weights_only=True)``.
 
@@ -215,7 +215,7 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
     ----------
     path : str
         Filename of the saved model.
-    map_location : Optional[str]
+    map_location : str | None
         Device to move the loaded tensors to; with None they stay on the CPU,
         whatever device they were saved from. It must name the CPU or an
         accelerator available on this machine, with an index below its device count;
@@ -275,7 +275,7 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
     return checkpoint
 
 
-def _load_checkpoint_for_device(path: str, device: Optional[str]) -> dict[str, Any]:
+def _load_checkpoint_for_device(path: str, device: str | None) -> dict[str, Any]:
     """
     ``load_checkpoint(path)`` for a model loader that builds on ``device``.
 
@@ -315,7 +315,7 @@ def _validate_format_version(checkpoint: Any) -> None:
             )
 
 
-def _plain_names(names: Optional[list[str]]) -> Optional[list[str]]:
+def _plain_names(names: list[str] | None) -> list[str] | None:
     """
     ``feature_names`` / ``label_names`` as plain ``str`` for a checkpoint.
 
@@ -683,9 +683,7 @@ def _require_supported_dtypes(
             ) from err
 
 
-def _copy_off_the_file(
-    tensors: list[torch.Tensor], map_location: Optional[str]
-) -> None:
+def _copy_off_the_file(tensors: list[torch.Tensor], map_location: str | None) -> None:
     """
     Give every tensor its own copy of its storage, on ``map_location``.
 
@@ -728,7 +726,7 @@ def _is_extra_state_key(key: str) -> bool:
 
 def _state_dict_mismatch(
     expected: Mapping[str, Any], actual: Mapping[str, Any]
-) -> Optional[str]:
+) -> str | None:
     """
     Check that ``actual`` (weights from a file) can fill ``expected`` (a module).
 
@@ -784,7 +782,7 @@ def _dtype_kind(dtype: torch.dtype) -> str:
 
 def _dtype_kind_mismatch(
     expected: Mapping[str, Any], actual: Mapping[str, Any]
-) -> Optional[str]:
+) -> str | None:
     """
     Describe the first tensor whose dtype kind differs between ``expected``
     (a module's tensors) and ``actual`` (weights from a file), if any.
@@ -980,7 +978,7 @@ def _require_device(
             )
 
 
-def _int_label(label: Any) -> Optional[int]:
+def _int_label(label: Any) -> int | None:
     """
     ``label`` as an ``int`` if it is a whole number that ``int()`` converts exactly.
 
@@ -1015,7 +1013,7 @@ def _support_from_file(support: Any) -> OrderedDict[int, torch.Tensor]:
     if not isinstance(support, dict):
         raise error
     converted: OrderedDict[int, torch.Tensor] = OrderedDict()
-    example_shape: Optional[torch.Size] = None
+    example_shape: torch.Size | None = None
     for label, rows in support.items():
         key = _int_label(label)
         if key is None or key in converted or not isinstance(rows, torch.Tensor):
@@ -1029,7 +1027,7 @@ def _support_from_file(support: Any) -> OrderedDict[int, torch.Tensor]:
     return converted
 
 
-def _finite_float(value: Any) -> Optional[float]:
+def _finite_float(value: Any) -> float | None:
     """
     ``value`` as a finite ``float`` if it is exactly an ``int`` or ``float``.
 
@@ -1205,12 +1203,12 @@ def _submodule_layout(module: torch.nn.Module) -> list[tuple[str, str, str, str]
 
 def _submodule_difference(
     rebuilt: torch.nn.Module, live: torch.nn.Module
-) -> Optional[str]:
+) -> str | None:
     """Where ``live``'s submodules differ from those its recipe rebuilds, if anywhere."""
 
     def describe(
-        entry: Optional[tuple[str, str, str, str]],
-        other: Optional[tuple[str, str, str, str]],
+        entry: tuple[str, str, str, str] | None,
+        other: tuple[str, str, str, str] | None,
     ) -> str:
         if entry is None:
             return "nothing"
@@ -1240,8 +1238,8 @@ def _submodule_difference(
 def _recipe_problem(
     recipe: Any,
     state_dict: Mapping[str, Any],
-    live: Optional[torch.nn.Module] = None,
-) -> Optional[str]:
+    live: torch.nn.Module | None = None,
+) -> str | None:
     """
     Why ``recipe`` cannot be trusted to rebuild a module holding ``state_dict``.
 
@@ -1362,7 +1360,7 @@ def _refuse_torchscript(checkpoint: Mapping[str, Any], path: str) -> None:
 
 
 def _rebuild_embedding(
-    model_save: dict[str, Any], embedding_model: Optional[torch.nn.Module]
+    model_save: dict[str, Any], embedding_model: torch.nn.Module | None
 ) -> torch.nn.Module:
     """
     Reconstitute an embedding model from a checkpoint: a caller-supplied
@@ -1564,7 +1562,7 @@ def generate_support(
     train_y: torch.Tensor,
     support_size: int,
     selected_labels: list[Any],
-    shuffled_indexes: Union[None, dict[Any, torch.Tensor]] = None,
+    shuffled_indexes: dict[Any, torch.Tensor] | None = None,
 ) -> OrderedDict[int, torch.Tensor]:
     """
     Randomly select `support_size` examples of `way` classes from the examples in
@@ -1580,7 +1578,7 @@ def generate_support(
         Number of support examples for each class.
     selected_labels : list
         Selected class labels to generate examples from.
-    shuffled_indexes: Union[None, dict[Any, torch.Tensor]], optional
+    shuffled_indexes: dict[Any, torch.Tensor] | None, optional
         Simply use the precomputed indexes if they are available
 
     Returns

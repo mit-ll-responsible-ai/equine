@@ -21,12 +21,13 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
         "torch >= 2.14.1, < 3.0.0",
-        "torchmetrics >= 0.6.0",
-        "numpy >= 1.23.2, < 3.0.0",
-        "tqdm",
-        "beartype",
-        "icontract",
-        "scipy",
+        "torchmetrics >= 1.2.1",
+        "numpy >= 2.0.0, < 3.0.0",
+        "tqdm >= 4.66.3",
+        "beartype >= 0.22.1",
+        "beartype >= 0.23.0; python_version >= '3.15'",
+        "icontract >= 2.6.2",
+        "scipy >= 1.13.0",
 ]
 license = { text = "MIT" }
 keywords = ["machine learning", "robustness", "pytorch", "responsible", "AI"]
@@ -41,8 +42,8 @@ classifiers = [
 
 [project.optional-dependencies]
 tests = [
-    "pytest >= 3.8",
-    "pytest-cov",
+    "pytest >= 7.3.2",
+    "pytest-cov >= 4.0.0",
     "hypothesis >= 6.105.0, < 6.166.0",
     "pre-commit >= 2.19",
     "codespell"

@@ -2,7 +2,6 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-from typing import Optional
 
 import torch
 
@@ -15,9 +14,9 @@ from .utils import _load_checkpoint_for_device, _refuse_torchscript
 
 def load_equine_model(
     model_path: str,
-    device: Optional[str] = None,
+    device: str | None = None,
     *,
-    embedding_model: Optional[torch.nn.Module] = None,
+    embedding_model: torch.nn.Module | None = None,
 ) -> Equine:
     """
     Attempt to load an EQUINE model from a file
@@ -26,10 +25,10 @@ def load_equine_model(
     ----------
     model_path : str
         The path to the model file
-    device : Optional[str]
+    device : str | None
         The device to load the model onto. Overrides the device recorded in
         the file; by default the model lands on the saved device.
-    embedding_model : Optional[torch.nn.Module]
+    embedding_model : torch.nn.Module | None
         Keyword-only. Use this module as the embedding architecture instead of
         rebuilding it from the file's recipe; the file's weights are loaded
         into it, and its floating-point tensors take their stored dtypes.

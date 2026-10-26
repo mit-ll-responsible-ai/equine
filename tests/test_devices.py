@@ -24,7 +24,7 @@ from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
 import equine.utils
-from equine.equine_gp import _entr, _inverse_via_cholesky
+from equine.equine_gp import _inverse_via_cholesky
 
 pytestmark = pytest.mark.device
 
@@ -383,11 +383,8 @@ def test_metric_helpers_compute_where_the_predictions_are(device):
 
 
 @pytest.mark.parametrize("device", devices())
-def test_gp_inverse_and_entropy_helpers_return_to_the_device(device):
-    """The GP's covariance inversion and entropy work on every device and stay there.
-
-    On MPS both run on a CPU copy; the CPU and CUDA run the plain ops.
-    """
+def test_gp_inverse_helper_stays_on_the_device(device):
+    """The GP's covariance inversion runs where its input is and returns there."""
     a = torch.tensor([[4.0, 1.0], [1.0, 3.0]], device=device)
     inverse = _inverse_via_cholesky(a)
     assert inverse.device == a.device
@@ -395,44 +392,33 @@ def test_gp_inverse_and_entropy_helpers_return_to_the_device(device):
     with pytest.raises(AssertionError, match="Precision matrix inversion failed"):
         _inverse_via_cholesky(-a)
 
-    p = torch.tensor([0.0, 0.25, 0.75], device=device)
-    entropy = _entr(p)
-    assert entropy.device == p.device
-    torch.testing.assert_close(entropy.cpu(), torch.special.entr(p.cpu()))
 
+@pytest.mark.parametrize("device", devices())
+def test_gp_linear_algebra_runs_on_the_models_device(device, monkeypatch):
+    """Training and predicting run the GP's inversion and entropy on the model's device, with no copy elsewhere."""
+    seen: set[tuple[str, str]] = set()
 
-@pytest.mark.accelerator
-@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
-def test_gp_on_mps_survives_the_kernels_torch_2_6_lacks(monkeypatch):
-    """Simulates torch 2.6 on current torch: no MPS ``linalg.cholesky_ex`` or ``special.entr``.
-
-    Each op raises NotImplementedError for an MPS tensor, as torch 2.6 does, and runs
-    normally otherwise. A GP trained and queried on MPS still works, and
-    ``_inverse_via_cholesky`` and ``_entr`` hand those ops CPU copies.
-    """
-    called_on: list[str] = []
-
-    def without_mps_kernel(real, name):
+    def recording(real, name):
         def op(x, *args, **kwargs):
-            if x.device.type == "mps":
-                raise NotImplementedError(f"{name} has no MPS kernel (torch 2.6)")
-            called_on.append(f"{name}:{x.device.type}")
+            seen.add((name, x.device.type))
             return real(x, *args, **kwargs)
 
         return op
 
-    monkeypatch.setattr(
-        torch.linalg,
-        "cholesky_ex",
-        without_mps_kernel(torch.linalg.cholesky_ex, "cholesky_ex"),
-    )
-    monkeypatch.setattr(
-        torch.special, "entr", without_mps_kernel(torch.special.entr, "entr")
-    )
-    model, x, _ = _gp("mps")
-    assert_on_device(model, "mps")
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-    assert set(called_on) == {"cholesky_ex:cpu", "entr:cpu"}
+    for module, name in (
+        (torch.linalg, "cholesky_ex"),
+        (torch, "cholesky_inverse"),
+        (torch.special, "entr"),
+    ):
+        monkeypatch.setattr(module, name, recording(getattr(module, name), name))
+    model, x, _ = _gp(device)
+    model.predict(x[:5])
+    device_type = torch.device(device).type
+    assert seen == {
+        ("cholesky_ex", device_type),
+        ("cholesky_inverse", device_type),
+        ("entr", device_type),
+    }
 
 
 def test_gp_inverse_on_the_cpu_is_the_plain_cholesky_inverse():

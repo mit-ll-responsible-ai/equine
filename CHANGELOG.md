@@ -88,10 +88,7 @@
   unavailable device or an index at or above the device count (`cuda:7` on a
   one-GPU machine, `mps:1`) raises `ValueError`; so does loading a file
   whose tensors have a dtype the device lacks (float64 on MPS), naming the
-  dtype. For a model on MPS the GP covariance inversion and the
-  entropy in `EquineGP.predict` are computed on the CPU, because torch 2.6 to
-  2.9 lack some of those MPS kernels; CPU and CUDA results are unchanged.
-  A file records its model's `device`, where a load without `device=` builds
+  dtype. A file records its model's `device`, where a load without `device=` builds
   the model; pass `device="cpu"` to load one saved from an accelerator
   on a machine without one.
 - **Model files no longer embed executable code** (#191). `save()`
@@ -141,10 +138,14 @@
   deprecated: `equine.upgrade` is removed in a later release.
 - `load_equine_model` accepts `embedding_model` (keyword-only), like
   `EquineProtonet.load` and `EquineGP.load`.
-- Requires `torch >= 2.6`: earlier releases have a known bypass of
-  `weights_only=True` (CVE-2025-32434), and the safe load path refuses to run
-  on them. Intel-macOS installs are no longer supported (no torch 2.6 builds
-  exist for that platform).
+- Requires `torch >= 2.14.1`, which has MPS kernels for the Cholesky
+  inversion and the entropy that `EquineGP` uses, so `EquineGP` trains and
+  predicts on MPS (with EQUINE 0.1.8 and torch 2.6 or 2.9, `EquineGP.predict`
+  raised `NotImplementedError` there). On macOS this means an Apple silicon
+  Mac with macOS 14 or later: torch 2.12 and later publish macOS wheels only
+  for those, so Intel Macs are not supported. Releases before 2.6 also have a
+  known bypass of `weights_only=True` (CVE-2025-32434), and the safe load
+  path refuses to run on them.
 - `save()` refuses a `train_summary` entry or embedding extra state that is not a
   plain value, a tensor, a `torch.Size` or an `OrderedDict`, and a tensor in either
   that is quantized or carries Python attributes. Dict keys must be `str` or `int`;
@@ -177,7 +178,7 @@
   `load_equine_model`. A file that stores its embedding model as TorchScript
   is refused with a message that points to `equine.upgrade`, which converts
   it.
-- The `torch < 2.10` cap; torch is now `>= 2.6, < 3`.
+- The `torch < 2.10` cap; torch is now `>= 2.14.1, < 3`.
 
 ### Fixed
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).

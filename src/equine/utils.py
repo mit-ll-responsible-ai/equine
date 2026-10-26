@@ -1845,25 +1845,87 @@ def generate_model_summary(
     return summary
 
 
+def _mahalanobis_from_factor(x: torch.Tensor, factor: torch.Tensor) -> torch.Tensor:
+    """``x^T C^{-1} x`` per column of ``x`` (classes, dim, examples), from ``C = L L^T``."""
+    return torch.sum(torch.linalg.solve_triangular(factor, x, upper=False) ** 2, dim=1)
+
+
+def _cholesky_with_jitter(cov: torch.Tensor) -> torch.Tensor:
+    """
+    Cholesky factors of a batch of covariance matrices, shape (classes, dim, dim).
+
+    A matrix that factors as it is gets no jitter. A matrix whose factorization
+    fails gets a diagonal jitter of machine epsilon times its largest variance,
+    multiplied by 10 until the factorization succeeds, as long as the jitter
+    stays at or below 1e-3 of that variance.
+
+    Raises
+    ------
+    torch.linalg.LinAlgError
+        If a matrix does not factor with the largest jitter (for example, one
+        that holds NaN).
+    """
+    factor, info = torch.linalg.cholesky_ex(cov)
+    failed = (info != 0) | ~torch.isfinite(factor).flatten(-2).all(-1)
+    if not bool(failed.any()):
+        return factor
+    eps = torch.finfo(cov.dtype).eps
+    largest = cov.detach().diagonal(dim1=-2, dim2=-1).amax(dim=-1)
+    eye = torch.eye(cov.shape[-1], dtype=cov.dtype, device=cov.device)
+    steps = int(math.log10(1e-3 / eps)) + 1
+    jitter = torch.zeros_like(largest)
+    for power in range(steps):
+        jitter = torch.where(failed, eps * 10.0**power * largest, jitter)
+        factor, info = torch.linalg.cholesky_ex(cov + jitter[:, None, None] * eye)
+        failed = (info != 0) | ~torch.isfinite(factor).flatten(-2).all(-1)
+        if not bool(failed.any()):
+            return factor
+    raise torch.linalg.LinAlgError(
+        "A covariance matrix is not positive definite even with a diagonal "
+        f"jitter of {eps * 10.0 ** (steps - 1):.1e} times its largest variance."
+    )
+
+
+@icontract.require(
+    lambda cov: cov.dim() == 3, "cov must have shape (classes, dim, dim)"
+)
 @icontract.require(lambda cov: cov.shape[-2] == cov.shape[-1])
 def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
     """
-    Compute Mahalanobis distance $x^T C x$ (without square root), assume cov is symmetric positive definite
+    Compute the squared Mahalanobis distance $x^T C^{-1} x$ (no square root).
+
+    Computed as the squared norm of $L^{-1} x$, where $C = L L^T$ is the Cholesky
+    factorization. The result is never negative, and the gradient is finite whenever $C$
+    is positive definite, including when it has repeated eigenvalues.
 
     Parameters
     ----------
     x : torch.Tensor
-        vectors to compute distances for
+        Vectors, shape ``(classes, dim, examples)``. A ``(dim, examples)`` or
+        ``(dim,)`` tensor is used for every class.
     cov : torch.Tensor
-        covariance matrix, assumes first dimension is number of classes
+        Symmetric positive-definite covariance matrices, shape
+        ``(classes, dim, dim)``.
+
+    Returns
+    -------
+    torch.Tensor
+        Distances, shape ``(classes, examples)``, or ``(classes,)`` for a
+        ``(dim,)`` input.
+
+    Raises
+    ------
+    torch.linalg.LinAlgError
+        If the Cholesky factorization of a covariance matrix fails. A singular
+        matrix that rounding leaves positive definite gives very large
+        distances instead, and a matrix that holds NaN gives NaN distances
+        where the LAPACK build reports success for it (OpenBLAS does).
     """
-    U, S, _ = torch.linalg.svd(cov)
-    S_inv_sqrt = torch.stack(
-        [torch.diag(torch.sqrt(1.0 / S[i])) for i in range(S.shape[0])], dim=0
-    )
-    prod = torch.matmul(S_inv_sqrt, torch.transpose(U, 1, 2))
-    dist = torch.sum(torch.square(torch.matmul(prod, x)), dim=1)
-    return dist
+    if x.dim() == 1:
+        return mahalanobis_distance_nosq(x.unsqueeze(-1), cov).squeeze(-1)
+    if x.dim() == 2:
+        x = x.expand(cov.shape[0], -1, -1)
+    return _mahalanobis_from_factor(x, torch.linalg.cholesky(cov))
 
 
 @icontract.require(

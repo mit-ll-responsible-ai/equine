@@ -385,3 +385,52 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
         "feature_names changed on reload"
     )
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
+
+
+def test_full_covariance_trains_with_an_embedding_wider_than_the_support():
+    """64 embedding dimensions from 25 support examples per class: the class
+    covariances are rank-deficient, and training must keep the weights finite."""
+    torch.manual_seed(0)
+    x = torch.rand(300, 8)
+    y = torch.arange(3).repeat_interleave(100)
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(8, 64), torch.nn.ReLU(), torch.nn.Linear(64, 64)
+    )
+    model = eq.EquineProtonet(embedding, emb_out_dim=64, cov_type=eq.CovType.FULL)
+    model.train_model(torch.utils.data.TensorDataset(x, y), num_episodes=5)
+    assert all(torch.isfinite(p).all() for p in model.parameters())
+    assert_valid_prediction(model.predict(x[:10]), 10, 3)
+
+
+def test_full_covariance_trains_with_large_embeddings():
+    """Full-covariance training keeps the weights finite on inputs in the hundreds,
+    whose float32 class covariance needs more than the epsilon ridge to stay positive
+    definite."""
+    torch.manual_seed(0)
+    x = torch.rand(300, 8) * 1000
+    y = torch.arange(3).repeat_interleave(100)
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(8, 32), torch.nn.ReLU(), torch.nn.Linear(32, 24)
+    )
+    model = eq.EquineProtonet(embedding, emb_out_dim=24, cov_type=eq.CovType.FULL)
+    model.train_model(torch.utils.data.TensorDataset(x, y), num_episodes=10)
+    assert all(torch.isfinite(p).all() for p in model.parameters())
+    assert_valid_prediction(model.predict(x[:10]), 10, 3)
+
+
+def test_full_covariance_trains_with_a_rank_deficient_embedding():
+    """A 2-unit bottleneck makes every 8-dimensional class covariance rank-deficient,
+    and with inputs in the thousands float32 rounding leaves it indefinite.
+    Full-covariance training keeps the weights finite."""
+    torch.manual_seed(0)
+    x = torch.rand(300, 8) * 1000
+    y = torch.arange(3).repeat_interleave(100)
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(8, 2), torch.nn.ReLU(), torch.nn.Linear(2, 8)
+    )
+    model = eq.EquineProtonet(embedding, emb_out_dim=8, cov_type=eq.CovType.FULL)
+    model.train_model(
+        torch.utils.data.TensorDataset(x, y), num_episodes=10, support_size=50
+    )
+    assert all(torch.isfinite(p).all() for p in model.parameters())
+    assert_valid_prediction(model.predict(x[:10]), 10, 3)

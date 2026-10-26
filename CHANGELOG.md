@@ -18,6 +18,12 @@
   EQUINE's metrics, #201, #205), tqdm `>= 4.66.3`, beartype `>= 0.22.1`
   (`>= 0.23` on Python 3.15) and icontract `>= 2.6.2`. The `tests` extra needs
   pytest `>= 7.3.2` and pytest-cov `>= 4.0`.
+- The `tests` extra holds what the test suite needs, now including
+  `pytest-xdist`; `pre-commit` and `codespell` move to a new `dev` extra
+  (`pip install -e '.[dev]'`). The package metadata uses the PEP 639 license
+  fields (`license = "MIT"`, `license-files`) instead of the license table
+  and classifier that setuptools deprecates; building needs setuptools >= 77
+  (#203).
 - **Inference entry points compute in eval mode and restore the caller's
   mode** (#209, #179). `predict` and `update_support` on both classes call
   `eval()` on the model for the duration of the call and then restore the

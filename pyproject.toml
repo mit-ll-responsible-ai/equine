@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0","setuptools_scm[toml]>=6.2"] 
+requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,11 +29,11 @@ dependencies = [
         "icontract >= 2.6.2",
         "scipy >= 1.13.0",
 ]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE.md"]
 keywords = ["machine learning", "robustness", "pytorch", "responsible", "AI"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
@@ -44,9 +44,14 @@ classifiers = [
 tests = [
     "pytest >= 7.3.2",
     "pytest-cov >= 4.0.0",
+    "pytest-xdist >= 3.0.2",
     "hypothesis >= 6.105.0, < 6.166.0",
+]
+
+dev = [
+    "equine[tests]",
     "pre-commit >= 2.19",
-    "codespell"
+    "codespell >= 2.4.3",
 ]
 
 docs = [
@@ -66,7 +71,7 @@ docs = [
 "Source" = "https://github.com/mit-ll-responsible-ai/equine"
 
 [tool.setuptools_scm]
-write_to = "src/equine/_version.py"
+version_file = "src/equine/_version.py"
 #version_scheme = "no-guess-dev"
 
 [tool.setuptools.package-data]
@@ -163,7 +168,6 @@ setenv =
     py315: PIP_EXTRA_INDEX_URL={env:EQUINE_TORCH_INDEX:https://download.pytorch.org/whl/cpu}
     py315: UV_INDEX_STRATEGY=unsafe-best-match
 extras = tests
-deps = pytest-xdist
 commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 
@@ -174,9 +178,21 @@ setenv = NUMBA_DISABLE_JIT=1
 usedevelop = true
 basepython = python3.11
 extras = tests
-deps = {[testenv]deps}
-       coverage[toml]
+deps = coverage[toml]
 commands = pytest --cov-report term-missing --cov-config=pyproject.toml --cov-fail-under=97 --cov=equine tests {posargs: -n auto --maxprocesses=4}
+
+
+[testenv:floors]
+description = Runs the test suite with every direct dependency at the lowest
+              version that pyproject.toml allows (needs tox-uv >= 1.6, which
+              CI installs; tests/test_dependency_floors.py fails without it).
+basepython = python3.11
+uv_resolution = lowest-direct
+setenv = EQUINE_CHECK_FLOORS=1
+extras = tests
+# lowest-direct would install anything listed here at its oldest release
+deps =
+commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
 
 
 [testenv:pyright]
@@ -219,8 +235,7 @@ commands=
 description = Uses mkdocs to generate html for the docs. Stores the
               results in `.tox/docs/build/html/`.
 basepython=python3.12
-extras =
-deps=[docs]
+extras = docs
 commands=
     mkdocs build --clean --strict
 """

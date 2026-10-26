@@ -185,3 +185,18 @@
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are
   now stored as copies, so a file holds only its support rows.
+- Training with `cov_type=CovType.FULL` could write NaN into the
+  embedding's weights and then fail in `linalg.svd` when the embedding was
+  wider than the support set; a 64-wide embedding at the default
+  `support_size=25` failed in every run (#257). `mahalanobis_distance_nosq`
+  now computes `x^T C^-1 x` from a Cholesky factorization, which is never
+  negative and has finite gradients; its docstring had stated `x^T C x`
+  (#211). A covariance whose Cholesky factorization fails now raises
+  `torch.linalg.LinAlgError` instead of returning NaN or meaningless values
+  (a singular covariance that rounding leaves positive definite still gives
+  very large distances), and an unbatched `(dim, dim)` covariance is
+  refused. In full-covariance training, a class covariance that does not
+  factor in its dtype (float32 rounding of a rank-deficient or large
+  embedding) gets the smallest diagonal jitter, a power of ten times machine
+  epsilon times its largest variance, that lets it factor. Predictions are
+  unchanged: they use diagonal covariance.

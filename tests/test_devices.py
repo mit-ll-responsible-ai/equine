@@ -659,3 +659,27 @@ def test_moving_a_cpu_model_that_records_cuda(build, move):
     assert [holder.device for holder in holders] == ["cpu"] * len(holders)
     assert_on_device(model, "cpu")
     _assert_same_predictions(before, model.predict(x[:5]))
+
+
+@pytest.mark.parametrize("device", devices())
+def test_full_covariance_protonet_trains_on_the_device(device):
+    """Full-covariance training differentiates the class distances on the device;
+    32 embedding dimensions from 10 support examples per class."""
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, 32),
+        32,
+        cov_type=eq.CovType.FULL,
+        device=device,
+    )
+    model.train_model(
+        dataset,
+        num_episodes=5,
+        calib_frac=0.2,
+        support_size=10,
+        way=3,
+        episode_size=30,
+    )
+    assert all(torch.isfinite(p).all() for p in model.parameters())
+    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)

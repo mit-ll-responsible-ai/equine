@@ -23,9 +23,11 @@ from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
     _checked_settings,
+    _cholesky_with_jitter,
     _embedding_checkpoint,
     _input_to_model,
     _load_checkpoint_for_device,
+    _mahalanobis_from_factor,
     _outlier_kde_from_file,
     _plain_names,
     _plain_train_summary,
@@ -40,7 +42,6 @@ from .utils import (
     generate_episode,
     generate_support,
     generate_train_summary,
-    mahalanobis_distance_nosq,
     stratified_train_test_split,
 )
 
@@ -397,7 +398,7 @@ class Protonet(torch.nn.Module):
             dist = torch.sqrt(dist + self.epsilon)  # examples x classes
         else:  # len(cov.shape) == 3: (full covariance)
             diff = diff.permute(1, 2, 0)  # classes x dimension x examples
-            dist = mahalanobis_distance_nosq(diff, cov)
+            dist = _mahalanobis_from_factor(diff, _cholesky_with_jitter(cov))
             dist = torch.sqrt(dist.permute(1, 0) + self.epsilon)  # examples x classes
             dist = dist.squeeze(dim=1)
         return dist

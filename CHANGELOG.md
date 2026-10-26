@@ -5,8 +5,7 @@
 ### Changed
 - **Python 3.11–3.15.** EQUINE requires Python 3.11 or later and supports
   Python 3.15 (EQUINE 0.1.8 supported 3.9 and later; 3.9 and 3.10 are end of
-  life). numpy is `>= 1.23.2, < 3`; 1.23.2 is the oldest numpy with Python
-  3.11 wheels. On Python 3.15, install torch from PyTorch's index until torch
+  life). On Python 3.15, install torch from PyTorch's index until torch
   publishes 3.15 wheels on PyPI
   (`pip install torch --index-url https://download.pytorch.org/whl/cpu`). On
   macOS with Python 3.15, use torch >= 2.15: torch 2.14 there crashes when
@@ -14,6 +13,11 @@
   `predict`), and EQUINE warns at import when it finds that combination. Until
   torch 2.15 is released, install it there from
   `https://download.pytorch.org/whl/test/cpu`.
+- **Dependency floors.** numpy `>= 2.0, < 3`, scipy `>= 1.13`, torchmetrics
+  `>= 1.2.1` (the previous `>= 0.6` allowed releases that cannot import
+  EQUINE's metrics, #201, #205), tqdm `>= 4.66.3`, beartype `>= 0.22.1`
+  (`>= 0.23` on Python 3.15) and icontract `>= 2.6.2`. The `tests` extra needs
+  pytest `>= 7.3.2` and pytest-cov `>= 4.0`.
 - **Inference entry points compute in eval mode and restore the caller's
   mode** (#209, #179). `predict` and `update_support` on both classes call
   `eval()` on the model for the duration of the call and then restore the

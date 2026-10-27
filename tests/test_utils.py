@@ -348,12 +348,6 @@ def test_expected_calibration_error_known_values() -> None:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="generate_model_metrics passes (target, preds) to torchmetrics, "
-    "which expects (preds, target)",
-)
 def test_generate_model_metrics_known_confusion_matrix() -> None:
     y_true = torch.tensor([0, 0, 0, 0, 1, 2])
     probs = torch.nn.functional.one_hot(torch.tensor([0, 0, 0, 1, 1, 1]), 3).float()

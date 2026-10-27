@@ -477,9 +477,8 @@ def test_gp_train_model_accepts_float64_dataset(device):
         num_epochs=2,
         batch_size=32,
         validation_dataset=dataset,
-        val_metrics=[
-            torchmetrics.classification.MulticlassAccuracy(CLASSES).to(device)
-        ],
+        # Created on the CPU: train_model moves it to the model's device.
+        val_metrics=[torchmetrics.classification.MulticlassAccuracy(CLASSES)],
     )
     model.calibrate_model(dataset)
     assert_on_device(model, device)

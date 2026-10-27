@@ -612,6 +612,10 @@ class EquineGP(Equine):
             A pytorch scheduler, if one is desired
         validation_dataset: Dataset
             If provided, will compute validation metrics on this dataset after each epoch of training
+        val_metrics : Iterable[Metric], optional
+            torchmetrics metrics computed on ``validation_dataset`` after each
+            epoch. Each one is moved to this model's device in place and reset
+            before each epoch's validation pass.
         batch_size : int, optional
             The number of samples to use per batch.
 
@@ -623,8 +627,8 @@ class EquineGP(Equine):
             ``validation_dataset`` was given, ``"val_metrics"``: one list per
             metric in ``val_metrics`` holding what its ``compute()`` returned
             after each epoch, usually a tensor (``None`` when ``val_metrics``
-            was not given). The metrics are not reset between epochs. The entry for
-            epoch ``n`` is computed over the validation passes of epochs 1 to ``n``.
+            was not given). The entry for epoch ``n`` covers that epoch's
+            validation pass only.
 
         Notes
         -----
@@ -651,7 +655,10 @@ class EquineGP(Equine):
         val_metrics_outputs: list[list[Any]] | None = None
 
         if validation_dataset is not None and val_metrics is not None:
-            val_metrics_outputs = [[] for i in range(len(list(val_metrics)))]
+            val_metrics = list(val_metrics)
+            for metric in val_metrics:
+                metric.to(self.device)
+            val_metrics_outputs = [[] for _ in val_metrics]
 
         for _ in tqdm(range(num_epochs)):
             self.train()  # wrapper and inner module together
@@ -676,6 +683,8 @@ class EquineGP(Equine):
                 and val_metrics is not None
                 and val_metrics_outputs is not None
             ):
+                for metric in val_metrics:
+                    metric.reset()
                 for _, (xs_val, labels_val) in enumerate(val_loader):
                     xs_val = self._input_to_model(xs_val)
                     labels_val = labels_val.to(self.device)

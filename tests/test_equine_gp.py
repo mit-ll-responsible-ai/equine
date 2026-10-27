@@ -270,16 +270,13 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
     assert new_model.get_label_names() == label_names, "label_names changed on reload"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="EquineGP.train_model never resets val_metrics between epochs",
-)
 def test_validation_metrics_are_reset_between_epochs() -> None:
     dataset, x, y = separable_dataset()
     # float labels, like the dataset test_equine_gp_train_from_scratch_with_validation passes
     val = torch.utils.data.TensorDataset(x[:64], y[:64].float())
     metric = torchmetrics.classification.MulticlassAccuracy(num_classes=CLASSES)
+    # Primes the metric with an update from before training.
+    metric.update(torch.zeros(4, CLASSES), torch.zeros(4, dtype=torch.long))
     # Record how many updates each epoch's compute() sees. train_model calls
     # compute() once per epoch, after iterating the validation set.
     seen: list[int] = []
@@ -365,3 +362,27 @@ def test_device_type_failed_move_leaves_the_model_usable() -> None:
             model.device_type = "cuda"
     assert model.device == "cpu"
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
+
+
+def test_validation_metrics_may_be_a_generator() -> None:
+    dataset, x, y = separable_dataset()
+    val = torch.utils.data.TensorDataset(x[:64], y[:64])
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    metrics = [
+        torchmetrics.classification.MulticlassAccuracy(num_classes=CLASSES)
+        for _ in range(2)
+    ]
+    out = model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.01),
+        num_epochs=2,
+        batch_size=32,
+        validation_dataset=val,
+        val_metrics=(metric for metric in metrics),
+    )
+    assert [len(values) for values in out["val_metrics"]] == [2, 2]
+    # 64 rows in batches of 32, reset each epoch.
+    assert [metric.update_count for metric in metrics] == [2, 2]

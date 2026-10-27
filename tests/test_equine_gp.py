@@ -1,3 +1,4 @@
+import copy
 import warnings
 from unittest.mock import Mock
 
@@ -10,6 +11,7 @@ from conftest import (
     assert_valid_prediction,
     generate_random_string_list,
     random_dataset,
+    stored_tensors,
     use_basic_embedding_model,
     use_save_load_model_tests,
 )
@@ -459,3 +461,90 @@ def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:
     model.model.set_training_params(120, 32)
     with pytest.raises(RuntimeError, match="Not seen sufficient data"):
         model.predict(torch.rand(2, FEATURES))
+
+
+def _assert_no_autograd_history(model) -> None:
+    """Every tensor ``stored_tensors`` finds on ``model`` has no grad_fn."""
+    for name, t in stored_tensors(model).items():
+        assert t.grad_fn is None, f"{name} still has a grad_fn"
+
+
+def test_equine_gp_deepcopy_after_training() -> None:
+    """A trained GP keeps no autograd history; ``copy.deepcopy`` works."""
+    model, _ = _gp_trained_on_cpu()
+    _assert_no_autograd_history(model)
+    assert model.model.precision.grad_fn is None
+    copy.deepcopy(model)
+
+
+def test_equine_gp_deepcopy_after_training_with_vis_support() -> None:
+    """A GP trained with ``vis_support=True`` keeps no autograd history."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        CLASSES,
+        num_random_features=16,
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+        vis_support=True,
+        support_size=10,
+    )
+    _assert_no_autograd_history(model)
+    copy.deepcopy(model)
+
+
+def test_equine_gp_loaded_from_a_file_keeps_no_autograd_history(tmp_path) -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+        vis_support=True,
+        support_size=10,
+    )
+    path = str(tmp_path / "gp.eq")
+    model.save(path)
+    loaded = eq.load_equine_model(path)
+    _assert_no_autograd_history(loaded)
+    copy.deepcopy(loaded)
+
+
+def test_laplace_jl_projects_through_its_own_random_matrix_after_deepcopy() -> None:
+    """A deep copy's projection reads its own ``random_matrix``."""
+    model, _ = _gp_trained_on_cpu()
+    model_copy = copy.deepcopy(model)
+    model_copy.model.random_matrix.zero_()
+    f = torch.randn(5, model.num_deep_features)
+    assert model.model.jl(f).abs().sum().item() > 0
+    assert model_copy.model.jl(f).abs().sum().item() == 0.0
+
+
+def test_laplace_jl_is_identity_without_a_projection() -> None:
+    """Without a GP projection, ``jl`` returns its input unchanged."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        laplace = eq.equine_gp._Laplace(
+            feature_extractor=torch.nn.Identity(),
+            num_deep_features=4,
+            num_gp_features=0,
+            normalize_gp_features=False,
+            num_random_features=0,
+            num_outputs=3,
+            feature_scale=None,
+            mean_field_factor=25,
+        )
+    x = torch.randn(5, 4)
+    assert laplace.jl(x) is x

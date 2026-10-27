@@ -548,3 +548,30 @@ def test_laplace_jl_is_identity_without_a_projection() -> None:
         )
     x = torch.randn(5, 4)
     assert laplace.jl(x) is x
+
+
+def test_equine_gp_predict_and_forward_accept_a_single_1d_example() -> None:
+    """A single unbatched example gets a batch dimension, as ``EquineProtonet`` does."""
+    model, x = _gp_trained_on_cpu()
+
+    batched_out = model.predict(x[:1])
+    single_out = model.predict(x[0])
+    assert single_out.classes.shape == (1, CLASSES)
+    assert torch.allclose(single_out.classes, batched_out.classes)
+    assert torch.allclose(single_out.ood_scores, batched_out.ood_scores)
+
+    batched_logits = model(x[:1])
+    single_logits = model(x[0])
+    assert single_logits.shape == (1, CLASSES)
+    assert torch.allclose(single_logits, batched_logits)
+
+
+def test_laplace_counts_an_unbatched_training_example_as_one_row() -> None:
+    model, x = _gp_trained_on_cpu()
+    model.model.train()
+    model.model.reset_precision_matrix()
+    model.model(x[0])
+    assert model.model.seen_data == 1
+    assert model.model._seen_count == 1
+    # The remaining rows complete the epoch without the reset check firing.
+    model.model(x[1:120])

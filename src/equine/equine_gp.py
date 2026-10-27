@@ -393,7 +393,8 @@ class _Laplace(torch.nn.Module):
         ``forward`` that also returns the random Fourier features it computed.
 
         The features are the output of ``rff`` (feature_extractor -> jl -> normalize ->
-        rff), the same tensor ``EquineGP.compute_embeddings`` returns. The
+        rff), the same tensor ``EquineGP.compute_embeddings`` returns, except that a
+        single unbatched example gets a batch dimension of one here. The
         ``training_parameters_set`` precondition is checked here, before anything is
         computed or the precision/seen_data buffers are touched.
 
@@ -408,6 +409,9 @@ class _Laplace(torch.nn.Module):
         f_reduc = self.jl(f)
         if self.normalize_gp_features:
             f_reduc = self.normalize(f_reduc)
+        if f_reduc.dim() == 1:
+            # A single unbatched example: give it a batch dimension of one.
+            f_reduc = f_reduc.unsqueeze(0)
 
         k = self.rff(f_reduc)
 
@@ -420,8 +424,8 @@ class _Laplace(torch.nn.Module):
             self.precision += precision_minibatch
             # Marks any covariance cached since the last reset as stale.
             self.recompute_covariance = True
-            self.seen_data += x.shape[0]
-            self._seen_count += x.shape[0]
+            self.seen_data += k.shape[0]
+            self._seen_count += k.shape[0]
 
             if self._seen_count > self.num_data:
                 raise RuntimeError("Did not reset precision matrix at start of epoch")
@@ -942,7 +946,12 @@ class EquineGP(Equine):
     def _forward_with_embeddings(
         self, X: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """``forward`` that also returns its embeddings (``compute_embeddings(X)``)."""
+        """
+        ``forward`` that also returns its embeddings.
+
+        The embeddings are ``compute_embeddings(X)``, with a single unbatched
+        example given a batch dimension of one.
+        """
         X = self._input_to_model(X)
         logits, embeddings = self.model._forward_with_features(X)
         logits = cast(torch.Tensor, logits)  # mean_field_factor is always set

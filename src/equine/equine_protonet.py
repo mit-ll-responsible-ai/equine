@@ -19,7 +19,7 @@ from scipy.stats import gaussian_kde
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from .equine import Equine, EquineOutput, _apply_to_stored_tensors
+from .equine import Equine, EquineOutput, _apply_to_stored_tensors, _eval_mode
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
@@ -463,14 +463,27 @@ class Protonet(torch.nn.Module):
 
         return classes, distances, X_embed
 
-    def update_support(self, support: OrderedDict[int, torch.Tensor]) -> None:
+    def update_support(
+        self,
+        support: OrderedDict[int, torch.Tensor],
+        *,
+        _global_moments: bool = True,
+    ) -> None:
         """
         Method to update the support examples, and all the calculations that rely on them.
+
+        The global moments of the support embeddings (used for the OOD score)
+        are computed whatever mode the caller left the model in (via
+        ``train()``/``eval()``). The covariance type depends on the
+        mode: ``PRED_COV_TYPE`` in eval mode, ``cov_type`` in training mode.
 
         Parameters
         ----------
         support : OrderedDict
             Ordered dict containing class labels and their associated support examples.
+        _global_moments : bool, optional
+            Private, keyword-only. False skips the global moments; only the episode loop
+            of ``EquineProtonet.train_model`` passes it.
         """
         # Through the model boundary: on the device and, for floating support, in the
         # embedding's dtype.
@@ -488,9 +501,10 @@ class Protonet(torch.nn.Module):
         )
 
         self.prototypes: torch.Tensor = self.compute_prototypes()
+        if _global_moments:
+            self.compute_global_moments()
 
         if self.training is False:
-            self.compute_global_moments()
             self.covariance: torch.Tensor = self.compute_covariance(
                 cov_type=PRED_COV_TYPE
             )
@@ -684,7 +698,9 @@ class EquineProtonet(Equine):
             support, episode_x, episode_y = generate_episode(
                 train_x, train_y, support_size, way, episode_size
             )
-            self.model.update_support(support)
+            # Episodes read only the prototypes and the covariance; the
+            # global moments are computed by the full-support update below.
+            self.model.update_support(support, _global_moments=False)
 
             _, dists = self.model(episode_x)
             loss_value = loss_fn(
@@ -859,6 +875,11 @@ class EquineProtonet(Equine):
     def predict(self, X: torch.Tensor) -> EquineOutput:
         """Predict function for EquineProtonet, inherited and implemented from Equine.
 
+        Computes in eval mode and leaves the model in the mode the caller had it in (via
+        ``train()``/``eval()``); a prediction is the same whatever mode the caller left
+        the model in. Every submodule's mode is restored; an embedding frozen with
+        ``model.embedding_model.eval()`` during fine-tuning stays frozen.
+
         Parameters
         ----------
         X : torch.Tensor
@@ -874,7 +895,7 @@ class EquineProtonet(Equine):
             tensors), which a caller can use in autograd.
         """
         # One embedding pass, under no_grad.
-        with torch.no_grad():
+        with _eval_mode(self), torch.no_grad():
             preds, dists, X_embed = self.model._forward_with_embeddings(X)
             if self.use_temperature:
                 dists = dists / self.temperature
@@ -896,6 +917,11 @@ class EquineProtonet(Equine):
     ) -> None:
         """Function to update protonet support examples with given examples.
 
+        Computes in eval mode and leaves the model in the mode the caller had it in (via
+        ``train()``/``eval()``); it works on a freshly constructed model, which is in
+        training mode. Every submodule's mode is restored; an embedding frozen with
+        ``model.embedding_model.eval()`` during fine-tuning stays frozen.
+
         Parameters
         ----------
         support_x : torch.Tensor
@@ -911,32 +937,32 @@ class EquineProtonet(Equine):
         -------
         None
         """
-
-        support_x, calib_x, support_y, calib_y = stratified_train_test_split(
-            support_x, support_y, test_size=calib_frac
-        )
-        labels, counts = torch.unique(support_y, return_counts=True)
-        if label_names is not None:
-            self.label_names = label_names
-        self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
-
-        support = OrderedDict()
-        for label, count in list(zip(labels.tolist(), counts.tolist())):
-            class_support = generate_support(
-                support_x,
-                support_y,
-                support_size=count,
-                selected_labels=[label],
+        with _eval_mode(self):
+            support_x, calib_x, support_y, calib_y = stratified_train_test_split(
+                support_x, support_y, test_size=calib_frac
             )
-            support.update(class_support)
+            labels, counts = torch.unique(support_y, return_counts=True)
+            if label_names is not None:
+                self.label_names = label_names
+            self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
 
-        self.model.update_support(support)
+            support = OrderedDict()
+            for label, count in list(zip(labels.tolist(), counts.tolist())):
+                class_support = generate_support(
+                    support_x,
+                    support_y,
+                    support_size=count,
+                    selected_labels=[label],
+                )
+                support.update(class_support)
 
-        # The calibration pass records no autograd graph.
-        with torch.no_grad():
-            preds, dists, X_embed = self.model._forward_with_embeddings(calib_x)
-            ood_dists = self._compute_ood_dist(X_embed, preds, dists)
-            self._fit_outlier_scores(ood_dists, calib_y)
+            self.model.update_support(support)
+
+            # The calibration pass records no autograd graph.
+            with torch.no_grad():
+                preds, dists, X_embed = self.model._forward_with_embeddings(calib_x)
+                ood_dists = self._compute_ood_dist(X_embed, preds, dists)
+                self._fit_outlier_scores(ood_dists, calib_y)
 
     @icontract.require(lambda self: len(self.model.support) > 0)
     def get_support(self) -> OrderedDict[int, torch.Tensor]:

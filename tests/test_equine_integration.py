@@ -80,7 +80,22 @@ def test_model_summary(random_dataset) -> None:
     eq_out = model.predict(X)
     assert_valid_prediction(eq_out, len(X), num_classes)
 
-    eq.utils.generate_model_summary(model, eq_out, Y)
+    summary = eq.utils.generate_model_summary(model, eq_out, Y)
+    assert summary["modelType"] == "EquineGP"
+    labels, counts = Y.unique(return_counts=True)
+    assert summary["numTestExamples"] == [
+        {"label": label.item(), "numExamples": count.item()}
+        for label, count in zip(labels, counts)
+    ]
+    for key in (
+        "accuracy",
+        "microF1Score",
+        "confusionMatrix",
+        "brierScore",
+        "brierSkillScore",
+        "expectedCalibrationError",
+    ):
+        assert key in summary
 
 
 @given(random_dataset=random_dataset())

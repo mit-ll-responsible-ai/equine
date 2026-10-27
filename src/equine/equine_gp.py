@@ -32,6 +32,8 @@ from .utils import (
     _refuse_torchscript,
     _require_device,
     _require_entries,
+    _require_examples,
+    _require_finite_embeddings,
     _require_matching_weights,
     _require_names,
     _support_from_file,
@@ -181,9 +183,17 @@ class _RandomFourierFeatures(torch.nn.Module):
 
 
 def _inverse_via_cholesky(a: torch.Tensor) -> torch.Tensor:
-    """Invert the symmetric positive-definite ``a`` through its Cholesky factor."""
+    """
+    Invert the symmetric positive-definite ``a`` through its Cholesky factor.
+
+    Raises
+    ------
+    torch.linalg.LinAlgError
+        If ``a`` is not positive definite.
+    """
     u, info = torch.linalg.cholesky_ex(a)
-    assert (info == 0).all(), "Precision matrix inversion failed!"
+    if not bool((info == 0).all()):
+        raise torch.linalg.LinAlgError("Precision matrix inversion failed!")  # type: ignore
     return torch.cholesky_inverse(u)
 
 
@@ -395,13 +405,11 @@ class _Laplace(torch.nn.Module):
             self.seen_data += x.shape[0]
             self._seen_count += x.shape[0]
 
-            assert self._seen_count <= self.num_data, (
-                "Did not reset precision matrix at start of epoch"
-            )
+            if self._seen_count > self.num_data:
+                raise RuntimeError("Did not reset precision matrix at start of epoch")
         else:
-            assert self._seen_count > (self.num_data - self.train_batch_size), (
-                "Not seen sufficient data for precision matrix"
-            )
+            if self._seen_count <= self.num_data - self.train_batch_size:
+                raise RuntimeError("Not seen sufficient data for precision matrix")
 
             if self.recompute_covariance:
                 with torch.no_grad():
@@ -943,10 +951,17 @@ class EquineGP(Equine):
             embeddings. Computed under ``torch.no_grad()``: the tensors carry
             no autograd graph but are ordinary tensors (not inference-mode
             tensors), which a caller can use in autograd.
+
+        Raises
+        ------
+        ValueError
+            If ``X`` is empty, or its embeddings hold a NaN or infinite value.
         """
+        _require_examples(X)
         # One embedding pass, under no_grad.
         with _eval_mode(self), torch.no_grad():
             logits, embeddings = self._forward_with_embeddings(X)
+            _require_finite_embeddings(embeddings)
             preds = torch.softmax(logits, dim=1)
             equiprobable = (
                 torch.ones(self.num_outputs, device=logits.device) / self.num_outputs
@@ -978,7 +993,13 @@ class EquineGP(Equine):
         ------
         ValueError
             If the embedding model is not a registered architecture.
+        RuntimeError
+            If the model has not been trained with ``train_model``.
         """
+        if self.model.num_data == 0:
+            raise RuntimeError(
+                "The model has not been trained; call train_model before save."
+            )
         torch.save(self._to_checkpoint(), path)
 
     def _to_checkpoint(self) -> dict[str, Any]:

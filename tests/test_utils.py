@@ -572,3 +572,41 @@ def test_generate_episode_needs_a_query_example_per_class() -> None:
         eq.utils.generate_episode(
             train_x, train_y, support_size=4, way=2, episode_size=4
         )
+
+
+def _one_hot_output(columns):
+    probs = torch.nn.functional.one_hot(torch.tensor(columns), 3).float()
+    return eq.EquineOutput(
+        classes=probs, ood_scores=torch.zeros(len(columns)), embeddings=probs
+    )
+
+
+@pytest.mark.parametrize("label_order", [[0, 2, 5], [5, 0, 2]])
+@pytest.mark.parametrize("true_y", [[0, 0, 2, 2, 5, 5], [0, 0, 2, 2]])
+def test_generate_model_metrics_maps_true_labels_through_label_order(
+    true_y, label_order
+) -> None:
+    """Perfect predictions: label ``label_order[j]`` in column ``j``. The second
+    case of ``true_y`` leaves out label 5."""
+    columns = [label_order.index(label) for label in true_y]
+    metrics = eq.generate_model_metrics(
+        _one_hot_output(columns), torch.tensor(true_y), label_order=label_order
+    )
+    assert metrics["accuracy"] == pytest.approx(1.0)
+    assert metrics["microF1Score"] == pytest.approx(1.0)
+    assert metrics["brierScore"] == pytest.approx(0.0)
+    matrix = metrics["confusionMatrix"]
+    assert sum(matrix[i][j] for i in range(3) for j in range(3) if i != j) == 0
+
+
+def test_generate_model_metrics_rejects_labels_outside_label_order() -> None:
+    out = _one_hot_output([0, 1, 2, 2])
+    with pytest.raises(ValueError, match=r"Labels \[3\] are not among"):
+        eq.generate_model_metrics(
+            out, torch.tensor([0, 2, 3, 5]), label_order=[0, 2, 5]
+        )
+    for label_order in ([0, 2], [0, 2, 2], [0, 1, 1, 2]):
+        with pytest.raises(ValueError, match="must hold 3 distinct labels"):
+            eq.generate_model_metrics(
+                out, torch.tensor([0, 2, 2, 2]), label_order=label_order
+            )

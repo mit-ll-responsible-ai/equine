@@ -27,6 +27,7 @@ from .utils import (
     _embedding_checkpoint,
     _input_to_model,
     _label_text,
+    _labels_to_columns,
     _load_checkpoint_for_device,
     _mahalanobis_from_factor,
     _outlier_kde_from_file,
@@ -850,7 +851,8 @@ class EquineProtonet(Equine):
         calib_x : torch.Tensor
             Training data to be used for temperature calibration.
         calib_y : torch.Tensor
-            Labels corresponding to `calib_x`.
+            Class labels corresponding to `calib_x`, each one of the support's
+            labels.
         num_calibration_epochs : int, optional
             Number of epochs to tune temperature, by default 1.
         calibration_lr : float, optional
@@ -863,9 +865,16 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If the model has no support, or, in eval mode, the embeddings of
-            ``calib_x`` hold a NaN or infinite value.
+            If the model has no support, `calib_y` holds a label that is not in
+            the support, or, in eval mode, the embeddings of ``calib_x`` hold a
+            NaN or infinite value.
         """
+        if len(cast(Protonet, self.model).support) == 0:
+            raise ValueError(
+                "No support examples found; call train_model or update_support "
+                "before calibrate_temperature."
+            )
+        targets = _labels_to_columns(calib_y, self._label_order()).to(self.device)
         self.temperature.requires_grad = True
         optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
         for t in range(num_calibration_epochs):
@@ -874,7 +883,7 @@ class EquineProtonet(Equine):
                 pred_probs, dists = self.model(calib_x)
             dists = dists.to(self.device) / self.temperature.to(self.device)
             loss = torch.nn.functional.cross_entropy(
-                torch.neg(dists).to(self.device), calib_y.to(torch.long).to(self.device)
+                torch.neg(dists).to(self.device), targets
             )
             loss.backward()
             optimizer.step()
@@ -886,6 +895,9 @@ class EquineProtonet(Equine):
     ) -> None:
         """
         Private function to fit outlier scores with a kernel density estimate (KDE).
+
+        Replaces ``outlier_score_kde`` with one KDE per support label, keyed
+        by label, in support order.
 
         Parameters
         ----------
@@ -926,11 +938,14 @@ class EquineProtonet(Equine):
             (label, gaussian_kde(dists.cpu().detach().numpy()))
             for label, dists in class_ood_dists.items()
         )
-        self.outlier_score_kde.update(fitted)
+        self.outlier_score_kde = fitted
 
     def _compute_outlier_scores(self, ood_dists, predictions) -> torch.Tensor:
         """
         Private function to compute OOD scores using the calculated kernel density estimate (KDE).
+
+        Each example is scored with the KDE of its predicted label: column
+        ``j`` of ``predictions`` is the ``j``-th support label.
 
         Parameters
         ----------
@@ -943,12 +958,26 @@ class EquineProtonet(Equine):
         -------
         torch.Tensor
             Tensor of OOD scores for the given examples.
+
+        Raises
+        ------
+        ValueError
+            If a support label has no outlier-score KDE.
         """
+        label_order = self._label_order()
+        missing = [
+            label for label in label_order if label not in self.outlier_score_kde
+        ]
+        if missing:
+            raise ValueError(
+                f"No outlier-score KDE for support labels {missing}; refit the "
+                "outlier scores with EquineProtonet.update_support."
+            )
         ood_scores = torch.zeros_like(ood_dists)
         for i in range(len(predictions)):
             # Use KDE and RMD corresponding to the predicted class
-            predicted_class = int(torch.argmax(predictions[i, :]))
-            p_value = self.outlier_score_kde[int(predicted_class)].integrate_box_1d(
+            predicted_label = label_order[int(torch.argmax(predictions[i, :]))]
+            p_value = self.outlier_score_kde[predicted_label].integrate_box_1d(
                 ood_dists[i].detach().cpu().numpy(), np.inf
             )
             ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
@@ -1012,14 +1041,17 @@ class EquineProtonet(Equine):
         -------
         EquineOutput
             Output object containing prediction probabilities, OOD scores and
-            embeddings. Computed under ``torch.no_grad()``: the tensors carry
-            no autograd graph but are ordinary tensors (not inference-mode
-            tensors), which a caller can use in autograd.
+            embeddings. Column ``j`` of the probabilities is the ``j``-th label
+            of ``get_support()``; ``train_model`` and ``update_support`` put
+            the labels in ascending order. Computed under ``torch.no_grad()``:
+            the tensors carry no autograd graph but are ordinary tensors (not
+            inference-mode tensors), which a caller can use in autograd.
 
         Raises
         ------
         ValueError
-            If ``X`` is empty, or its embeddings hold a NaN or infinite value.
+            If ``X`` is empty, its embeddings hold a NaN or infinite value, or a
+            support label has no outlier-score KDE.
         """
         _require_examples(X)
         # One embedding pass, under no_grad.
@@ -1119,6 +1151,18 @@ class EquineProtonet(Equine):
             The support examples for the model.
         """
         return self.model.support
+
+    def _label_order(self) -> list[int]:
+        """
+        The class label of each column of ``predict``'s ``classes``: the
+        support's labels, in support order.
+
+        Returns
+        -------
+        list[int]
+            The support's labels.
+        """
+        return list(cast(Protonet, self.model).support_embeddings)
 
     @icontract.require(lambda self: len(self.model.prototypes) > 0)
     def get_prototypes(self) -> torch.Tensor:

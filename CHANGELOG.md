@@ -210,3 +210,12 @@
   embedding) gets the smallest diagonal jitter, a power of ten times machine
   epsilon times its largest variance, that lets it factor. Predictions are
   unchanged: they use diagonal covariance.
+- `generate_model_metrics` and `generate_model_summary` passed the true labels
+  and the predictions to torchmetrics in the wrong order, so `accuracy` was
+  wrong and `confusionMatrix` was transposed. `confusionMatrix` has one row per
+  true class and one column per predicted class (#174).
+- `EquineGP.train_model` reported each validation metric accumulated over all
+  epochs so far instead of for that epoch, failed when a metric was not on the
+  model's device, and computed nothing when `val_metrics` was a generator. Each
+  metric is now moved to the model's device in place and reset before each
+  epoch's validation pass (#171).

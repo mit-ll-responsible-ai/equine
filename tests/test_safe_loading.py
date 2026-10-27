@@ -9,6 +9,7 @@ holds. Legacy files are refused and rewritten by ``python -m equine.upgrade``. T
 model layer on top (recipes, save/load) is tested in test_persistence.py.
 """
 
+import collections
 import contextlib
 import io
 import itertools
@@ -3083,3 +3084,20 @@ def test_load_rejects_newer_format_version(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="Unsupported EQUINE model format version"):
         eq.load_equine_model(str(path))
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgrade_keeps_the_support_order_of_a_legacy_file(tmp_path) -> None:
+    model, X = _trained_protonet()
+    support = model.get_support()
+    model.model.update_support(
+        collections.OrderedDict((label, support[label]) for label in (2, 0, 1))
+    )
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+
+    assert _upgrade(path) == path
+
+    loaded = eq.load_equine_model(path)
+    assert list(loaded.get_support()) == [2, 0, 1]
+    _assert_same_predictions(model, loaded, X)

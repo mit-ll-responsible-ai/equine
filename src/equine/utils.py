@@ -1754,12 +1754,48 @@ def generate_episode(
     return episode_support, episode_x, episode_y.squeeze().to(torch.long)
 
 
+def _labels_to_columns(y: torch.Tensor, label_order: list[int]) -> torch.Tensor:
+    """
+    The column of each label in ``y``, where column ``j`` holds ``label_order[j]``.
+
+    Parameters
+    ----------
+    y : torch.Tensor
+        Class labels.
+    label_order : list[int]
+        The class label of each column, in column order.
+
+    Returns
+    -------
+    torch.Tensor
+        ``torch.long`` column indices, one per element of ``y``, on its device.
+
+    Raises
+    ------
+    ValueError
+        If ``y`` holds a value that is not in ``label_order``.
+    """
+    order = torch.tensor(label_order, device=y.device)
+    matches = y.reshape(-1, 1) == order
+    unknown = ~matches.any(dim=1)
+    if bool(unknown.any()):
+        shown = torch.unique(y.reshape(-1)[unknown])[:5].tolist()
+        raise ValueError(
+            f"Labels {shown} are not among the class labels "
+            f"{_truncate(str(label_order), 200)}."
+        )
+    return matches.long().argmax(dim=1)
+
+
 @icontract.require(
     lambda eq_preds, true_y: eq_preds.classes.size(dim=0) == true_y.size(dim=0)
 )
 @beartype
 def generate_model_metrics(
-    eq_preds: EquineOutput, true_y: torch.Tensor
+    eq_preds: EquineOutput,
+    true_y: torch.Tensor,
+    *,
+    label_order: list[int] | None = None,
 ) -> dict[str, Any]:
     """
     Generate various metrics for evaluating a model's performance.
@@ -1771,15 +1807,34 @@ def generate_model_metrics(
     true_y : torch.Tensor
         True class labels, moved to the device of ``eq_preds.classes``, where
         the metrics are computed.
+    label_order : list[int] | None, optional
+        Keyword-only. The class label of each column of ``eq_preds.classes``,
+        in column order (for an ``EquineProtonet``, ``list(model.get_support())``);
+        ``true_y`` is mapped to column indices through it. With None, column
+        ``j`` holds label ``j``.
 
     Returns
     -------
     dict[str, Any]
         Dictionary of model metrics. ``"confusionMatrix"`` has one row per true
-        class and one column per predicted class.
+        class and one column per predicted class, in column order.
+
+    Raises
+    ------
+    ValueError
+        If ``label_order`` does not name one distinct label per column, or
+        ``true_y`` holds a label that is not in it.
     """
     device = eq_preds.classes.device
     true_y = true_y.to(device)
+    if label_order is not None:
+        columns = eq_preds.classes.shape[1]
+        if len(label_order) != columns or len(set(label_order)) != columns:
+            raise ValueError(
+                f"label_order must hold {columns} distinct labels, one per column "
+                f"of predictions; got {_truncate(str(label_order), 200)}."
+            )
+        true_y = _labels_to_columns(true_y, label_order)
     pred_y = torch.argmax(eq_preds.classes, dim=1)
     accuracy = MulticlassAccuracy(num_classes=eq_preds.classes.shape[1]).to(device)
     f1_score = MulticlassF1Score(
@@ -1888,7 +1943,7 @@ def generate_model_summary(
     dict[str, Any]
         Dictionary containing model summary.
     """
-    summary = generate_model_metrics(eq_preds, test_y)
+    summary = generate_model_metrics(eq_preds, test_y, label_order=model._label_order())
     summary["numTestExamples"] = get_num_examples_per_label(test_y)
     summary.update(model.train_summary)  # union of train_summary and generated metrics
 

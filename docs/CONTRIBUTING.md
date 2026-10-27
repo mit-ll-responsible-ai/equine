@@ -19,16 +19,16 @@
     source .venv/bin/activate
     ```
 
-3. Install the code with the extra `tests` dependencies
+3. Install the code with the `dev` extra (the test dependencies plus pre-commit and codespell)
 
     ```shell
-    pip install -e .'[tests]'
+    pip install -e .'[dev]'
     ```
 
     If you created the environment with uv, you can use `uv pip` instead:
 
     ```shell
-    uv pip install -e '.[tests]'
+    uv pip install -e '.[dev]'
     ```
 
     On Python 3.15, torch is published only on PyTorch's own package index
@@ -64,6 +64,7 @@ There are a number of Github Actions enabled to ensure high code quality upon co
 * Tests must be added and all tests must pass (100%) before closing a pull request
 * Total coverage should be 97% or higher
 * We enforce a code style via `ruff` (formatting + linting, including import sorting) and `codespell`. If formatting issues are found, `tox -e format` usually fixes them automatically.
+* A job runs the suite with every dependency at the lowest version `pyproject.toml` allows (`tox -e floors`, which needs tox-uv). When code needs a newer release of a dependency, raise its floor.
 
 ## Documentation
 In the [MIT-LL Responsible AI GitHub organization](https://github.com/mit-ll-responsible-ai), we use the numpy/scipy format for docstrings.

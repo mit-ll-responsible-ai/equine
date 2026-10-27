@@ -806,9 +806,11 @@ class EquineProtonet(Equine):
             selected_labels=torch.unique(train_y).tolist(),
         )
 
-        self.model.update_support(
-            full_support
-        )  # update support with final selected examples
+        # Embedded without autograd: the result carries no graph.
+        with torch.no_grad():
+            self.model.update_support(
+                full_support
+            )  # update support with final selected examples
 
         # The OOD-calibration pass records no autograd graph.
         with torch.no_grad():
@@ -1093,10 +1095,9 @@ class EquineProtonet(Equine):
                     )
                     support.update(class_support)
 
-                self.model.update_support(support)
-
-                # The calibration pass records no autograd graph.
+                # The support and the calibration pass record no autograd graph.
                 with torch.no_grad():
+                    self.model.update_support(support)
                     preds, dists, X_embed = self.model._forward_with_embeddings(calib_x)
                     ood_dists = self._compute_ood_dist(X_embed, preds, dists)
                     self._fit_outlier_scores(ood_dists, calib_y)
@@ -1347,7 +1348,8 @@ class EquineProtonet(Equine):
                 "inconsistent or was tampered with."
             )
         try:
-            eq_model.model.update_support(support)
+            with torch.no_grad():
+                eq_model.model.update_support(support)
         except Exception as err:
             raise ValueError(
                 support_error.format(_truncate(_describe_error(err), 200))

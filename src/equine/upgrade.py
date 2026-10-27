@@ -13,6 +13,11 @@ those files. The upgrade reads the file with unrestricted unpickling, which
 runs any code embedded in it, so only upgrade files you trust. It then writes
 the same model in the current layout and checks that the safe loader reads it.
 
+The embedding model in such a file is TorchScript. The upgraded file is flagged
+``contains_executable`` and loads with ``trust_executable=True``. To make it data-only,
+load it with ``trust_executable=True`` and ``embedding_model=<an instance of your
+registered architecture>``, then call ``save()``.
+
 Reading the old layout is deprecated: this module is removed in a later
 release, and files not upgraded by then cannot be opened.
 """
@@ -31,16 +36,24 @@ import torch
 from scipy.stats import gaussian_kde
 
 from .equine_protonet import _kde_to_state
+from .registry import _describe_error
 from .utils import (
     EQUINE_FORMAT_VERSION,
     LegacyFormatError,
-    jit_archive_to_tensor,
+    _jit_archive_to_tensor,
+    _unalias_support,
     load_checkpoint,
 )
 
 _DEPRECATION = (
     "Reading model files from earlier EQUINE releases is deprecated and will be "
     "removed in a later release; upgrade your files now."
+)
+
+_HEAD_NOTE = (
+    "The file held the weights of a Linear head, which EQUINE <= 0.1.6 saved; the "
+    "head is now an Identity, so those weights were dropped and "
+    "predictions can differ from those of the EQUINE version that saved the file."
 )
 
 
@@ -55,18 +68,24 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def _current_layout(checkpoint: dict[str, Any]) -> dict[str, Any]:
-    """The legacy checkpoint dictionary rewritten with plain values only."""
+def _current_layout(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """The legacy checkpoint rewritten with plain values only, plus notes."""
     out = dict(checkpoint)
+    notes: list[str] = []
     out["equine_format_version"] = EQUINE_FORMAT_VERSION
     archive = out.get("embed_jit_save")
     if isinstance(archive, (bytes, bytearray)):
         archive = io.BytesIO(archive)
     if isinstance(archive, io.BytesIO):
-        out["embed_jit_save"] = jit_archive_to_tensor(archive)
+        out["embed_jit_save"] = _jit_archive_to_tensor(archive)
+    if "embed_jit_save" in out:
+        out["contains_executable"] = True
     settings = dict(out.get("settings", {}))
     if isinstance(settings.get("cov_type"), Enum):
         settings["cov_type"] = settings["cov_type"].value
+    if "laplace_model_save" in out:
+        # EquineGP takes no use_temperature; init_temperature holds the value.
+        settings.pop("use_temperature", None)
     out["settings"] = _plain(settings)
     if isinstance(out.get("support"), dict):
         out["support"] = {int(label): x for label, x in out["support"].items()}
@@ -75,6 +94,10 @@ def _current_layout(checkpoint: dict[str, Any]) -> dict[str, Any]:
             int(label): _kde_to_state(kde) if isinstance(kde, gaussian_kde) else kde
             for label, kde in out["outlier_kde"].items()
         }
+    head = out.get("model_head_save")
+    if isinstance(head, dict) and set(head) == {"weight", "bias"}:
+        out["model_head_save"] = {}
+        notes.append(_HEAD_NOTE)
     for key in ("feature_names", "label_names"):
         names = out.get(key)
         if isinstance(names, (list, tuple)) or (
@@ -83,7 +106,8 @@ def _current_layout(checkpoint: dict[str, Any]) -> dict[str, Any]:
             out[key] = [str(name) for name in names]
     if "train_summary" in out:
         out["train_summary"] = _plain(out["train_summary"])
-    return out
+    _unalias_support(out)  # each label gets its own copy of its support and KDE data
+    return out, notes
 
 
 def upgrade_model_file(path: str, out_path: Optional[str] = None) -> Optional[str]:
@@ -129,12 +153,11 @@ def upgrade_model_file(path: str, out_path: Optional[str] = None) -> Optional[st
         checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     except Exception as err:
         raise ValueError(
-            f"'{path}' could not be read as a PyTorch file "
-            f"({type(err).__name__}: {err})."
+            f"'{path}' could not be read as a PyTorch file ({_describe_error(err)})."
         ) from err
     if not isinstance(checkpoint, dict) or "train_summary" not in checkpoint:
         raise ValueError(f"'{path}' is not an EQUINE model file.")
-    current = _current_layout(checkpoint)
+    current, notes = _current_layout(checkpoint)
     out_path = out_path or path
     if os.path.islink(out_path):
         out_path = os.path.realpath(out_path)  # replace the link's target, not the link
@@ -145,7 +168,7 @@ def upgrade_model_file(path: str, out_path: Optional[str] = None) -> Optional[st
             torch.save(current, partial)
         except Exception as err:
             raise OSError(
-                f"Could not write '{partial}' ({type(err).__name__}: {err})."
+                f"Could not write '{partial}' ({_describe_error(err)})."
             ) from err
         try:
             load_checkpoint(partial)
@@ -169,6 +192,8 @@ def upgrade_model_file(path: str, out_path: Optional[str] = None) -> Optional[st
     finally:
         if os.path.exists(partial):
             os.remove(partial)
+    for note in notes:
+        warnings.warn(note, UserWarning, stacklevel=2)
     return out_path
 
 
@@ -177,7 +202,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         prog="python -m equine.upgrade",
         description="Rewrite a model file from an earlier EQUINE release in the "
         "current format. Only upgrade files you trust: the file is unpickled "
-        "without restrictions, which can run code embedded in it.",
+        "without restrictions, which can run code embedded in it. The result "
+        "keeps the file's TorchScript embedding and loads with "
+        "trust_executable=True.",
     )
     parser.add_argument("path", help="the model file to upgrade")
     parser.add_argument(

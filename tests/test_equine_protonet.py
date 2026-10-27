@@ -11,6 +11,7 @@ from conftest import (
     assert_valid_prediction,
     generate_random_string_list,
     random_dataset,
+    stored_tensors,
     use_basic_embedding_model,
     use_save_load_model_tests,
 )
@@ -444,3 +445,244 @@ def test_shared_regularization_blends_full_covariances() -> None:
     torch.testing.assert_close(shared, shared.transpose(1, 2))
     assert not torch.allclose(shared, covariances["epsilon"])
     assert not torch.allclose(shared[0], shared[1])
+
+
+def _three_class_data(sizes: tuple[int, int, int]):
+    x = torch.cat([torch.randn(n, FEATURES) + 5 * i for i, n in enumerate(sizes)])
+    y = torch.cat([torch.full((n,), float(i)) for i, n in enumerate(sizes)])
+    return x, y
+
+
+def test_update_support_refuses_a_class_left_with_one_support_example() -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    support = model.get_support()
+    x, y = _three_class_data((10, 10, 2))
+    with pytest.raises(ValueError, match="Class 2 has 1 support example"):
+        model.update_support(x, y, calib_frac=0.5, label_names=["a", "b", "c"])
+    assert model.get_support() is support
+    assert model.get_label_names() is None
+
+
+def test_update_support_refuses_a_class_left_with_one_calibration_example() -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    support, kdes = model.get_support(), dict(model.outlier_score_kde)
+    x, y = _three_class_data((10, 10, 6))
+    with pytest.raises(ValueError, match="Class 2 has 1 calibration example"):
+        model.update_support(x, y, calib_frac=0.2)
+    assert model.get_support() is support
+    assert model.outlier_score_kde == kdes
+
+
+def test_train_model_refuses_a_class_with_one_calibration_example() -> None:
+    torch.manual_seed(0)
+    x, y = _three_class_data((30, 30, 7))
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = [p.detach().clone() for p in model.parameters()]
+    with pytest.raises(ValueError, match="Class 2 has 1 calibration example"):
+        model.train_model(
+            torch.utils.data.TensorDataset(x, y),
+            num_episodes=5,
+            calib_frac=0.2,
+            support_size=4,
+            way=3,
+            episode_size=30,
+        )
+    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
+    assert len(model.model.support) == 0
+    assert not model.training
+    assert model.temperature.item() == 0.5
+
+
+@pytest.mark.parametrize(
+    "sizes, calib_frac, support_size, num_episodes, left, needed",
+    [
+        ((30, 30, 3), 0.9, 2, 5, 0, 3),
+        ((30, 30, 4), 0.8, 2, 5, 1, 3),
+        ((30, 30, 3), 0.9, 2, 0, 0, 2),
+        ((20, 20, 19), 0.2, 16, 0, 15, 16),
+    ],
+)
+def test_train_model_refuses_a_class_without_enough_training_examples(
+    sizes, calib_frac, support_size, num_episodes, left, needed
+) -> None:
+    torch.manual_seed(0)
+    x, y = _three_class_data(sizes)
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    with pytest.raises(
+        ValueError, match=f"Class 2 has {left} training example.*at least {needed}"
+    ):
+        model.train_model(
+            torch.utils.data.TensorDataset(x, y),
+            num_episodes=num_episodes,
+            calib_frac=calib_frac,
+            support_size=support_size,
+            way=2,
+            episode_size=10,
+        )
+    assert len(model.model.support) == 0
+
+
+def test_update_support_leaves_the_model_as_it_was_when_a_later_step_fails(
+    monkeypatch,
+) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    support, kdes = model.get_support(), dict(model.outlier_score_kde)
+    tensors = stored_tensors(model)
+
+    def fail(ood_dists, calib_y):
+        raise ValueError("fitting failed")
+
+    monkeypatch.setattr(model, "_fit_outlier_scores", fail)
+    x, y = _three_class_data((10, 10, 10))
+    with pytest.raises(ValueError, match="fitting failed"):
+        model.update_support(x, y, calib_frac=0.5, label_names=["a", "b", "c"])
+    assert model.get_support() is support
+    assert model.outlier_score_kde == kdes
+    restored = stored_tensors(model)
+    assert restored.keys() == tensors.keys()
+    assert all(restored[name] is tensors[name] for name in tensors)
+    assert model.get_label_names() is None
+
+
+def test_outlier_scores_keep_the_kdes_when_a_kde_fit_fails(monkeypatch) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    kdes = dict(model.outlier_score_kde)
+    fit = eq.equine_protonet.gaussian_kde
+    calls = []
+
+    def fail_on_the_second_class(dataset):
+        calls.append(dataset)
+        if len(calls) == 2:
+            raise ValueError("fit failed")
+        return fit(dataset)
+
+    monkeypatch.setattr(eq.equine_protonet, "gaussian_kde", fail_on_the_second_class)
+    ood_dists = torch.tensor([2.0, 3.0, 1.0, 4.0, 5.0, 6.0])
+    calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
+    with pytest.raises(ValueError, match="fit failed"):
+        model._fit_outlier_scores(ood_dists, calib_y)
+    assert model.outlier_score_kde == kdes
+
+
+def test_outlier_scores_refuse_a_non_finite_distance_and_keep_the_kdes() -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    kdes = dict(model.outlier_score_kde)
+    ood_dists = torch.tensor([2.0, 3.0, 1.0, 4.0, 5.0, float("inf")])
+    calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
+    with pytest.raises(ValueError, match="class 2 has a NaN or infinite"):
+        model._fit_outlier_scores(ood_dists, calib_y)
+    assert model.outlier_score_kde == kdes
+
+
+def test_train_model_without_episodes_needs_only_support_size_rows() -> None:
+    torch.manual_seed(1)
+    x, y = _three_class_data((20, 20, 20))
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    model.train_model(
+        torch.utils.data.TensorDataset(x, y),
+        num_episodes=0,
+        calib_frac=0.2,
+        support_size=16,
+    )
+    assert [len(rows) for rows in model.get_support().values()] == [16, 16, 16]
+
+
+def test_train_model_refuses_a_support_size_below_two() -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = [p.detach().clone() for p in model.parameters()]
+    with pytest.raises(ValueError, match="support_size must be at least 2"):
+        model.train_model(
+            dataset, num_episodes=5, support_size=1, way=3, episode_size=30
+        )
+    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
+    assert len(model.model.support) == 0
+    assert not model.training
+    assert model.temperature.item() == 0.5
+
+
+def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes() -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    kdes = dict(model.outlier_score_kde)
+    ood_dists = torch.tensor([2.0, 3.0, 1.0, 1.0, 4.0, 5.0])
+    calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
+    with pytest.raises(ValueError, match="calibration example of class 1"):
+        model._fit_outlier_scores(ood_dists, calib_y)
+    assert model.outlier_score_kde == kdes
+
+
+@pytest.mark.parametrize("cov_type", [eq.CovType.DIAGONAL, eq.CovType.FULL])
+def test_covariance_needs_two_examples_per_class(cov_type) -> None:
+    proto = Protonet(
+        torch.nn.Identity(), 3, cov_type, cov_reg_type="epsilon", epsilon=1e-5
+    )
+    support = OrderedDict({0: torch.randn(1, 3), 1: torch.randn(5, 3)})
+    with pytest.raises(ValueError, match="needs at least 2 examples per class; got 1"):
+        proto.update_support(support)
+
+
+def test_load_refuses_a_class_with_one_support_example(tmp_path) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    checkpoint = model._to_checkpoint()
+    checkpoint["support"][0] = checkpoint["support"][0][:1]
+    path = str(tmp_path / "one_example.eq")
+    torch.save(checkpoint, path)
+    with pytest.raises(ValueError, match="holds 1 example\\(s\\) of class 0"):
+        eq.EquineProtonet.load(path)
+
+
+def test_save_refuses_an_untrained_model(tmp_path) -> None:
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    with pytest.raises(RuntimeError, match="no support examples to save"):
+        model.save(str(tmp_path / "untrained.eq"))
+    assert not (tmp_path / "untrained.eq").exists()
+
+
+def test_predict_refuses_an_empty_batch() -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    with pytest.raises(ValueError, match="X is empty"):
+        model.predict(torch.empty(0, FEATURES))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")], ids=["nan", "inf"])
+def test_predict_refuses_non_finite_embeddings(value) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    with pytest.raises(ValueError, match="embeddings of X hold NaN or infinite"):
+        model.predict(torch.full((3, FEATURES), value))
+
+
+class _ImputingEmbedding(torch.nn.Module):
+    """A linear embedding that reads a NaN feature as 0."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear = torch.nn.Linear(FEATURES, CLASSES)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear(torch.nan_to_num(x))
+
+
+def test_predict_accepts_nan_input_that_the_embedding_handles() -> None:
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    model = eq.EquineProtonet(_ImputingEmbedding(), CLASSES)
+    model.train_model(
+        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
+    )
+    rows = x[:5].clone()
+    rows[:, 0] = float("nan")
+    expected = model.predict(torch.nan_to_num(rows))
+    out = model.predict(rows)
+    assert torch.equal(out.classes, expected.classes)
+    assert torch.equal(out.ood_scores, expected.ood_scores)

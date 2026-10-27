@@ -716,3 +716,148 @@ def test_equine_protonet_deepcopy_after_update_support() -> None:
     for name, t in stored_tensors(model).items():
         assert t.grad_fn is None, f"{name} still has a grad_fn"
     copy.deepcopy(model)
+
+
+def _protonet_trained_on_labels(labels, **kwargs):
+    """
+    A model trained on ``separable_dataset`` with class ``k`` relabelled
+    ``labels[k]``, with the random draws made for labels 0, 1, 2.
+    """
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    y = torch.tensor(labels)[y].float()
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, **kwargs)
+    model.train_model(
+        torch.utils.data.TensorDataset(x, y),
+        num_episodes=5,
+        calib_frac=0.2,
+        support_size=10,
+        way=3,
+        episode_size=30,
+    )
+    return model, x, y
+
+
+def _ood_scores_from_kde(model, rows, label):
+    """The OOD scores of ``rows`` computed with the KDE fitted for ``label``."""
+    with torch.no_grad():
+        preds, dists, embeddings = model.model._forward_with_embeddings(rows)
+        ood_dists = model._compute_ood_dist(embeddings, preds, dists)
+    kde = model.outlier_score_kde[label]
+    tails = [kde.integrate_box_1d(d, float("inf")) for d in ood_dists.tolist()]
+    scores = [1.0 - min(max(float(p), 0.0), 1.0) for p in tails]
+    return torch.tensor(scores, dtype=ood_dists.dtype)
+
+
+@pytest.mark.parametrize("labels", [(1, 2, 3), (0, 2, 5)])
+def test_non_contiguous_labels_predict_like_labels_from_zero(labels) -> None:
+    reference, x, _ = _protonet_trained_on_labels((0, 1, 2))
+    model, _, _ = _protonet_trained_on_labels(labels)
+    assert list(model.get_support()) == list(labels)
+    expected, out = reference.predict(x), model.predict(x)
+    assert torch.equal(out.classes, expected.classes)
+    assert torch.equal(out.ood_scores, expected.ood_scores)
+
+
+def test_ood_score_uses_the_kde_of_the_predicted_label() -> None:
+    model, x, y = _protonet_trained_on_labels((0, 2, 5))
+    rows = x[y == 5]
+    out = model.predict(rows)
+    assert out.classes.argmax(dim=1).tolist() == [2] * len(rows)
+    expected = _ood_scores_from_kde(model, rows, 5)
+    torch.testing.assert_close(out.ood_scores, expected, atol=1e-6, rtol=0)
+
+
+@pytest.mark.parametrize("labels", [(1, 2, 3), (0, 2, 5)])
+def test_temperature_calibrates_with_non_contiguous_labels(labels) -> None:
+    reference, _, _ = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
+    model, _, _ = _protonet_trained_on_labels(labels, use_temperature=True)
+    assert torch.equal(model.temperature, reference.temperature)
+
+
+def test_calibrate_temperature_rejects_a_label_outside_the_support() -> None:
+    model, x, _ = _protonet_trained_on_labels((0, 2, 5))
+    with pytest.raises(ValueError, match=r"Labels \[1.0\] are not among"):
+        model.calibrate_temperature(x[:3], torch.tensor([0.0, 1.0, 2.0]))
+
+
+def test_update_support_keeps_kdes_only_for_the_new_labels(tmp_path) -> None:
+    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    keep = y < 2
+    model.update_support(x[keep], y[keep] + 7, calib_frac=0.2)
+    assert list(model.outlier_score_kde) == [7, 8]
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    assert list(torch.load(path, weights_only=True)["outlier_kde"]) == [7, 8]
+
+
+def test_update_support_scores_ood_with_the_new_labels_kdes() -> None:
+    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    keep = y < 2
+    model.update_support(x[keep], y[keep] + 7, calib_frac=0.2)
+    rows = x[y == 1]
+    out = model.predict(rows)
+    assert out.classes.argmax(dim=1).tolist() == [1] * len(rows)
+    expected = _ood_scores_from_kde(model, rows, 8)
+    torch.testing.assert_close(out.ood_scores, expected, atol=1e-6, rtol=0)
+
+
+def test_generate_model_summary_maps_labels_through_the_support() -> None:
+    """Column ``j`` of a Protonet's predictions is its ``j``-th support label."""
+    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    true_y = torch.tensor([0, 0, 2, 2, 5, 5])
+    probs = torch.nn.functional.one_hot(torch.tensor([0, 0, 1, 1, 2, 1]), 3).float()
+    out = eq.EquineOutput(classes=probs, ood_scores=torch.zeros(6), embeddings=probs)
+    summary = eq.generate_model_summary(model, out, true_y)
+    assert summary["accuracy"] == pytest.approx(2.5 / 3)
+    assert summary["confusionMatrix"] == [[2, 0, 0], [0, 2, 0], [0, 1, 1]]
+    assert summary["brierScore"] == pytest.approx(2 / 6)
+
+
+def test_generate_model_summary_of_labels_from_zero_matches_the_plain_metrics() -> None:
+    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    gen = torch.Generator().manual_seed(5)
+    out = model.predict(x + 2.0 * torch.randn(x.shape, generator=gen))
+    expected = eq.generate_model_metrics(out, y.long())
+    for labels in (y, y.long()):
+        summary = eq.generate_model_summary(model, out, labels)
+        for key, value in expected.items():
+            assert summary[key] == value, key
+
+
+def test_a_reordered_support_maps_columns_in_the_summary_and_temperature() -> None:
+    reference, x, _ = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
+    model, _, y = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
+    support = model.get_support()
+    with torch.no_grad():
+        model.model.update_support(
+            OrderedDict((label, support[label]) for label in (2, 0, 1))
+        )
+    out = model.predict(x)
+    predicted_labels = torch.tensor([2, 0, 1])[out.classes.argmax(dim=1)]
+    summary = eq.utils.generate_model_summary(model, out, predicted_labels)
+    assert summary["accuracy"] == pytest.approx(1.0)
+    reference.calibrate_temperature(x, y, num_calibration_epochs=3)
+    model.calibrate_temperature(x, y, num_calibration_epochs=3)
+    torch.testing.assert_close(model.temperature, reference.temperature)
+
+
+def test_predict_names_support_labels_without_an_outlier_kde() -> None:
+    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    with torch.no_grad():
+        model.model.update_support(
+            eq.utils.generate_support(x, y + 3, 5, [3.0, 4.0, 5.0])
+        )
+    with pytest.raises(ValueError, match=r"support labels \[3, 4, 5\]"):
+        model.predict(x[:3])
+    model.update_support(x, y + 3, calib_frac=0.2)
+    assert model.predict(x[:3]).classes.shape == (3, 3)
+
+
+def test_calibrate_temperature_needs_a_support() -> None:
+    _, x, y = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    with pytest.raises(ValueError, match="No support examples found"):
+        model.calibrate_temperature(x[:10], y[:10].float())

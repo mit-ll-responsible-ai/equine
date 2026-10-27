@@ -105,7 +105,7 @@ def test_generate_support_refuses_support_size_larger_than_a_class() -> None:
 def test_generate_episode_refuses_support_size_larger_than_a_class() -> None:
     x = torch.rand(8, 2)
     y = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1]).float()
-    with pytest.raises(ValueError, match="Not enough support examples in class 0.0"):
+    with pytest.raises(ValueError, match="Class 0 has 3 examples"):
         eq.generate_episode(x, y, support_size=4, way=2, episode_size=2)
 
 
@@ -532,3 +532,43 @@ def test_require_device_accepts_settings_without_a_device() -> None:
 def test_require_device_refuses_a_device_type_this_build_cannot_query() -> None:
     with pytest.raises(ValueError, match="'xla'.* is not available on this machine"):
         eq.utils._require_device({"device": "xla"})
+
+
+def test_shuffle_idxs_keep_a_class_with_one_example() -> None:
+    train_y = torch.tensor([0, 0, 0, 1, 1, 1, 2])
+    idxs = eq.utils._get_shuffle_idxs_by_class(train_y, [0, 1, 2])
+    assert idxs[2].tolist() == [6]
+    assert sorted(idxs[0].tolist()) == [0, 1, 2]
+
+
+def test_shuffle_idxs_refuse_a_label_without_examples() -> None:
+    train_y = torch.tensor([0, 0, 1, 1])
+    with pytest.raises(ValueError, match="Class 2 has no examples"):
+        eq.utils._get_shuffle_idxs_by_class(train_y, [0, 1, 2])
+
+
+def test_generate_support_refuses_indexes_of_another_label() -> None:
+    train_x = torch.rand(6, 2)
+    train_y = torch.tensor([0, 0, 0, 1, 1, 1])
+    with pytest.raises(ValueError, match="shuffled indexes for label 0"):
+        eq.utils.generate_support(
+            train_x, train_y, 2, [0], shuffled_indexes={0: torch.tensor([3, 4])}
+        )
+
+
+def test_generate_episode_names_a_large_integer_label_exactly() -> None:
+    train_x = torch.rand(9, 2)
+    train_y = torch.tensor([1234567] * 4 + [7] * 5)
+    with pytest.raises(ValueError, match="Class 1234567 has 4 examples"):
+        eq.utils.generate_episode(
+            train_x, train_y, support_size=4, way=2, episode_size=4
+        )
+
+
+def test_generate_episode_needs_a_query_example_per_class() -> None:
+    train_x = torch.rand(8, 2)
+    train_y = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+    with pytest.raises(ValueError, match="Class 0 has 4 examples"):
+        eq.utils.generate_episode(
+            train_x, train_y, support_size=4, way=2, episode_size=4
+        )

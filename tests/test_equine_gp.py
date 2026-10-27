@@ -386,3 +386,76 @@ def test_validation_metrics_may_be_a_generator() -> None:
     assert [len(values) for values in out["val_metrics"]] == [2, 2]
     # 64 rows in batches of 32, reset each epoch.
     assert [metric.update_count for metric in metrics] == [2, 2]
+
+
+def test_save_refuses_an_untrained_model(tmp_path) -> None:
+    model = eq.EquineGP(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES)
+    with pytest.raises(RuntimeError, match="has not been trained"):
+        model.save(str(tmp_path / "untrained.eq"))
+    assert not (tmp_path / "untrained.eq").exists()
+
+
+def test_predict_refuses_an_empty_batch() -> None:
+    model, _ = _gp_trained_on_cpu()
+    with pytest.raises(ValueError, match="X is empty"):
+        model.predict(torch.empty(0, FEATURES))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("-inf")], ids=["nan", "inf"])
+def test_predict_refuses_non_finite_embeddings(value) -> None:
+    model, _ = _gp_trained_on_cpu()
+    with pytest.raises(ValueError, match="embeddings of X hold NaN or infinite"):
+        model.predict(torch.full((3, FEATURES), value))
+
+
+class _ImputingEmbedding(torch.nn.Module):
+    """A linear embedding that reads a NaN feature as 0."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear = torch.nn.Linear(FEATURES, CLASSES)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear(torch.nan_to_num(x))
+
+
+def test_predict_accepts_nan_input_that_the_embedding_handles() -> None:
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    model = eq.EquineGP(_ImputingEmbedding(), CLASSES, CLASSES, num_random_features=16)
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    rows = x[:5].clone()
+    rows[:, 0] = float("nan")
+    expected = model.predict(torch.nan_to_num(rows))
+    out = model.predict(rows)
+    assert torch.equal(out.classes, expected.classes)
+    assert torch.equal(out.ood_scores, expected.ood_scores)
+
+
+def test_update_support_keeps_a_class_with_one_example() -> None:
+    model, x = _gp_trained_on_cpu()
+    y = torch.cat([torch.zeros(6), torch.ones(1)]).long()
+    model.update_support(x[:7], y, support_size=5)
+    assert [len(rows) for rows in model.get_support().values()] == [5, 1]
+
+
+def test_laplace_refuses_more_rows_than_num_data_in_one_epoch() -> None:
+    model, x = _gp_trained_on_cpu()
+    model.model.train()
+    model.model.reset_precision_matrix()
+    model.model(x[:120])
+    with pytest.raises(RuntimeError, match="Did not reset precision matrix"):
+        model.model(x[:1])
+
+
+def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:
+    model = eq.EquineGP(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES)
+    model.model.set_training_params(120, 32)
+    with pytest.raises(RuntimeError, match="Not seen sufficient data"):
+        model.predict(torch.rand(2, FEATURES))

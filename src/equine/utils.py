@@ -926,6 +926,42 @@ def _input_to_model(
     return X.to(device=device, dtype=param.dtype)
 
 
+def _require_examples(X: torch.Tensor) -> None:
+    """
+    Refuse an empty input batch.
+
+    Raises
+    ------
+    ValueError
+        If ``X`` has no elements.
+    """
+    if X.numel() == 0:
+        raise ValueError("X is empty; predict needs at least one example.")
+
+
+def _require_finite_embeddings(embeddings: torch.Tensor) -> None:
+    """
+    Refuse embeddings that hold a NaN or infinite value.
+
+    Raises
+    ------
+    ValueError
+        If ``embeddings`` holds a NaN or infinite value.
+    """
+    if not bool(torch.isfinite(embeddings).all()):
+        raise ValueError(
+            "The embeddings of X hold NaN or infinite values; check X and the "
+            "embedding model."
+        )
+
+
+def _label_text(label: Any) -> str:
+    """``label`` as text, with an integral float shown as an integer."""
+    if isinstance(label, float) and label.is_integer():
+        return str(int(label))
+    return str(label)
+
+
 def _require_device(
     settings: dict[str, Any],
     hint: str = "",
@@ -1523,10 +1559,17 @@ def _get_shuffle_idxs_by_class(
     -------
     dict[Any, torch.Tensor]
         Tensor of indices corresponding to each label.
+
+    Raises
+    ------
+    ValueError
+        If a label in ``selected_labels`` has no examples in ``train_y``.
     """
     shuffled_idxs_by_class = OrderedDict()
     for label in selected_labels:
-        label_idxs = torch.argwhere(train_y == label).squeeze()
+        label_idxs = torch.argwhere(train_y == label).reshape(-1)
+        if label_idxs.shape[0] == 0:
+            raise ValueError(f"Class {label} has no examples.")
         shuffled_idxs_by_class[label] = label_idxs[torch.randperm(label_idxs.shape[0])]
 
     return shuffled_idxs_by_class
@@ -1585,6 +1628,13 @@ def generate_support(
     -------
     OrderedDict[int, torch.Tensor]
         Ordered dictionary of class labels with corresponding support examples.
+
+    Raises
+    ------
+    ValueError
+        If ``shuffled_indexes`` is None and a selected class has fewer than
+        ``support_size`` examples, or ``shuffled_indexes`` for a label selects
+        no example or an example of another label.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
     if shuffled_indexes is None:
@@ -1599,9 +1649,11 @@ def generate_support(
     for label in selected_labels:
         shuffled_x = train_x[shuffled_idxs[label]]
 
-        assert torch.unique(train_y[shuffled_idxs[label]]).tolist() == [label], (
-            "Not enough support for label " + str(label)
-        )
+        if torch.unique(train_y[shuffled_idxs[label]]).tolist() != [label]:
+            raise ValueError(
+                f"The shuffled indexes for label {label} must select at least one "
+                "example, and only examples of that label."
+            )
         selected_support = shuffled_x[:support_size]
         support[int(label)] = selected_support
 
@@ -1649,6 +1701,12 @@ def generate_episode(
     -------
     tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
         tuple of support examples, query examples, and query labels.
+
+    Raises
+    ------
+    ValueError
+        If ``way`` exceeds the number of labels, or a selected class has no
+        more than ``support_size`` examples.
     """
     labels, counts = torch.unique(train_y, return_counts=True)
     if way > len(labels):
@@ -1660,9 +1718,12 @@ def generate_episode(
         labels[torch.randperm(labels.shape[0])][:way].tolist()
     )  # need to be in same order every time
 
-    for label, count in list(zip(labels, counts)):
-        if (label in selected_labels) and (count < support_size):
-            raise ValueError(f"Not enough support examples in class {label}")
+    for label, count in list(zip(labels.tolist(), counts.tolist())):
+        if (label in selected_labels) and (count <= support_size):
+            raise ValueError(
+                f"Class {_label_text(label)} has {count} examples; an episode needs "
+                f"more than support_size ({support_size})."
+            )
     shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
 
     support = generate_support(
@@ -1681,16 +1742,6 @@ def generate_episode(
         )  # need sequential labels for episode
 
         num_remaining_examples = shuffled_x.shape[0] - support_size
-        assert num_remaining_examples > 0, (
-            "Cannot have "
-            + str(num_remaining_examples)
-            + " left with support_size "
-            + str(support_size)
-            + " and shape "
-            + str(shuffled_x.shape)
-            + " from train_x shaped "
-            + str(train_x.shape)
-        )
         episode_end_idx = support_size + min(num_remaining_examples, examples_per_task)
 
         episode_data_list.append(shuffled_x[support_size:episode_end_idx])

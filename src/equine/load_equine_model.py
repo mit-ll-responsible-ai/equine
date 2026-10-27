@@ -2,7 +2,6 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
-import sys
 from typing import Optional
 
 import torch
@@ -11,14 +10,13 @@ from .equine import Equine
 from .equine_gp import EquineGP
 from .equine_protonet import EquineProtonet
 from .registry import _truncate
-from .utils import _load_checkpoint_for_device
+from .utils import _load_checkpoint_for_device, _refuse_torchscript
 
 
 def load_equine_model(
     model_path: str,
     device: Optional[str] = None,
     *,
-    trust_executable: bool = False,
     embedding_model: Optional[torch.nn.Module] = None,
 ) -> Equine:
     """
@@ -31,10 +29,6 @@ def load_equine_model(
     device : Optional[str]
         The device to load the model onto. Overrides the device recorded in
         the file; by default the model lands on the saved device.
-    trust_executable : bool, optional
-        Keyword-only. Permit running the TorchScript module embedded in a file
-        saved with ``allow_executable=True``; keeping that module as the
-        embedding emits a ``FutureWarning``. Defaults to False.
     embedding_model : Optional[torch.nn.Module]
         Keyword-only. Use this module as the embedding architecture instead of
         rebuilding it from the file's recipe; the file's weights are loaded
@@ -50,21 +44,20 @@ def load_equine_model(
     ValueError
         If the model type is missing or unknown, the file is not in the
         current EQUINE format (files from earlier releases must first be
-        rewritten with ``python -m equine.upgrade``), its recipe names an
-        unregistered architecture, or it contains executable content without
-        ``trust_executable``. If ``device`` is unavailable here, names an
+        rewritten with ``python -m equine.upgrade``), it stores its embedding
+        model as TorchScript, or its recipe names an unregistered architecture.
+        If ``device`` is unavailable here, names an
         index at or above its device count, or lacks a dtype the file holds
         (float64 on MPS: load such a file with ``device="cpu"``).
 
     Notes
     -----
-    The file is read with restricted unpickling (see ``utils.load_checkpoint``).
-    A recipe file (the default ``save()`` output) contains no executable
-    content: its embedding model is rebuilt through the architecture registry.
-    Files saved with ``allow_executable=True`` embed a TorchScript module, which
-    is executable code, and need ``trust_executable=True``.
+    Loading runs no code from the file: it is read with restricted unpickling (see
+    ``utils.load_checkpoint``) and its embedding model is rebuilt through the
+    architecture registry.
     """
     model_save = _load_checkpoint_for_device(model_path, device)
+    _refuse_torchscript(model_save, model_path)
     summary = model_save.get("train_summary")
     model_type = summary.get("modelType") if isinstance(summary, dict) else None
     if not isinstance(model_type, str):
@@ -79,10 +72,5 @@ def load_equine_model(
     if model_type not in classes:
         raise ValueError(f"Unknown model type {_truncate(repr(model_type), 80)}")
     return classes[model_type]._from_checkpoint(
-        model_save,
-        device,
-        trust_executable=trust_executable,
-        embedding_model=embedding_model,
-        # _from_checkpoint, behind a beartype wrapper (none under -O).
-        _stacklevel=3 + (0 if sys.flags.optimize else 1),
+        model_save, device, embedding_model=embedding_model
     )

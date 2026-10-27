@@ -7,18 +7,14 @@ import icontract
 import numpy as np
 import pytest
 import torch
+from conftest import script_module
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
 
 
 class _NoAnnotationModel(torch.nn.Module):
-    """An nn.Module that declares no class-level annotations.
-
-    On Python 3.14 such a module cannot be passed to ``torch.jit.script``
-    without ``prepare_jit_module`` first materializing its instance
-    ``__annotations__`` (see PEP 649/749).
-    """
+    """An nn.Module whose class declares no annotations."""
 
     def __init__(self, in_dim: int, out_dim: int) -> None:
         super().__init__()
@@ -244,15 +240,11 @@ def test_stratified_split_imbalanced_classes():
     batch=st.integers(min_value=1, max_value=8),
 )
 @settings(deadline=None, max_examples=5)
-def test_prepare_jit_module_makes_module_scriptable(in_dim, out_dim, batch):
-    # Regression test for Python 3.14 (PEP 649/749): a module with no
-    # class-level annotations must remain compatible with torch.jit.script
-    # after prepare_jit_module, which is what EquineGP/EquineProtonet.save use.
+def test_script_module_scripts_a_module_without_class_annotations(
+    in_dim, out_dim, batch
+):
     model = _NoAnnotationModel(in_dim, out_dim)
-    returned = eq.utils.prepare_jit_module(model)
-    assert returned is model  # returned for convenient inline use
-
-    scripted = torch.jit.script(model)  # must not raise on Python 3.14
+    scripted = script_module(model)
     x = torch.rand(batch, in_dim)
     assert torch.allclose(scripted(x), model(x))
 

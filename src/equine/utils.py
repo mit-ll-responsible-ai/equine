@@ -206,7 +206,9 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
         Filename of the saved model.
     map_location : Optional[str]
         Device to move the loaded tensors to; with None they stay on the CPU,
-        whatever device they were saved from.
+        whatever device they were saved from. It must name the CPU or an
+        accelerator available on this machine, with an index below its device count;
+        anything else, ``meta`` included, is refused before the file is opened.
 
     Returns
     -------
@@ -216,14 +218,19 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
     Raises
     ------
     ValueError
-        If torch is older than 2.6, if the file is not in the current format
-        (not a zip archive, pickled objects, or no ``equine_format_version``),
-        if it declares a format version this EQUINE does not know, or if its
-        layout could exhaust memory (compressed or oversized entries, a pickle
-        global ``save`` does not write, no dictionary at the top level, a set, a
-        tensor whose storage is smaller than its shape, storages that overlap in
-        the file, aliased support/KDE tensors).
+        If ``map_location`` names a device this machine cannot build on, or an
+        accelerator without a dtype the file holds (float64 on MPS). If torch
+        is older than 2.6, if the file is not in the current format (not a zip
+        archive, pickled objects, or no ``equine_format_version``), if it
+        declares a format version this EQUINE does not know, or if its layout
+        could exhaust memory (compressed or oversized entries, a pickle global
+        ``save`` does not write, no dictionary at the top level, a set, a tensor
+        whose storage is smaller than its shape, storages that overlap in the
+        file, aliased support/KDE tensors).
     """
+    if map_location is not None:
+        # Checked before the file is opened.
+        _require_device({"device": map_location}, what="The requested device")
     if _torch_version() < _MIN_SAFE_TORCH:
         raise ValueError(_OLD_TORCH_ERROR.format(version=torch.__version__))
     if not _check_zip_archive(path):
@@ -251,7 +258,26 @@ def load_checkpoint(path: str, map_location: Optional[str] = None) -> dict[str, 
         raise ValueError(_ALIASED_SUPPORT_ERROR)
     if "equine_format_version" not in checkpoint:
         raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
+    if map_location is not None:
+        _require_supported_dtypes(tensors, torch.device(map_location))
     _copy_off_the_file(tensors, map_location)
+    return checkpoint
+
+
+def _load_checkpoint_for_device(path: str, device: Optional[str]) -> dict[str, Any]:
+    """
+    ``load_checkpoint(path)`` for a model loader that builds on ``device``.
+
+    The tensors stay on the CPU; the loader builds the model from them and
+    moves it to ``device``. An explicit ``device`` is checked as
+    ``map_location`` is: before the file is opened, and against the dtypes
+    of the tensors the file holds.
+    """
+    if device is not None:
+        _require_device({"device": device}, what="The requested device")
+    checkpoint = load_checkpoint(path)
+    if device is not None:
+        _require_supported_dtypes(_unique_tensors(checkpoint), torch.device(device))
     return checkpoint
 
 
@@ -627,6 +653,25 @@ def _unalias_support(checkpoint: dict[str, Any]) -> None:
         checkpoint[key] = copied
 
 
+def _require_supported_dtypes(
+    tensors: list[torch.Tensor], device: torch.device
+) -> None:
+    """
+    Refuse ``tensors`` if ``device`` lacks one of their dtypes (MPS has no float64).
+
+    A file saved from a float64 model, or holding float64 support, loads onto
+    MPS only with ``device="cpu"``.
+    """
+    for dtype in dict.fromkeys(tensor.dtype for tensor in tensors):
+        try:
+            torch.empty(0, dtype=dtype, device=device)
+        except (TypeError, RuntimeError) as err:
+            raise ValueError(
+                f"Model file holds a {str(dtype).removeprefix('torch.')} tensor, "
+                f"which {device.type} does not support; load it with device='cpu'"
+            ) from err
+
+
 def _copy_off_the_file(
     tensors: list[torch.Tensor], map_location: Optional[str]
 ) -> None:
@@ -932,13 +977,38 @@ def _shown(value: Any) -> str:
     return f"a {type(value).__name__}"
 
 
-def _require_device(settings: dict[str, Any], hint: str = "") -> None:
+def _input_to_model(
+    X: torch.Tensor, module: torch.nn.Module, device: str
+) -> torch.Tensor:
+    """
+    Move ``X`` to ``device`` for ``module``, casting a floating input to its dtype.
+
+    A floating-point input is cast to the dtype of the module's first registered
+    parameter (a mixed-dtype module follows whichever parameter is registered first). A
+    non-floating input (integer indices for an ``nn.Embedding``, booleans) keeps its
+    dtype and is only moved, as is any input to a module without parameters.
+    """
+    param = next(module.parameters(), None)
+    if param is None or not X.is_floating_point():
+        return X.to(device=device)
+    return X.to(device=device, dtype=param.dtype)
+
+
+def _require_device(
+    settings: dict[str, Any],
+    hint: str = "",
+    what: str = "Model file's settings['device']",
+) -> None:
     """
     Refuse a file's ``settings["device"]`` unless this machine can build on it.
 
-    It must name a torch device that is the CPU or an accelerator available
-    here; ``meta`` (no data) is refused. ``hint`` is appended to the message
-    for an unavailable device.
+    It must name a torch device that is the CPU or an accelerator available here, with
+    an index below that accelerator's device count when it has one (``cuda:7`` on a one-
+    GPU machine, or ``mps:1``, is refused); ``meta`` is refused. ``hint`` is appended to
+    the message for an unavailable device or index. ``what`` opens every message and
+    names the value being checked (``load_checkpoint`` and
+    ``_load_checkpoint_for_device`` pass "The requested device" for a caller's
+    ``map_location`` or ``device``).
     """
     if "device" not in settings:
         return
@@ -949,16 +1019,12 @@ def _require_device(settings: dict[str, Any], hint: str = "") -> None:
         device = torch.device(value)
     except (TypeError, ValueError, RuntimeError) as err:
         raise ValueError(
-            f"Model file's settings['device'] is not a torch device name "
-            f"({_shown(value)})."
+            f"{what} is not a torch device name ({_shown(value)})."
         ) from err
     if device.type == "cpu":
         return
     if device.type == "meta":
-        raise ValueError(
-            "Model file's settings['device'] is 'meta', which holds no data; "
-            "refusing to load."
-        )
+        raise ValueError(f"{what} is 'meta', which holds no data; refusing to load.")
     try:
         is_available = getattr(torch.get_device_module(device.type), "is_available")
         available = bool(is_available())
@@ -966,9 +1032,18 @@ def _require_device(settings: dict[str, Any], hint: str = "") -> None:
         available = False
     if not available:
         raise ValueError(
-            f"Model file's settings['device'] ({_shown(value)}) is not available on "
-            f"this machine{hint}."
+            f"{what} ({_shown(value)}) is not available on this machine{hint}."
         )
+    if device.index is not None:
+        device_count = getattr(
+            torch.get_device_module(device.type), "device_count", None
+        )
+        count = device_count() if device_count is not None else None
+        if count is not None and device.index >= count:
+            raise ValueError(
+                f"{what} ({_shown(value)}) names device index {device.index}, but "
+                f"this machine has {count} {device.type} device(s){hint}."
+            )
 
 
 def _int_label(label: Any) -> Optional[int]:
@@ -1450,7 +1525,7 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     y_hat : torch.Tensor
         Probabilities for each class.
     y_test : torch.Tensor
-        Integer argument class labels (ground truth).
+        Integer argument class labels (ground truth), moved to ``y_hat``'s device.
 
     Returns
     -------
@@ -1458,7 +1533,9 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
         Brier score.
     """
     _, num_classes = y_hat.size()
-    one_hot_y_test = torch.nn.functional.one_hot(y_test.long(), num_classes=num_classes)
+    one_hot_y_test = torch.nn.functional.one_hot(
+        y_test.to(y_hat.device).long(), num_classes=num_classes
+    )
     bs = torch.mean(torch.sum((y_hat - one_hot_y_test) ** 2, dim=1)).item()
     return bs
 
@@ -1475,7 +1552,7 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     y_hat : torch.Tensor
         Probabilities for each class.
     y_test : torch.Tensor
-        Integer argument class labels (ground truth).
+        Integer argument class labels (ground truth), moved to ``y_hat``'s device.
 
     Returns
     -------
@@ -1483,7 +1560,7 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
         Brier skill score.
     """
     _, num_classes = y_hat.size()
-    random_guess = (1.0 / num_classes) * torch.ones(y_hat.size())
+    random_guess = (1.0 / num_classes) * torch.ones(y_hat.size(), device=y_hat.device)
     bs0 = brier_score(random_guess, y_test)
     bs1 = brier_score(y_hat, y_test)
     bss = 1.0 - bs1 / bs0
@@ -1502,7 +1579,7 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     y_hat : torch.Tensor
         Probabilities for each class.
     y_test : torch.Tensor
-        Class label indices (ground truth).
+        Class label indices (ground truth), moved to ``y_hat``'s device.
 
     Returns
     -------
@@ -1511,7 +1588,7 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     """
     _, num_classes = y_hat.size()
     metric = MulticlassCalibrationError(num_classes=num_classes, n_bins=25, norm="l1")
-    ece = metric(y_hat, y_test).item()
+    ece = metric.to(y_hat.device)(y_hat, y_test.to(y_hat.device)).item()
     return ece
 
 
@@ -1735,17 +1812,24 @@ def generate_model_metrics(
     eq_preds : EquineOutput
         Model predictions.
     true_y : torch.Tensor
-        True class labels.
+        True class labels, moved to the device of ``eq_preds.classes``, where
+        the metrics are computed.
 
     Returns
     -------
     dict[str, Any]
         Dictionary of model metrics.
     """
+    device = eq_preds.classes.device
+    true_y = true_y.to(device)
     pred_y = torch.argmax(eq_preds.classes, dim=1)
-    accuracy = MulticlassAccuracy(num_classes=eq_preds.classes.shape[1])
-    f1_score = MulticlassF1Score(num_classes=eq_preds.classes.shape[1], average="micro")
-    confusion_matrix = MulticlassConfusionMatrix(num_classes=eq_preds.classes.shape[1])
+    accuracy = MulticlassAccuracy(num_classes=eq_preds.classes.shape[1]).to(device)
+    f1_score = MulticlassF1Score(
+        num_classes=eq_preds.classes.shape[1], average="micro"
+    ).to(device)
+    confusion_matrix = MulticlassConfusionMatrix(
+        num_classes=eq_preds.classes.shape[1]
+    ).to(device)
     metrics = {
         "accuracy": accuracy(true_y, pred_y),
         "microF1Score": f1_score(true_y, pred_y),

@@ -19,12 +19,14 @@ from scipy.stats import gaussian_kde
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from .equine import Equine, EquineOutput
+from .equine import Equine, EquineOutput, _apply_to_stored_tensors
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
     _checked_settings,
     _embedding_checkpoint,
+    _input_to_model,
+    _load_checkpoint_for_device,
     _outlier_kde_from_file,
     _plain_names,
     _plain_train_summary,
@@ -38,7 +40,6 @@ from .utils import (
     generate_episode,
     generate_support,
     generate_train_summary,
-    load_checkpoint,
     mahalanobis_distance_nosq,
     stratified_train_test_split,
 )
@@ -121,6 +122,20 @@ class Protonet(torch.nn.Module):
         self.model_head: torch.nn.Module = self.create_model_head(emb_out_dim)
         self.model_head.to(device)
 
+    def _apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
+    ) -> Protonet:
+        """
+        ``nn.Module._apply``, extended to the support, its embeddings, the prototypes and the covariances.
+
+        ``to``, ``cpu``, ``cuda`` and the dtype casts call it. Moving the model moves
+        every tensor the Protonet keeps and updates its ``device`` (see
+        ``equine._apply_to_stored_tensors``).
+        """
+        super()._apply(fn, recurse)
+        _apply_to_stored_tensors(self, fn, recurse)
+        return self
+
     def create_model_head(self, emb_out_dim: int) -> torch.nn.Identity:
         """
         Method for adding a PyTorch layer on top of the given embedding model. This layer
@@ -152,7 +167,8 @@ class Protonet(torch.nn.Module):
         torch.Tensor
             Fully computed embedding tensors for the given X tensor.
         """
-        model_embeddings = self.embedding_model(X.to(self.device))
+        X = _input_to_model(X, self.embedding_model, self.device)
+        model_embeddings = self.embedding_model(X)
         head_embeddings = self.model_head(model_embeddings)
         return head_embeddings
 
@@ -232,7 +248,7 @@ class Protonet(torch.nn.Module):
         elif cov_type == CovType.DIAGONAL:
             class_covariance = torch.var(embedding, dim=0)
         elif cov_type == CovType.UNIT:
-            class_covariance = torch.ones(self.emb_out_dim)
+            class_covariance = torch.ones(self.emb_out_dim, device=self.device)
         else:
             raise ValueError
 
@@ -324,9 +340,11 @@ class Protonet(torch.nn.Module):
         total_support = sum([x.shape[0] for x in class_cov_dict.values()])
 
         if cov_type == CovType.FULL:
-            shared_covariance = torch.zeros((self.emb_out_dim, self.emb_out_dim))
+            shared_covariance = torch.zeros(
+                (self.emb_out_dim, self.emb_out_dim), device=self.device
+            )
         elif cov_type == CovType.DIAGONAL:
-            shared_covariance = torch.zeros(self.emb_out_dim)
+            shared_covariance = torch.zeros(self.emb_out_dim, device=self.device)
         else:
             raise ValueError(
                 "Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types"
@@ -438,11 +456,16 @@ class Protonet(torch.nn.Module):
         support : OrderedDict
             Ordered dict containing class labels and their associated support examples.
         """
-        self.support = support  # TODO torch.nn.ParameterDict(support)
+        # Through the model boundary: on the device and, for floating support, in the
+        # embedding's dtype.
+        self.support = OrderedDict(
+            (label, _input_to_model(x, self.embedding_model, self.device))
+            for label, x in support.items()
+        )  # TODO torch.nn.ParameterDict(support)
 
         support_embs = OrderedDict().fromkeys(support.keys(), torch.Tensor())
-        for label in support:
-            support_embs[label] = self.compute_embeddings(support[label])
+        for label in self.support:
+            support_embs[label] = self.compute_embeddings(self.support[label])
 
         self.support_embeddings = (
             support_embs  # TODO torch.nn.ParameterDict(support_embs)
@@ -547,6 +570,8 @@ class EquineProtonet(Equine):
             self.epsilon,
             device=device,
         )
+        # Moves the temperature buffer onto the model's device.
+        self.to(self.device)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -607,15 +632,20 @@ class EquineProtonet(Equine):
 
         Returns
         -------
-        tuple[dict[str, Any], torch.Tensor, torch.Tensor]
-            A tuple containing the model summary, the held out calibration data, and the calibration labels.
+        dict[str, Any]
+            ``"train_summary"``: the training summary (also kept as
+            ``self.train_summary``); ``"calib_x"`` and ``"calib_y"``: the held
+            out calibration data and labels as split from ``dataset`` (on its
+            device and in its dtypes; the copies moved to the model device are
+            internal).
         """
         self.train()
 
         if self.use_temperature:
-            self.temperature: torch.Tensor = torch.Tensor(
-                self.init_temperature * torch.ones(1)
-            ).type_as(self.temperature)
+            # Rounded through the default dtype, then widened to the buffer's dtype.
+            self.temperature: torch.Tensor = torch.full(
+                (1,), self.init_temperature, device=self.temperature.device
+            ).to(self.temperature.dtype)
 
         X, Y = dataset[:]
 
@@ -626,10 +656,11 @@ class EquineProtonet(Equine):
         )
         optimizer = opt_class(self.parameters())
 
-        train_x.to(self.device)
-        train_y.to(self.device)
-        calib_x.to(self.device)
-        calib_y.to(self.device)
+        # Episodes and the support are sampled from train_x/train_y on the
+        # dataset's device and cross to self.device at the model boundary. The
+        # model uses the calibration split on self.device; the caller's is returned.
+        model_calib_x = _input_to_model(calib_x, self.embedding_model, self.device)
+        model_calib_y = calib_y.to(self.device)
 
         for i in tqdm(range(num_episodes)):
             optimizer.zero_grad()
@@ -658,14 +689,14 @@ class EquineProtonet(Equine):
             full_support
         )  # update support with final selected examples
 
-        X_embed = self.model.compute_embeddings(calib_x)
-        pred_probs, dists = self.model(calib_x)
+        X_embed = self.model.compute_embeddings(model_calib_x)
+        pred_probs, dists = self.model(model_calib_x)
         ood_dists = self._compute_ood_dist(X_embed, pred_probs, dists)
-        self._fit_outlier_scores(ood_dists, calib_y)
+        self._fit_outlier_scores(ood_dists, model_calib_y)
 
         if self.use_temperature:
             self.calibrate_temperature(
-                calib_x, calib_y, num_calibration_epochs, calibration_lr
+                model_calib_x, model_calib_y, num_calibration_epochs, calibration_lr
             )
 
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -812,7 +843,8 @@ class EquineProtonet(Equine):
         Parameters
         ----------
         X : torch.Tensor
-            Input tensor.
+            Input tensor. It is moved to the model device and cast to the embedding
+            model's parameter dtype; a float64 input to a float32 model is accepted.
 
         Returns
         -------
@@ -997,7 +1029,8 @@ class EquineProtonet(Equine):
         path : str
             The filename of the saved model.
         device : Optional[str]
-            The device to load the model onto.
+            The device to load the model onto. Overrides the device recorded
+            in the file; by default the model lands on the saved device.
         trust_executable : bool, optional
             Keyword-only. Permit running the TorchScript module embedded in a
             file saved with ``allow_executable=True`` or rewritten by
@@ -1022,9 +1055,11 @@ class EquineProtonet(Equine):
             If the file is not in the current EQUINE format (files from earlier
             releases must first be rewritten with ``python -m equine.upgrade``),
             names an unregistered architecture, or contains executable content
-            without trust.
+            without trust. If ``device`` is unavailable here, names an index at
+            or above its device count, or lacks a dtype the file holds (float64
+            on MPS: load such a file with ``device="cpu"``).
         """
-        model_save = load_checkpoint(path, map_location=device)
+        model_save = _load_checkpoint_for_device(path, device)
         return cls._from_checkpoint(
             model_save,
             device,

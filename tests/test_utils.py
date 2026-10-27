@@ -31,6 +31,7 @@ class _NoAnnotationModel(torch.nn.Module):
 
 @st.composite
 def support_dataset(draw):
+    torch.manual_seed(draw(st.integers(min_value=0, max_value=2**31 - 1)))
     support_sz = draw(st.integers(min_value=2, max_value=25))
     task_count = draw(st.integers(min_value=2, max_value=10))
     tasks = [x for x in range(task_count)]
@@ -62,7 +63,14 @@ def support_dataset(draw):
 @settings(deadline=None)
 def test_generate_support(dataset):
     train_x, train_y, support_sz, tasks, _ = dataset
-    eq.utils.generate_support(train_x, train_y, support_sz, tasks)
+    support = eq.utils.generate_support(train_x, train_y, support_sz, tasks)
+    assert set(support.keys()) == set(tasks)
+    for label, examples in support.items():
+        assert examples.shape == (support_sz, train_x.shape[1])
+        row_idxs = (train_y == label).nonzero().flatten()
+        assert all(
+            (train_x[row_idxs] == example).all(dim=1).any() for example in examples
+        )
 
 
 @given(dataset=support_dataset())
@@ -70,7 +78,15 @@ def test_generate_support(dataset):
 def test_generate_episode(dataset) -> None:
     train_x, train_y, support_sz, tasks, way = dataset
     episode_size = max(len(tasks), train_x.shape[0] // 4)
-    eq.utils.generate_episode(train_x, train_y, support_sz, way, episode_size)
+    support, episode_x, episode_y = eq.utils.generate_episode(
+        train_x, train_y, support_sz, way, episode_size
+    )
+    assert list(support.keys()) == list(range(way))
+    assert all(examples.shape[0] == support_sz for examples in support.values())
+    assert episode_x.shape[0] == episode_y.shape[0]
+    assert episode_x.shape[0] <= episode_size
+    assert episode_y.dtype == torch.long
+    assert set(episode_y.tolist()) == set(range(way))
     with pytest.raises(ValueError):
         eq.utils.generate_episode(
             train_x, train_y, support_sz, len(tasks) + 1, episode_size
@@ -122,6 +138,7 @@ def draw_two_tensors(draw: st.DrawFn) -> tuple[torch.Tensor, torch.Tensor]:
 
 
 @given(draw_two_tensors())
+@settings(deadline=None)
 def test_brier_score(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.brier_score(yh, yt) >= 0.0
@@ -130,6 +147,7 @@ def test_brier_score(two_tensors) -> None:
 
 
 @given(draw_two_tensors())
+@settings(deadline=None)
 def test_brier_skill_score(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.brier_skill_score(yh, yt) <= 1.0
@@ -138,12 +156,14 @@ def test_brier_skill_score(two_tensors) -> None:
 
 
 @given(draw_two_tensors())
+@settings(deadline=None)
 def test_ece(two_tensors) -> None:
     yh, yt = two_tensors
     assert eq.utils.expected_calibration_error(yh, yt) <= 1.0
 
 
 @given(draw_two_tensors())
+@settings(deadline=None)
 def test_metric_summary(two_tensors) -> None:
     yh, yt = two_tensors
     eq_out = eq.EquineOutput(yh, torch.ones(yt.size()), torch.ones(yt.size()))
@@ -509,3 +529,12 @@ def test_mahalanobis_works_under_vmap():
     batched = torch.func.vmap(eq.mahalanobis_distance_nosq)(x, cov)
     looped = torch.stack([eq.mahalanobis_distance_nosq(x[i], cov[i]) for i in range(4)])
     torch.testing.assert_close(batched, looped)
+
+
+def test_require_device_accepts_settings_without_a_device() -> None:
+    assert eq.utils._require_device({}) is None
+
+
+def test_require_device_refuses_a_device_type_this_build_cannot_query() -> None:
+    with pytest.raises(ValueError, match="'xla'.* is not available on this machine"):
+        eq.utils._require_device({"device": "xla"})

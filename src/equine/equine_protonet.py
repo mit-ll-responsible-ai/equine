@@ -8,7 +8,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import icontract
 import numpy as np
@@ -547,8 +547,8 @@ class EquineProtonet(Equine):
         use_temperature: bool = False,
         init_temperature: float = 1.0,
         device: str = "cpu",
-        feature_names: Optional[list[str]] = None,
-        label_names: Optional[list[str]] = None,
+        feature_names: list[str] | None = None,
+        label_names: list[str] | None = None,
     ) -> None:
         """
         EquineProtonet class constructor
@@ -914,7 +914,7 @@ class EquineProtonet(Equine):
         support_x: torch.Tensor,
         support_y: torch.Tensor,
         calib_frac: float,
-        label_names: Optional[list[str]] = None,
+        label_names: list[str] | None = None,
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -1044,9 +1044,9 @@ class EquineProtonet(Equine):
     def load(
         cls,
         path: str,
-        device: Optional[str] = None,
+        device: str | None = None,
         *,
-        embedding_model: Optional[torch.nn.Module] = None,
+        embedding_model: torch.nn.Module | None = None,
     ) -> Equine:
         """
         Load a previously saved EquineProtonet model.
@@ -1059,10 +1059,10 @@ class EquineProtonet(Equine):
         ----------
         path : str
             The filename of the saved model.
-        device : Optional[str]
+        device : str | None
             The device to load the model onto. Overrides the device recorded
             in the file; by default the model lands on the saved device.
-        embedding_model : Optional[torch.nn.Module]
+        embedding_model : torch.nn.Module | None
             Keyword-only. Use this module as the embedding architecture instead
             of rebuilding it from the file's recipe; the file's weights are
             loaded into it, and its floating-point tensors take their stored
@@ -1091,8 +1091,8 @@ class EquineProtonet(Equine):
     def _from_checkpoint(
         cls,
         model_save: dict[str, Any],
-        device: Optional[str] = None,
-        embedding_model: Optional[torch.nn.Module] = None,
+        device: str | None = None,
+        embedding_model: torch.nn.Module | None = None,
     ) -> Equine:
         """
         Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.
@@ -1101,9 +1101,9 @@ class EquineProtonet(Equine):
         ----------
         model_save : dict[str, Any]
             The dictionary returned by ``utils.load_checkpoint``.
-        device : Optional[str]
+        device : str | None
             Device override for the reconstituted model.
-        embedding_model : Optional[torch.nn.Module]
+        embedding_model : torch.nn.Module | None
             Use this module as the embedding architecture instead of the file's
             recipe; the file's weights are loaded into it, and its
             floating-point tensors take their stored dtypes.

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
 from itertools import chain
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 import icontract
 import torch
@@ -46,7 +46,7 @@ def _eval_mode(module: torch.nn.Module):
 AnyEquine = TypeVar("AnyEquine", bound="Equine")
 
 
-def _named_device(name: str) -> Optional[torch.device]:
+def _named_device(name: str) -> torch.device | None:
     """The device a tensor created with ``device=name`` lands on; None if this process has no such device."""
     try:
         return torch.empty(0, dtype=torch.uint8, device=name).device
@@ -150,8 +150,8 @@ class Equine(torch.nn.Module, ABC):
         embedding_model: torch.nn.Module,
         head_layers: int = 1,
         device: str = "cpu",
-        feature_names: Optional[list[str]] = None,
-        label_names: Optional[list[str]] = None,
+        feature_names: list[str] | None = None,
+        label_names: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.embedding_model = embedding_model
@@ -285,26 +285,26 @@ class Equine(torch.nn.Module, ABC):
         """
         raise NotImplementedError
 
-    def get_label_names(self) -> Optional[list[str]]:
+    def get_label_names(self) -> list[str] | None:
         """
         Retrieve the label names used in the model.
 
         Returns
         -------
-        Optional[list[str]]
+        list[str] | None
             A list of label names if available; otherwise, None.
         """
         if hasattr(self, "label_names"):
             return self.label_names
         return None
 
-    def get_feature_names(self) -> Optional[list[str]]:
+    def get_feature_names(self) -> list[str] | None:
         """
         Retrieve the feature names used in the model.
 
         Returns
         -------
-        Optional[list[str]]
+        list[str] | None
             A list of feature names if available; otherwise, None.
         """
         if hasattr(self, "feature_names"):

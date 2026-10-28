@@ -639,16 +639,19 @@ class EquineGP(Equine):
 
         Parameters
         ----------
-        dataset : TensorDataset
-            An iterable, pytorch TensorDataset.
+        dataset : Dataset
+            The training data. ``dataset[:]`` must return the ``(inputs, labels)``
+            tensors, as it does for a ``TensorDataset``, a ``Subset`` of one or a
+            part returned by ``random_split``. ``vis_support=True`` needs a
+            ``TensorDataset`` (``dataset.tensors``).
         loss_fn : Callable
             A pytorch loss function, e.g., torch.nn.CrossEntropyLoss().
         opt : torch.optim.Optimizer
             A pytorch optimizer, e.g., torch.optim.Adam().
         num_epochs : int
             The desired number of epochs to use for training.
-        scheduler : torch.optim.LRScheduler
-            A pytorch scheduler, if one is desired
+        scheduler : torch.optim.lr_scheduler.LRScheduler, optional
+            A pytorch scheduler, stepped once after each epoch's training pass.
         validation_dataset: Dataset
             If provided, will compute validation metrics on this dataset after each epoch of training
         val_metrics : Iterable[Metric], optional
@@ -657,6 +660,12 @@ class EquineGP(Equine):
             before each epoch's validation pass.
         batch_size : int, optional
             The number of samples to use per batch.
+        vis_support : bool, optional
+            If True, calls ``update_support`` with the training tensors after the
+            last epoch. Requires a ``TensorDataset``.
+        support_size : int, optional
+            Maximum number of support examples per class that ``update_support``
+            keeps when ``vis_support`` is True.
 
         Returns
         -------
@@ -860,7 +869,7 @@ class EquineGP(Equine):
 
         Returns
         -------
-            OrderedDict[int, torch.Tensor]
+        OrderedDict[int, torch.Tensor]
             Dictionary containing support examples for each class.
         """
         return self.support
@@ -887,16 +896,22 @@ class EquineGP(Equine):
         calibration_batch_size: int = 256,
     ) -> None:
         """
-        Fine-tune the temperature after training. Note this function is also run at the conclusion of train_model.
+        Fine-tune the temperature on ``dataset``.
+
+        ``train_model`` does not call this method; ``temperature`` stays at
+        ``init_temperature`` until it is called.
 
         Parameters
         ----------
-        dataset : TensorDataset
-            An iterable, pytorch TensorDataset.
+        dataset : Dataset
+            A map-style pytorch ``Dataset`` (with ``__len__``) of
+            ``(input, label)`` pairs.
         num_calibration_epochs : int, optional
             Number of epochs to tune temperature.
         calibration_lr : float, optional
             Learning rate for temperature optimization.
+        calibration_batch_size : int, optional
+            Batch size of the calibration data loader.
         """
 
         calibration_loader = DataLoader(
@@ -947,7 +962,7 @@ class EquineGP(Equine):
         Returns
         -------
         torch.Tensor
-            Output probabilities computed.
+            Logits divided by ``temperature``, shape (examples, classes).
         """
         logits, _ = self._forward_with_embeddings(X)
         return logits

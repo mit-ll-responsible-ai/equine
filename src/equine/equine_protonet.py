@@ -154,8 +154,8 @@ class Protonet(torch.nn.Module):
 
         Returns
         -------
-        torch.nn.Linear
-            The created PyTorch model layer.
+        torch.nn.Identity
+            The model head: an identity layer.
         """
         return torch.nn.Identity()  # (emb_out_dim, emb_out_dim)
 
@@ -239,7 +239,7 @@ class Protonet(torch.nn.Module):
 
         Parameters
         ----------
-        cov_type : str
+        cov_type : CovType
             Type of covariance to use. Options are ['unit', 'diag', 'full'].
         embedding : torch.Tensor
             Embedding tensor to use when generating the covariance matrix.
@@ -286,10 +286,12 @@ class Protonet(torch.nn.Module):
             A dictionary containing each class and the corresponding covariance matrix.
         cov_type : CovType
             Type of covariance to use [unit, diag, full].
+        cov_reg_type : str
+            Regularization type: ``"epsilon"`` or ``"shared"``.
 
         Returns
         -------
-        dict[float, torch.Tensor]
+        OrderedDict[int, torch.Tensor]
             Dictionary containing the regularized class covariance matrices.
         """
 
@@ -430,7 +432,7 @@ class Protonet(torch.nn.Module):
         Returns
         -------
         torch.Tensor
-            Tensor of class predictions.
+            Class probabilities: the softmax of the negated distances.
         """
         softmax = torch.nn.functional.softmax(torch.neg(distances), dim=-1)
         return softmax
@@ -697,7 +699,7 @@ class EquineProtonet(Equine):
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
-        Generates logits for classification based on the input tensor.
+        Generates class probabilities based on the input tensor.
 
         Parameters
         ----------
@@ -707,7 +709,8 @@ class EquineProtonet(Equine):
         Returns
         -------
         torch.Tensor
-            The output class predictions.
+            Class probabilities: the softmax of the negated distances to the
+            class prototypes.
 
         Raises
         ------
@@ -876,7 +879,8 @@ class EquineProtonet(Equine):
         calibration_lr: float = 0.01,
     ) -> None:
         """
-        Fine-tune the temperature after training. Note that this function is also run at the conclusion of train_model.
+        Fine-tune the temperature on the given examples. ``train_model`` calls this
+        method when ``use_temperature`` is True.
 
         Parameters
         ----------
@@ -1192,7 +1196,7 @@ class EquineProtonet(Equine):
 
         Returns
         -------
-            OrderedDict[int, torch.Tensor]
+        OrderedDict[int, torch.Tensor]
             The support examples for the model.
         """
         return self.model.support

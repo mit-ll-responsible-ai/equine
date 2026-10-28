@@ -175,6 +175,29 @@
   `ValueError`. `EquineGP` files saved by EQUINE 0.1.5 or earlier store
   `use_temperature`, which EquineGP has not accepted since 0.1.6 (such files
   failed to load); `equine.upgrade` drops it, and predictions are unchanged.
+- **Protonet OOD statistic.** With `relative_mahal=True` (the
+  default), a new `EquineProtonet` scores OOD on the squared Mahalanobis
+  distance to the predicted class's prototype minus the squared Mahalanobis
+  distance to the mean of the support embeddings; EQUINE 0.1.8 subtracted the
+  distances themselves. The squared distances are computed without the
+  temperature, like the distances the outlier-score KDEs are fitted on; with
+  `use_temperature=True` the temperature still scales the class
+  probabilities. OOD scores of new models differ from 0.1.8's on the same
+  data and stay in [0, 1]. The new `EquineProtonet` parameter `ood_distance`
+  selects the statistic: `"rmd_sq"` (the default) or `"rmd_sqrt"` (0.1.8's,
+  including its division of the class distance by the temperature). `save`
+  writes the setting; a model file without it, which includes every file
+  `equine.upgrade` writes, loads as `"rmd_sqrt"` and keeps its scores. `load`
+  builds the model from the file's settings and then sets `ood_distance`, so a
+  subclass whose `__init__` does not take `ood_distance` loads files without
+  the setting; like every saved setting, a file that holds it needs a class
+  whose `__init__` takes it. The outlier-score KDEs are fitted for the
+  statistic in use: after changing `ood_distance` on a model, refit them with
+  `update_support` or `train_model` (#210).
+- Model files carry `equine_format_version` 3 (EQUINE 0.1.8 wrote none),
+  `EquineGP` files too, whose contents are otherwise unchanged. An EQUINE that
+  reads format version 2 at most refuses them with "Unsupported EQUINE model
+  format version 3" (#210).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading

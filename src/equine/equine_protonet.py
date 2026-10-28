@@ -21,6 +21,7 @@ from tqdm import tqdm
 from .equine import Equine, EquineOutput, _apply_to_stored_tensors, _eval_mode
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
+    _OOD_DISTANCES,
     EQUINE_FORMAT_VERSION,
     _checked_settings,
     _cholesky_with_jitter,
@@ -608,6 +609,7 @@ class EquineProtonet(Equine):
         device: str = "cpu",
         feature_names: list[str] | None = None,
         label_names: list[str] | None = None,
+        ood_distance: str = "rmd_sq",
     ) -> None:
         """
         EquineProtonet class constructor
@@ -632,7 +634,28 @@ class EquineProtonet(Equine):
             List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...])
+        ood_distance : str, optional
+            The OOD statistic used when ``relative_mahal`` is True, by default
+            ``"rmd_sq"``: the squared Mahalanobis distance to the predicted class
+            prototype minus the squared Mahalanobis distance to the mean of the
+            support embeddings, both computed without the temperature.
+            ``"rmd_sqrt"`` subtracts the distances themselves, and with
+            ``use_temperature`` divides the class distance by the temperature
+            first. A model file without this setting loads as ``"rmd_sqrt"``.
+            The outlier-score KDEs are fitted for the statistic in use: after
+            changing ``ood_distance``, refit them with ``update_support`` or
+            ``train_model``.
+
+        Raises
+        ------
+        ValueError
+            If ``ood_distance`` is not ``"rmd_sq"`` or ``"rmd_sqrt"``.
         """
+        if ood_distance not in _OOD_DISTANCES:
+            raise ValueError(
+                f"ood_distance must be one of {list(_OOD_DISTANCES)}; got "
+                f"{_shown(ood_distance)}."
+            )
         super().__init__(
             embedding_model,
             device=device,
@@ -642,6 +665,7 @@ class EquineProtonet(Equine):
         self.cov_type = cov_type
         self.cov_reg_type = COV_REG_TYPE
         self.relative_mahal = relative_mahal
+        self.ood_distance = ood_distance
         self.emb_out_dim = emb_out_dim
         self.epsilon = DEFAULT_EPSILON
         self.outlier_score_kde: OrderedDict[int, gaussian_kde] = OrderedDict()
@@ -662,6 +686,14 @@ class EquineProtonet(Equine):
         )
         # Moves the temperature buffer onto the model's device.
         self.to(self.device)
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """
+        Restore a pickled model; a pickle without ``ood_distance`` uses
+        ``"rmd_sqrt"``.
+        """
+        state.setdefault("ood_distance", "rmd_sqrt")
+        super().__setstate__(state)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -994,6 +1026,11 @@ class EquineProtonet(Equine):
         """
         Private function to compute OOD distances using a distance function.
 
+        With ``relative_mahal``, the distance to the predicted class minus the
+        distance to the global mean (``ood_distance="rmd_sqrt"``) or the
+        difference of their squares (``"rmd_sq"``); otherwise the distance to
+        the predicted class.
+
         Parameters
         ----------
         X_embeddings : torch.Tensor
@@ -1016,7 +1053,11 @@ class EquineProtonet(Equine):
                 X_embeddings, self.model.global_mean, self.model.global_covariance
             )
             null_distance = null_distance.unsqueeze(dim=-1)
-            ood_dist = distances.gather(1, preds) - null_distance
+            class_distance = distances.gather(1, preds)
+            if self.ood_distance == "rmd_sq":
+                ood_dist = class_distance**2 - null_distance**2
+            else:
+                ood_dist = class_distance - null_distance
         else:
             ood_dist = distances.gather(1, preds)
 
@@ -1058,8 +1099,12 @@ class EquineProtonet(Equine):
         with _eval_mode(self), torch.no_grad():
             preds, dists, X_embed = self.model._forward_with_embeddings(X)
             if self.use_temperature:
-                dists = dists / self.temperature
-                preds = torch.softmax(torch.negative(dists), dim=1)
+                scaled = dists / self.temperature
+                preds = torch.softmax(torch.negative(scaled), dim=1)
+                # The relative "rmd_sq" statistic reads the unscaled distances;
+                # the other statistics read the scaled ones.
+                if not (self.relative_mahal and self.ood_distance == "rmd_sq"):
+                    dists = scaled
             ood_dist = self._compute_ood_dist(X_embed, preds, dists)
             ood_scores = self._compute_outlier_scores(ood_dist, preds)
 
@@ -1212,6 +1257,7 @@ class EquineProtonet(Equine):
             "use_temperature": self.use_temperature,
             "init_temperature": self.temperature.item(),
             "relative_mahal": self.relative_mahal,
+            "ood_distance": self.ood_distance,
             "device": self.device,
         }
         # Plain values only, so load_checkpoint can read it with weights_only=True.
@@ -1339,6 +1385,9 @@ class EquineProtonet(Equine):
             )
 
         settings = _checked_settings(cls, model_save["settings"])
+        # The model is built from the file's settings and then gets the file's
+        # ood_distance, or "rmd_sqrt" for a file without it.
+        ood_distance = settings.get("ood_distance", "rmd_sqrt")
         # emb_out_dim must be an int >= 1, not a bool.
         _positive_int(
             settings.get("emb_out_dim"), "Model file's settings['emb_out_dim']"
@@ -1367,6 +1416,7 @@ class EquineProtonet(Equine):
                 f"Could not build {cls.__name__} from the model file's settings "
                 f"({_truncate(_describe_error(err), 200)})."
             ) from err
+        eq_model.ood_distance = ood_distance
 
         eq_model.model.model_head.load_state_dict(head_save)
         eq_model.eval()

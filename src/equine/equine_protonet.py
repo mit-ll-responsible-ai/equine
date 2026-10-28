@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import sys
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable
@@ -689,12 +690,41 @@ class EquineProtonet(Equine):
         # Moves the temperature buffer onto the model's device.
         self.to(self.device)
 
+    @property
+    def support(self) -> OrderedDict[int, torch.Tensor]:
+        """
+        The support examples of each class, keyed by label: the dict that
+        ``get_support()`` returns, empty before the first support update.
+        Read-only.
+        """
+        return cast(Protonet, self.model).support
+
+    @property
+    def support_embeddings(self) -> OrderedDict[int, torch.Tensor]:
+        """
+        The embeddings of the support examples, keyed by label; empty before the
+        first support update. Read-only.
+        """
+        return cast(Protonet, self.model).support_embeddings
+
+    @property
+    def prototypes(self) -> torch.Tensor:
+        """
+        The class prototypes: the tensor that ``get_prototypes()`` returns, an
+        empty tensor before the first support update. Read-only.
+        """
+        return cast(Protonet, self.model).__dict__.get("prototypes", torch.Tensor())
+
     def __setstate__(self, state: dict[str, Any]) -> None:
         """
         Restore a pickled model; a pickle without ``ood_distance`` uses
-        ``"rmd_sqrt"``.
+        ``"rmd_sqrt"``. ``support``, ``support_embeddings`` and ``prototypes``
+        entries in its instance dict are dropped: these names are read-only
+        properties.
         """
         state.setdefault("ood_distance", "rmd_sqrt")
+        for name in ("support", "support_embeddings", "prototypes"):
+            state.pop(name, None)
         super().__setstate__(state)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -1116,12 +1146,17 @@ class EquineProtonet(Equine):
 
         return EquineOutput(classes=preds, ood_scores=ood_scores, embeddings=X_embed)
 
-    @icontract.require(lambda calib_frac: (calib_frac > 0.0) and (calib_frac < 1.0))
+    @icontract.require(
+        lambda calib_frac: (
+            not isinstance(calib_frac, (int, float)) or 0 < calib_frac < 1
+        )
+    )
     def update_support(
         self,
         support_x: torch.Tensor,
         support_y: torch.Tensor,
-        calib_frac: float,
+        *args: Any,
+        calib_frac: float | None = None,
         label_names: list[str] | None = None,
     ) -> None:
         """Function to update protonet support examples with given examples.
@@ -1137,13 +1172,22 @@ class EquineProtonet(Equine):
             Tensor containing support examples for protonet.
         support_y : torch.Tensor
             Tensor containing labels for given support examples.
+        *args : Any
+            Deprecated: ``calib_frac`` and ``label_names`` passed by position, in
+            that order. Emits a ``DeprecationWarning`` and is then handled as the
+            keywords.
         calib_frac : float
-            Fraction of given support data to use for OOD calibration.
+            Fraction of given support data to use for OOD calibration. Required,
+            keyword-only.
         label_names : list[str], optional
-            List of strings of the names of the labels (ex ["streaming", "voip", ...])
+            List of strings of the names of the labels (ex ["streaming", "voip", ...]).
+            Keyword-only.
 
         Raises
         ------
+        TypeError
+            If ``calib_frac`` is missing, an option is passed both by position and
+            by keyword, or more than two options are passed by position.
         ValueError
             If the ``calib_frac`` split leaves a class with fewer than 2 support
             or 2 calibration examples, a calibration example's embedding or OOD
@@ -1151,6 +1195,40 @@ class EquineProtonet(Equine):
             examples all have the same OOD distance. A failed update leaves the
             model as it was.
         """
+        if len(args) > 2:
+            raise TypeError(
+                "EquineProtonet.update_support() takes at most 2 options by "
+                f"position (calib_frac, label_names) but {len(args)} were given"
+            )
+        if args:
+            if calib_frac is not None or (len(args) == 2 and label_names is not None):
+                name = "calib_frac" if calib_frac is not None else "label_names"
+                raise TypeError(
+                    "EquineProtonet.update_support() got multiple values for "
+                    f"argument '{name}'"
+                )
+            warnings.warn(
+                "Passing calib_frac or label_names to EquineProtonet.update_support "
+                "by position is deprecated and will stop working in the next "
+                "release: pass calib_frac=... and label_names=... by keyword.",
+                DeprecationWarning,
+                # Past the icontract and beartype wrappers (none under -O), to the
+                # caller's line.
+                stacklevel=2 + (0 if sys.flags.optimize else 2),
+            )
+            EquineProtonet.update_support(
+                self,
+                support_x,
+                support_y,
+                calib_frac=args[0],
+                label_names=args[1] if len(args) == 2 else label_names,
+            )
+            return
+        if calib_frac is None:
+            raise TypeError(
+                "EquineProtonet.update_support() missing required keyword argument: "
+                "'calib_frac'"
+            )
         with _eval_mode(self):
             all_labels = torch.unique(support_y).tolist()
             support_x, calib_x, support_y, calib_y = stratified_train_test_split(

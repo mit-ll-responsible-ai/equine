@@ -1047,3 +1047,37 @@ def test_outlier_scores_refuse_a_kde_with_more_than_one_dimension() -> None:
         model._compute_outlier_scores(
             torch.tensor([0.5], dtype=torch.float64), predictions
         )
+
+
+@pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
+@pytest.mark.parametrize("shift", [0, 7])
+def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> None:
+    """After the calibration split, the support and the RNG state after the call
+    equal a replay of one ``randperm`` over each class's support rows in ascending
+    label order."""
+    support_y = torch.tensor([0] * 8 + [1] * 10 + [2] * 12) + shift
+    order = torch.randperm(len(support_y), generator=torch.Generator().manual_seed(1))
+    support_y = support_y[order].to(label_dtype)
+    support_x = torch.rand(
+        len(support_y), FEATURES, generator=torch.Generator().manual_seed(2)
+    )
+    support_x[:, 0] = torch.arange(len(support_y))
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    for seed in range(5):
+        torch.manual_seed(seed)
+        model.update_support(support_x, support_y, calib_frac=0.25)
+        state = torch.get_rng_state()
+
+        torch.manual_seed(seed)
+        split_x, _, split_y, _ = eq.utils.stratified_train_test_split(
+            support_x, support_y, test_size=0.25
+        )
+        expected = []
+        for label in torch.unique(split_y).tolist():
+            rows = torch.argwhere(split_y == label).reshape(-1)
+            expected.append((label, split_x[rows[torch.randperm(len(rows))]]))
+        support = model.get_support()
+        assert list(support) == [label for label, _ in expected]
+        for label, rows in expected:
+            assert torch.equal(support[label], rows)
+        assert torch.equal(torch.get_rng_state(), state)

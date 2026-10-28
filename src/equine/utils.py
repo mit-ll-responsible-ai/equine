@@ -1622,7 +1622,7 @@ def generate_support(
     shuffled_indexes: dict[Any, torch.Tensor] | None = None,
 ) -> OrderedDict[int, torch.Tensor]:
     """
-    Randomly select `support_size` examples of `way` classes from the examples in
+    Randomly select `support_size` examples of each class in `selected_labels` from the examples in
     `train_x` with corresponding labels in `train_y` and return them as a dictionary.
 
     Parameters
@@ -1709,12 +1709,15 @@ def generate_episode(
     way : int
         Number of classes in the episode.
     episode_size : int
-        Total number of examples in the episode.
+        Upper bound on the number of query examples; each class contributes
+        up to ``episode_size // way``.
 
     Returns
     -------
-    tuple[dict[Any, torch.Tensor], torch.Tensor, torch.Tensor]
-        tuple of support examples, query examples, and query labels.
+    tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]
+        tuple of the support examples keyed ``0`` to ``way - 1`` in ascending
+        order of the selected labels, the query examples, and the query labels
+        (the same indices).
 
     Raises
     ------

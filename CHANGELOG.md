@@ -211,6 +211,10 @@
   read-only: assigning one raises `AttributeError`. In EQUINE 0.1.8 they were
   empty containers that the model never filled. `Equine.__init__` no longer
   creates these attributes; `EquineGP.__init__` creates its own (#214).
+- `EquineProtonet.predict` computes the OOD scores of the examples
+  predicted as one class in one batched pass, instead of one
+  `gaussian_kde.integrate_box_1d` call per example. The scores are the
+  same apart from rounding in the last bits (#178).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading

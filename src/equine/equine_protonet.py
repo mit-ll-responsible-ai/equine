@@ -1028,7 +1028,8 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If a support label has no outlier-score KDE.
+            If a support label has no outlier-score KDE, or the KDE of a
+            predicted label has more than one dimension.
         """
         label_order = self._label_order()
         missing = [
@@ -1039,16 +1040,35 @@ class EquineProtonet(Equine):
                 f"No outlier-score KDE for support labels {missing}; refit the "
                 "outlier scores with EquineProtonet.update_support."
             )
-        ood_scores = torch.zeros_like(ood_dists)
-        for i in range(len(predictions)):
-            # Use KDE and RMD corresponding to the predicted class
-            predicted_label = label_order[int(torch.argmax(predictions[i, :]))]
-            p_value = self.outlier_score_kde[predicted_label].integrate_box_1d(
-                ood_dists[i].detach().cpu().numpy(), np.inf
-            )
-            ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
+        dists = ood_dists.detach().cpu()
+        columns = torch.argmax(predictions, dim=1).cpu()
+        ood_scores = torch.zeros(len(dists), dtype=torch.float64)
+        for column, label in enumerate(label_order):
+            rows = torch.where(columns == column)[0]
+            if len(rows) == 0:
+                continue
+            kde = self.outlier_score_kde[label]
+            if kde.d != 1:
+                raise ValueError(
+                    f"The outlier-score KDE of support label {label} has {kde.d} "
+                    "dimensions; it must have one."
+                )
+            data = torch.from_numpy(kde.dataset[0])
+            weights = torch.from_numpy(kde.weights)
+            uniform = bool((weights == weights[0]).all())
+            bandwidth = float(np.sqrt(kde.covariance[0, 0]))
+            # 1 minus the KDE's mass above each distance, for at most 2**22
+            # (distance, KDE point) pairs at a time
+            for chunk in rows.split(max(1, 2**22 // len(data))):
+                z = (dists[chunk, None] - data).double() / bandwidth
+                upper = 1.0 - torch.special.ndtr(z)
+                if uniform:
+                    tail = upper.mean(dim=1)
+                else:
+                    tail = (upper @ weights).clamp(0.0, 1.0)
+                ood_scores[chunk] = 1.0 - tail
 
-        return ood_scores
+        return ood_scores.to(dtype=ood_dists.dtype, device=ood_dists.device)
 
     @icontract.ensure(lambda result: len(result) > 0)
     def _compute_ood_dist(

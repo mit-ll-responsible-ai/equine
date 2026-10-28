@@ -24,6 +24,7 @@ from .utils import (
     _adopt_stored_dtypes,
     _checked_settings,
     _embedding_checkpoint,
+    _get_shuffle_idxs_by_class,
     _input_to_model,
     _load_checkpoint_for_device,
     _plain_names,
@@ -797,6 +798,8 @@ class EquineGP(Equine):
         TypeError
             If ``support_size`` is missing, is passed both by position and by
             keyword, or more than one option is passed by position.
+        ValueError
+            If ``support_x`` and ``support_y`` hold different numbers of examples.
         """
         if len(args) > 1:
             raise TypeError(
@@ -825,7 +828,13 @@ class EquineGP(Equine):
                 "'support_size'"
             )
         with _eval_mode(self):
+            if support_x.shape[0] != support_y.shape[0]:
+                raise ValueError(
+                    f"support_x has {support_x.shape[0]} examples but support_y has "
+                    f"{support_y.shape[0]} labels; they must match."
+                )
             labels, counts = torch.unique(support_y, return_counts=True)
+            shuffled_idxs = _get_shuffle_idxs_by_class(support_y, labels.tolist())
             support = OrderedDict()
             for label, count in list(zip(labels.tolist(), counts.tolist())):
                 class_support = generate_support(
@@ -833,6 +842,7 @@ class EquineGP(Equine):
                     support_y,
                     support_size=min(count, support_size),
                     selected_labels=[label],
+                    shuffled_indexes={label: shuffled_idxs[label]},
                 )
                 support.update(class_support)
 
@@ -1127,7 +1137,6 @@ class EquineGP(Equine):
             "laplace_model_save": laplace_sd,
             "num_data": self.model.num_data,
             "settings": model_settings,
-            # Support tensors usually view the training data; store copies.
             "support": {
                 int(label): x.detach().clone() for label, x in self.support.items()
             },

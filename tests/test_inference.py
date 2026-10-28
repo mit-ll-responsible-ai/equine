@@ -90,7 +90,7 @@ def test_predict_outputs_are_plain_tensors_usable_in_autograd(build):
 def test_gp_update_support_embeds_once_per_class():
     model, emb, x, y = _gp()
     emb.calls = 0
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     assert emb.calls == CLASSES
 
 
@@ -98,7 +98,7 @@ def test_protonet_update_support_embeds_calibration_set_once():
     """One pass over the calibration set plus one per support class."""
     model, emb, x, y = _protonet()
     emb.calls = 0
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert emb.calls == 1 + CLASSES
 
 
@@ -137,7 +137,7 @@ def test_protonet_update_support_calibration_pass_records_no_graph():
     """The last pass of ``update_support`` is the calibration pass."""
     model, emb, x, y = _protonet()
     seen = _record_grad_mode(emb)
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert len(seen) == 1 + CLASSES
     rows, grad = seen[-1]
     assert not grad
@@ -166,7 +166,7 @@ def test_gp_compute_prototypes_reembeds_and_reflects_changed_support():
     """Public compute_prototypes embeds the support again (one pass per
     class) and reflects whatever the support is."""
     model, emb, x, y = _gp()
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     emb.calls = 0
     first = model.compute_prototypes()
     assert emb.calls == CLASSES
@@ -190,7 +190,7 @@ def test_gp_compute_prototypes_leaves_the_model_unchanged():
     current support and stores nothing on the model: support_embeddings and
     prototypes keep what update_support computed, and still agree."""
     model, _, x, y = _gp()
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     support_embeddings = OrderedDict(
         (label, embeddings.clone())
         for label, embeddings in model.support_embeddings.items()

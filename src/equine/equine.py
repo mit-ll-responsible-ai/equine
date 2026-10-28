@@ -167,15 +167,12 @@ class Equine(torch.nn.Module, ABC):
         self.feature_names = feature_names
         self.label_names = label_names
 
-        self.support: OrderedDict[int, torch.Tensor] = OrderedDict()
-        self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
-        self.prototypes: torch.Tensor = torch.Tensor()
-
     def _apply(
         self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
     ) -> "Equine":
         """
-        ``nn.Module._apply``, extended to the support, its embeddings and the prototypes.
+        ``nn.Module._apply``, extended to the stored tensors listed in
+        ``_apply_to_stored_tensors``.
 
         ``to``, ``cpu``, ``cuda`` and the dtype casts call it. ``model.to(device)``
         moves every tensor the model keeps and updates ``device`` (see
@@ -241,6 +238,43 @@ class Equine(torch.nn.Module, ABC):
         dict[str, Any]
             Dictionary containing summary training information and any other data
             Note that at least one key should be 'train_summary'
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_support(
+        self,
+        support_x: torch.Tensor,
+        support_y: torch.Tensor,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Upon implementation, replace the model's support with examples taken from
+        the given ones.
+
+        Parameters
+        ----------
+        support_x : torch.Tensor
+            Tensor containing the examples to take the support from.
+        support_y : torch.Tensor
+            Tensor containing the label of each example in ``support_x``.
+        *args, **kwargs
+            The options of the implementation: ``calib_frac`` and ``label_names``
+            for ``EquineProtonet``, ``support_size`` for ``EquineGP``, each passed
+            by keyword.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_support(self) -> OrderedDict[int, torch.Tensor]:
+        """
+        Upon implementation, returns the support examples.
+
+        Returns
+        -------
+        OrderedDict[int, torch.Tensor]
+            The support examples of each class, keyed by label.
         """
         raise NotImplementedError
 

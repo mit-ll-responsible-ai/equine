@@ -569,6 +569,9 @@ class EquineGP(Equine):
             feature_names=feature_names,
             label_names=label_names,
         )
+        self.support: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
+        self.prototypes: torch.Tensor = torch.Tensor()
         self.num_deep_features = emb_out_dim
         self.num_gp_features = emb_out_dim
         self.normalize_gp_features = True
@@ -742,7 +745,9 @@ class EquineGP(Equine):
                 for i, metric in enumerate(val_metrics):
                     val_metrics_outputs[i].append(metric.compute())
         if vis_support:
-            self.update_support(dataset.tensors[0], dataset.tensors[1], support_size)
+            self.update_support(
+                dataset.tensors[0], dataset.tensors[1], support_size=support_size
+            )
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -758,9 +763,14 @@ class EquineGP(Equine):
         return return_dict
 
     def update_support(
-        self, support_x: torch.Tensor, support_y: torch.Tensor, support_size: int
+        self,
+        support_x: torch.Tensor,
+        support_y: torch.Tensor,
+        *args: Any,
+        support_size: int | None = None,
     ) -> None:
-        """Function to update protonet support examples with given examples.
+        """Replace the support with up to ``support_size`` examples of each class,
+        and store their embeddings and the class prototypes.
 
         Computes in eval mode and leaves the model in the mode the caller had it in (via
         ``train()``/``eval()``).
@@ -768,16 +778,52 @@ class EquineGP(Equine):
         Parameters
         ----------
         support_x : torch.Tensor
-            Tensor containing support examples for protonet.
+            Tensor containing the examples to take the support from.
         support_y : torch.Tensor
-            Tensor containing labels for given support examples.
+            Tensor containing the label of each example in ``support_x``.
+        *args : Any
+            Deprecated: ``support_size`` passed by position. Emits a
+            ``DeprecationWarning`` and is then handled as the keyword.
         support_size : int
-            Maximum number of support examples to keep per class.
+            Maximum number of support examples to keep per class. Required,
+            keyword-only.
 
         Returns
         -------
         None
+
+        Raises
+        ------
+        TypeError
+            If ``support_size`` is missing, is passed both by position and by
+            keyword, or more than one option is passed by position.
         """
+        if len(args) > 1:
+            raise TypeError(
+                "EquineGP.update_support() takes at most 1 option by position "
+                f"(support_size) but {len(args)} were given"
+            )
+        if args:
+            if support_size is not None:
+                raise TypeError(
+                    "EquineGP.update_support() got multiple values for argument "
+                    "'support_size'"
+                )
+            warnings.warn(
+                "Passing support_size to EquineGP.update_support by position is "
+                "deprecated and will stop working in the next release: pass "
+                "support_size=... by keyword.",
+                DeprecationWarning,
+                # Past the beartype wrapper (none under -O), to the caller's line.
+                stacklevel=2 + (0 if sys.flags.optimize else 1),
+            )
+            EquineGP.update_support(self, support_x, support_y, support_size=args[0])
+            return
+        if support_size is None:
+            raise TypeError(
+                "EquineGP.update_support() missing required keyword argument: "
+                "'support_size'"
+            )
         with _eval_mode(self):
             labels, counts = torch.unique(support_y, return_counts=True)
             support = OrderedDict()
@@ -807,7 +853,7 @@ class EquineGP(Equine):
                     )
 
                 self.support_embeddings = support_embeddings
-                self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
+                self.prototypes = self._prototypes_from_embeddings()
 
     def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
         """

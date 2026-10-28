@@ -79,7 +79,7 @@ def test_protonet_update_support_on_untrained_model():
     _, x, y = separable_dataset()
     model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
     assert model.training  # the nn.Module default
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
 
 
@@ -185,7 +185,7 @@ def test_protonet_update_support_restores_callers_mode(training):
     _set_mode(model, training)
     model.embedding_model.modes.clear()
     torch.manual_seed(1)  # the calibration split and support draw
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     _ran_in_eval_mode(model.embedding_model)
     _assert_mode(model, training)
     covariance = model.model.covariance.clone()
@@ -194,7 +194,7 @@ def test_protonet_update_support_restores_callers_mode(training):
 
     model.eval()
     torch.manual_seed(1)
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert torch.equal(model.model.covariance, covariance)
     _assert_same_output(out, model.predict(x[:5]))
 
@@ -207,7 +207,7 @@ def test_gp_update_support_restores_callers_mode(training):
     seen_data = model.model.seen_data.clone()
     model.embedding_model.modes.clear()
     torch.manual_seed(1)  # the support draw
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     _ran_in_eval_mode(model.embedding_model)
     _assert_mode(model, training)
     torch.testing.assert_close(model.model.precision, precision, atol=0, rtol=0)
@@ -218,7 +218,7 @@ def test_gp_update_support_restores_callers_mode(training):
 
     model.eval()
     torch.manual_seed(1)
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     torch.testing.assert_close(model.prototypes, prototypes)
     _assert_same_output(out, model.predict(x[:5]))
 
@@ -229,9 +229,9 @@ def _predict(model, x, y):
 
 def _update_support(model, x, y):
     if isinstance(model, eq.EquineProtonet):
-        model.update_support(x, y.float(), 0.5)
+        model.update_support(x, y.float(), calib_frac=0.5)
     else:
-        model.update_support(x, y.long(), 10)
+        model.update_support(x, y.long(), support_size=10)
 
 
 @pytest.mark.parametrize(

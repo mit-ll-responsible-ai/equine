@@ -221,6 +221,12 @@
   `torch.unique` over all the labels once per class. The random draws are
   the same `torch.randperm` calls, in the same order, so a seed selects the
   same rows (#196, #213).
+- In evaluation mode (`predict`, and `forward` after `eval()`), `EquineGP`
+  computes only the predictive variance of each example, the diagonal of the
+  Laplace predictive covariance, instead of the whole batch-by-batch
+  covariance matrix (1 GiB at 16384 rows in float32). Memory grows linearly
+  with the batch size and large batches run faster; predictions are equal up
+  to floating-point rounding (#181).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading

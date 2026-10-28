@@ -39,10 +39,16 @@ from .registry import (
     embedding_recipe,
 )
 
-# Layout version written by ``save``. Version 2 holds only tensors, containers
-# and plain scalars/strings, so ``torch.load(weights_only=True)`` reads it.
-# The embedding is a recipe plus a state_dict (see ``equine.registry``).
-EQUINE_FORMAT_VERSION = 2
+# Layout version written by ``save``. Versions 2 and 3 hold only tensors,
+# containers and plain scalars/strings, so ``torch.load(weights_only=True)``
+# reads them. The embedding is a recipe plus a state_dict (see
+# ``equine.registry``). ``EquineProtonet.save`` writes the ``ood_distance``
+# setting; a Protonet file without it (every version 2 file, and the files
+# ``equine.upgrade`` writes) loads as ``"rmd_sqrt"``.
+EQUINE_FORMAT_VERSION = 3
+
+# Values of the ``EquineProtonet`` setting ``ood_distance``.
+_OOD_DISTANCES = ("rmd_sq", "rmd_sqrt")
 
 _UPGRADE_HINT = "python -m equine.upgrade"
 
@@ -1163,7 +1169,8 @@ def _checked_settings(cls: type, settings: Any) -> dict[str, Any]:
     Keys must be strings naming a parameter of ``cls.__init__`` (other than
     ``self`` and ``embedding_model``); a constructor taking ``**kwargs``
     accepts any string key. The plain values common to the model classes are
-    type-checked here (an ``int`` temperature becomes a ``float``); sizes,
+    type-checked here (an ``int`` temperature becomes a ``float``), and so is
+    ``ood_distance``, which must be one of ``_OOD_DISTANCES``; sizes,
     ``cov_type`` and ``device`` are checked by the caller.
     """
     if not (isinstance(settings, dict) and all(isinstance(k, str) for k in settings)):
@@ -1202,6 +1209,13 @@ def _checked_settings(cls: type, settings: Any) -> dict[str, Any]:
             raise ValueError(
                 f"Model file's settings[{key!r}] must be True or False; got "
                 f"{_shown(checked[key])}."
+            )
+    if "ood_distance" in checked:
+        ood_distance = checked["ood_distance"]
+        if not (isinstance(ood_distance, str) and ood_distance in _OOD_DISTANCES):
+            raise ValueError(
+                "Model file's settings['ood_distance'] must be one of "
+                f"{list(_OOD_DISTANCES)}; got {_shown(ood_distance)}."
             )
     for key in ("feature_names", "label_names"):
         if key in checked:

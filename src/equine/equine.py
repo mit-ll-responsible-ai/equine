@@ -207,7 +207,7 @@ class Equine(torch.nn.Module, ABC):
     @abstractmethod
     def predict(self, X: torch.Tensor) -> EquineOutput:
         """
-        Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
+        Upon implementation, predicts the class probabilities and out-of-distribution (ood) scores for the
         given input data.
 
         Parameters

@@ -65,6 +65,7 @@ There are a number of Github Actions enabled to ensure high code quality upon co
 * Total coverage should be 97% or higher
 * We enforce a code style via `ruff` (formatting + linting, including import sorting) and `codespell`. If formatting issues are found, `tox -e format` usually fixes them automatically.
 * A job runs the suite with every dependency at the lowest version `pyproject.toml` allows (`tox -e floors`, which needs tox-uv). When code needs a newer release of a dependency, raise its floor.
+* A job type-checks `src/` with pyright (`tox -e pyright`): it must report no errors, and the public API must keep a 100% type-completeness score. The test suite is not type-checked.
 
 ## Documentation
 In the [MIT-LL Responsible AI GitHub organization](https://github.com/mit-ll-responsible-ai), we use the numpy/scipy format for docstrings.

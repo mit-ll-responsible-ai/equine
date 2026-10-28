@@ -27,6 +27,7 @@ from .utils import (
     _checked_settings,
     _cholesky_with_jitter,
     _embedding_checkpoint,
+    _get_shuffle_idxs_by_class,
     _input_to_model,
     _label_text,
     _labels_to_columns,
@@ -1264,6 +1265,7 @@ class EquineProtonet(Equine):
                     self.label_names = label_names
                 self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
 
+                shuffled_idxs = _get_shuffle_idxs_by_class(support_y, labels.tolist())
                 support = OrderedDict()
                 for label, count in list(zip(labels.tolist(), counts.tolist())):
                     class_support = generate_support(
@@ -1271,6 +1273,7 @@ class EquineProtonet(Equine):
                         support_y,
                         support_size=count,
                         selected_labels=[label],
+                        shuffled_indexes={label: shuffled_idxs[label]},
                     )
                     support.update(class_support)
 
@@ -1374,7 +1377,6 @@ class EquineProtonet(Equine):
                 for label, kde in self.outlier_score_kde.items()
             },
             "settings": model_settings,
-            # Support tensors usually view the training data; store copies.
             "support": {
                 int(label): x.detach().clone()
                 for label, x in self.model.support.items()

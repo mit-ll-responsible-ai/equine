@@ -1650,8 +1650,8 @@ def generate_support(
         ``support_size`` examples, or ``shuffled_indexes`` for a label selects
         no example or an example of another label.
     """
-    labels, counts = torch.unique(train_y, return_counts=True)
     if shuffled_indexes is None:
+        labels, counts = torch.unique(train_y, return_counts=True)
         for label, count in list(zip(labels, counts)):
             if (label in selected_labels) and (count < support_size):
                 raise ValueError(f"Not enough support examples in class {label}")
@@ -1661,14 +1661,13 @@ def generate_support(
 
     support = OrderedDict[int, torch.Tensor]()
     for label in selected_labels:
-        shuffled_x = train_x[shuffled_idxs[label]]
+        selected_support = train_x[shuffled_idxs[label][:support_size]]
 
         if torch.unique(train_y[shuffled_idxs[label]]).tolist() != [label]:
             raise ValueError(
                 f"The shuffled indexes for label {label} must select at least one "
                 "example, and only examples of that label."
             )
-        selected_support = shuffled_x[:support_size]
         support[int(label)] = selected_support
 
     return support
@@ -1753,16 +1752,12 @@ def generate_episode(
     episode_label_list = []
     episode_support = OrderedDict()
     for episode_label, label in enumerate(selected_labels):
-        shuffled_x = train_x[shuffled_idxs[label]]
-        shuffled_y = torch.Tensor(
-            [episode_label] * len(shuffled_idxs[label])
-        )  # need sequential labels for episode
-
-        num_remaining_examples = shuffled_x.shape[0] - support_size
+        num_remaining_examples = len(shuffled_idxs[label]) - support_size
         episode_end_idx = support_size + min(num_remaining_examples, examples_per_task)
+        query_idxs = shuffled_idxs[label][support_size:episode_end_idx]
 
-        episode_data_list.append(shuffled_x[support_size:episode_end_idx])
-        episode_label_list.append(shuffled_y[support_size:episode_end_idx])
+        episode_data_list.append(train_x[query_idxs])
+        episode_label_list.append(torch.Tensor([episode_label] * len(query_idxs)))
         episode_support[episode_label] = support[label]
 
     episode_x = torch.concat(episode_data_list)

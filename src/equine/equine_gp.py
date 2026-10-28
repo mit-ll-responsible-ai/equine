@@ -333,7 +333,7 @@ class _Laplace(torch.nn.Module):
 
     @icontract.require(lambda mean_field_factor: mean_field_factor is not None)
     def mean_field_logits(
-        self, logits: torch.Tensor, pred_cov: torch.Tensor, mean_field_factor: float
+        self, logits: torch.Tensor, pred_var: torch.Tensor, mean_field_factor: float
     ) -> torch.Tensor:
         """
         Compute the mean-field logits for the Gaussian-Softmax approximation.
@@ -342,8 +342,9 @@ class _Laplace(torch.nn.Module):
         ----------
         logits : torch.Tensor
             The logits tensor of shape (batch_size, num_outputs).
-        pred_cov : torch.Tensor
-            The predicted covariance matrix of shape (batch_size, batch_size).
+        pred_var : torch.Tensor
+            The predictive variance of each example, of shape (batch_size,): the
+            diagonal of the predictive covariance matrix.
         mean_field_factor : float
             Diagonal scaling factor
 
@@ -355,7 +356,7 @@ class _Laplace(torch.nn.Module):
         # Mean-Field approximation as alternative to MC integration of Gaussian-Softmax
         # Based on: https://arxiv.org/abs/2006.07584
 
-        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * mean_field_factor)
+        logits_scale = torch.sqrt(1.0 + pred_var * mean_field_factor)
         if mean_field_factor > 0:
             logits = logits / logits_scale.unsqueeze(-1)
 
@@ -446,13 +447,15 @@ class _Laplace(torch.nn.Module):
 
                 self.recompute_covariance: bool = False
 
-            with torch.no_grad():
-                pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
-
             if self.mean_field_factor is None:
+                with torch.no_grad():
+                    pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
                 return (pred, pred_cov), k
             else:
-                pred = self.mean_field_logits(pred, pred_cov, self.mean_field_factor)
+                with torch.no_grad():
+                    # The diagonal of k @ covariance @ k.T * ridge_penalty.
+                    pred_var = ((k @ self.covariance) * k).sum(-1) * self.ridge_penalty
+                pred = self.mean_field_logits(pred, pred_var, self.mean_field_factor)
 
         return pred, k
 

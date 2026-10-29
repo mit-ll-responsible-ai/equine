@@ -372,3 +372,10 @@
   It needs a `dataset` whose `dataset[:]` returns the inputs and labels
   (a `TensorDataset`, a `Subset` of one or a `random_split` part), and
   `vis_support=True` needs a `TensorDataset` (#171).
+- `generate_episode` gave 0-d labels to an episode with a single query
+  example, which its postcondition refused with `IndexError` while contracts
+  are on; the labels now have shape `(n,)`. When `num_episodes` is positive,
+  `EquineProtonet.train_model` raises `ValueError` before training starts
+  unless `way` is between 2 and the number of classes and `episode_size` is at
+  least `way`. Calls that could run before and now raise include `way=1` with
+  a custom `loss_fn`, and a positive `episode_size` below `way` (#280).

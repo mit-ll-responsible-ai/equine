@@ -780,9 +780,12 @@ class EquineProtonet(Equine):
         support_size : int, optional
             Number of support examples to generate for each class, by default 25.
         way : int, optional
-            Number of classes to train on per episode, by default 3.
+            Number of classes to train on per episode, from 2 to the number of
+            classes in ``dataset`` when ``num_episodes`` is positive, by default 3.
         episode_size : int, optional
-            Number of examples to use per episode, by default 100.
+            Upper bound on the number of query examples per episode, each class
+            contributing up to ``episode_size // way``; at least ``way`` when
+            ``num_episodes`` is positive, by default 100.
         loss_fn : Callable, optional
             A pytorch loss function, eg., torch.nn.CrossEntropyLoss(), by default torch.nn.functional.cross_entropy.
         opt_class : Callable, optional
@@ -804,7 +807,9 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If ``support_size`` is below 2, or the ``calib_frac`` split leaves a
+            If ``support_size`` is below 2; if ``num_episodes`` is positive and
+            ``way`` is not between 2 and the number of classes, or
+            ``episode_size`` is below ``way``; or if the ``calib_frac`` split leaves a
             class with fewer than 2 calibration examples or too few training
             examples (more than ``support_size`` when ``num_episodes`` is
             positive, ``support_size`` otherwise); the model is then unchanged. Also, after
@@ -820,6 +825,17 @@ class EquineProtonet(Equine):
             )
         X, Y = dataset[:]
         labels = torch.unique(Y).tolist()
+        if num_episodes > 0:
+            if not 2 <= way <= len(labels):
+                raise ValueError(
+                    f"way must be between 2 and the number of classes ({len(labels)}) "
+                    f"when num_episodes is positive, got {way}."
+                )
+            if episode_size < way:
+                raise ValueError(
+                    f"episode_size must be at least way ({way}) when num_episodes "
+                    f"is positive, got {episode_size}."
+                )
 
         self.validate_feature_label_names(X.shape[-1], len(labels))
 

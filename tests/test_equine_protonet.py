@@ -617,6 +617,64 @@ def test_train_model_refuses_a_support_size_below_two() -> None:
     assert model.temperature.item() == 0.5
 
 
+@pytest.mark.parametrize(
+    "way, episode_size, message",
+    [
+        (1, 1, "way must be between 2 and the number of classes"),
+        (0, 30, "way must be between 2 and the number of classes"),
+        (4, 30, "way must be between 2 and the number of classes"),
+        (3, 2, "episode_size must be at least way"),
+    ],
+)
+def test_train_model_refuses_a_way_or_episode_size_out_of_range(
+    way, episode_size, message
+) -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = [p.detach().clone() for p in model.parameters()]
+    with pytest.raises(ValueError, match=message):
+        model.train_model(
+            dataset,
+            num_episodes=1,
+            support_size=10,
+            way=way,
+            episode_size=episode_size,
+        )
+    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
+    assert len(model.model.support) == 0
+    assert not model.training
+    assert model.temperature.item() == 0.5
+
+
+def test_train_model_accepts_one_query_example_per_class() -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    model.train_model(
+        dataset, num_episodes=2, support_size=10, way=CLASSES, episode_size=CLASSES
+    )
+    assert [len(rows) for rows in model.get_support().values()] == [10, 10, 10]
+
+
+@pytest.mark.parametrize("way, episode_size", [(1, 100), (3, 0)])
+def test_train_model_without_episodes_accepts_any_way_and_episode_size(
+    way, episode_size
+) -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    model.train_model(
+        dataset, num_episodes=0, support_size=10, way=way, episode_size=episode_size
+    )
+    assert [len(rows) for rows in model.get_support().values()] == [10, 10, 10]
+
+
 def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes() -> None:
     model, _, _ = _briefly_trained_protonet_with_data()
     kdes = dict(model.outlier_score_kde)

@@ -1763,7 +1763,7 @@ def generate_episode(
     episode_x = torch.concat(episode_data_list)
     episode_y = torch.concat(episode_label_list)
 
-    return episode_support, episode_x, episode_y.squeeze().to(torch.long)
+    return episode_support, episode_x, episode_y.to(torch.long)
 
 
 def _labels_to_columns(y: torch.Tensor, label_order: list[int]) -> torch.Tensor:

@@ -15,7 +15,7 @@ from conftest import script_module
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
-from equine.utils import _cholesky_with_jitter
+from equine.utils import _cholesky_with_jitter, _EpisodeSampler
 
 
 class _NoAnnotationModel(torch.nn.Module):
@@ -678,6 +678,54 @@ def test_generate_episode_draws_the_labels_then_each_selected_class(
         assert torch.equal(query_x, train_x[torch.cat(queries)])
         assert torch.equal(query_y, torch.cat(expected_y))
         assert torch.equal(torch.get_rng_state(), state)
+
+
+@pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
+@pytest.mark.parametrize(
+    ("support_size", "way", "episode_size"), [(3, 2, 8), (2, 3, 30), (4, 1, 1)]
+)
+def test_episode_sampler_matches_generate_episode(
+    label_dtype, support_size, way, episode_size
+) -> None:
+    """Consecutive ``_EpisodeSampler.sample`` calls return the tensors that
+    ``generate_episode`` returns from the same seed, and leave the same RNG state."""
+    train_x, train_y = _indexed_rows(label_dtype)
+    sampler = _EpisodeSampler(train_x, train_y)
+    torch.manual_seed(0)
+    expected = [
+        eq.generate_episode(train_x, train_y, support_size, way, episode_size)
+        for _ in range(10)
+    ]
+    state = torch.get_rng_state()
+    torch.manual_seed(0)
+    got = [sampler.sample(support_size, way, episode_size) for _ in range(10)]
+    assert torch.equal(torch.get_rng_state(), state)
+    for (support_e, x_e, y_e), (support_g, x_g, y_g) in zip(expected, got):
+        assert list(support_g) == list(support_e)
+        for key in support_e:
+            assert torch.equal(support_g[key], support_e[key])
+        assert torch.equal(x_g, x_e)
+        assert torch.equal(y_g, y_e)
+        assert y_g.dtype == y_e.dtype
+
+
+@pytest.mark.parametrize(
+    ("support_size", "way", "message"),
+    [
+        (5, 3, "Class 3 has 5 examples; an episode needs more than support_size"),
+        (2, 4, "The way .* 4, must be <= number of labels, 3"),
+    ],
+)
+def test_episode_sampler_refuses_what_generate_episode_refuses(
+    support_size, way, message
+) -> None:
+    train_x, train_y = _indexed_rows(torch.long)
+    torch.manual_seed(0)
+    with pytest.raises(ValueError, match=message):
+        eq.generate_episode(train_x, train_y, support_size, way, 10)
+    torch.manual_seed(0)
+    with pytest.raises(ValueError, match=message):
+        _EpisodeSampler(train_x, train_y).sample(support_size, way, 10)
 
 
 def test_generate_episode_with_one_query_example() -> None:

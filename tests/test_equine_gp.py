@@ -613,6 +613,17 @@ def test_equine_gp_refuses_non_positive_sizes(
         eq.EquineGP(torch.nn.Identity(), **kwargs)
 
 
+def test_equine_gp_refuses_one_class(bounded_random_ortho) -> None:
+    with pytest.raises(ValueError, match="num_classes must be at least 2, got 1"):
+        eq.EquineGP(
+            torch.nn.Identity(), emb_out_dim=4, num_classes=1, num_random_features=8
+        )
+    model = eq.EquineGP(
+        torch.nn.Identity(), emb_out_dim=4, num_classes=2, num_random_features=8
+    )
+    assert model.num_outputs == 2
+
+
 @pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
 @pytest.mark.parametrize("shift", [0, 7])
 def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> None:

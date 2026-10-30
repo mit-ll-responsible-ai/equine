@@ -379,3 +379,12 @@
   unless `way` is between 2 and the number of classes and `episode_size` is at
   least `way`. Calls that could run before and now raise include `way=1` with
   a custom `loss_fn`, and a positive `episode_size` below `way` (#280).
+- One-class models could not predict: `EquineProtonet.train_model` and
+  `update_support` failed partway, and a one-class `EquineGP` gave NaN
+  outlier scores, which `predict`'s postcondition refuses while contracts are
+  on. `EquineGP` now raises `ValueError` for a `num_classes` of 1, and
+  `EquineProtonet.train_model` and `update_support` raise it for labels of
+  fewer than 2 classes before the model changes; loading or upgrading a
+  one-class model file raises it too. Calls that could run before and now
+  raise include constructing, training and saving a one-class `EquineGP`,
+  and loading a one-class file (#281).

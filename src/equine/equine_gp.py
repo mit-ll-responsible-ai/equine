@@ -478,7 +478,8 @@ _DEVICE_TYPE_DEPRECATION = (
 def _expected_laplace_state(settings: dict[str, Any]) -> dict[str, torch.Tensor]:
     """
     The ``_Laplace`` state_dict that ``EquineGP(embedding, **settings)`` builds,
-    feature extractor excluded, as meta tensors (names and shapes, no data).
+    feature extractor excluded, as meta tensors (names and shapes, no data). For a
+    ``num_classes`` of 1, which ``EquineGP`` refuses, the shapes of a one-class model.
 
     Plain arithmetic mirroring ``EquineGP.__init__`` (which always builds ``_Laplace``
     with ``num_gp_features == emb_out_dim`` and normalized GP features),
@@ -551,7 +552,7 @@ class EquineGP(Equine):
         emb_out_dim : int
             The number of deep features from the feature embedding.
         num_classes : int
-            The number of output classes this model predicts.
+            The number of output classes this model predicts, at least 2.
         num_random_features : int
             The dimension of the output of the RandomFourierFeatures operation
         init_temperature : float, optional
@@ -568,10 +569,12 @@ class EquineGP(Equine):
         ------
         ValueError
             If ``emb_out_dim``, ``num_classes`` or ``num_random_features`` is
-            not a positive integer.
+            not a positive integer, or ``num_classes`` is 1.
         """
         _positive_int(emb_out_dim, "emb_out_dim")
         _positive_int(num_classes, "num_classes")
+        if num_classes < 2:
+            raise ValueError(f"num_classes must be at least 2, got {num_classes}.")
         _positive_int(num_random_features, "num_random_features")
         super().__init__(
             embedding_model,
@@ -1195,7 +1198,8 @@ class EquineGP(Equine):
             ``python -m equine.upgrade``), or names an unregistered
             architecture. If ``device`` is unavailable here, names an index at
             or above its device count, or lacks a dtype the file holds (float64
-            on MPS: load such a file with ``device="cpu"``).
+            on MPS: load such a file with ``device="cpu"``). If the file's
+            ``num_classes`` is 1.
         """
         model_save = _load_checkpoint_for_device(path, device)
         _refuse_torchscript(model_save, path)

@@ -705,6 +705,18 @@ def test_load_refuses_a_class_with_one_support_example(tmp_path) -> None:
         eq.EquineProtonet.load(path)
 
 
+def test_load_refuses_a_one_class_support(tmp_path) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    checkpoint = model._to_checkpoint()
+    checkpoint["support"] = {0: checkpoint["support"][0]}
+    checkpoint["outlier_kde"] = {0: checkpoint["outlier_kde"][0]}
+    path = str(tmp_path / "one_class.eq")
+    torch.save(checkpoint, path)
+    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="support holds one class"):
+            loader(path)
+
+
 def test_save_refuses_an_untrained_model(tmp_path) -> None:
     model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
     with pytest.raises(RuntimeError, match="no support examples to save"):
@@ -1139,3 +1151,68 @@ def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> N
         for label, rows in expected:
             assert torch.equal(support[label], rows)
         assert torch.equal(torch.get_rng_state(), state)
+
+
+def _one_class(dataset):
+    x, y = dataset[:]
+    keep = y == 0
+    return torch.utils.data.TensorDataset(x[keep], y[keep])
+
+
+@pytest.mark.parametrize("num_episodes", [0, 1])
+def test_train_model_refuses_one_class(num_episodes) -> None:
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = [p.detach().clone() for p in model.parameters()]
+    with pytest.raises(ValueError, match="dataset must hold at least 2 classes, got 1"):
+        model.train_model(
+            _one_class(dataset),
+            num_episodes=num_episodes,
+            support_size=10,
+            way=2,
+            episode_size=30,
+        )
+    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
+    assert len(model.model.support) == 0
+    assert not model.training
+    assert model.temperature.item() == 0.5
+
+
+@pytest.mark.parametrize("trained", [False, True])
+def test_update_support_refuses_one_class(trained) -> None:
+    if trained:
+        model, x, y = _briefly_trained_protonet_with_data()
+    else:
+        torch.manual_seed(0)
+        _, x, y = separable_dataset()
+        model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    support = {k: v.clone() for k, v in model.model.support.items()}
+    kde_labels = list(model.outlier_score_kde)
+    training = model.training
+    keep = y == 0
+    with pytest.raises(
+        ValueError, match="support_y must hold at least 2 classes, got 1"
+    ):
+        model.update_support(x[keep], y[keep].float(), calib_frac=0.2)
+    assert list(model.model.support) == list(support)
+    assert all(torch.equal(model.model.support[k], v) for k, v in support.items())
+    assert list(model.outlier_score_kde) == kde_labels
+    assert model.training == training
+
+
+def test_two_classes_train_and_update_support() -> None:
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    keep = y < 2
+    two = torch.utils.data.TensorDataset(x[keep], y[keep].float())
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    model.train_model(two, num_episodes=1, support_size=10, way=2, episode_size=30)
+    assert list(model.get_support()) == [0, 1]
+    model.update_support(x[keep], y[keep].float(), calib_frac=0.2)
+    assert list(model.get_support()) == [0, 1]

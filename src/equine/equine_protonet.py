@@ -772,7 +772,8 @@ class EquineProtonet(Equine):
         Parameters
         ----------
         dataset : TensorDataset
-            Input pytorch TensorDataset of training data for model.
+            Input pytorch TensorDataset of training data for model, with at least
+            2 classes.
         num_episodes : int
             The desired number of episodes to use for training.
         calib_frac : float, optional
@@ -807,8 +808,9 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If ``support_size`` is below 2; if ``num_episodes`` is positive and
-            ``way`` is not between 2 and the number of classes, or
+            If ``support_size`` is below 2 or ``dataset`` has fewer than 2
+            classes; if ``num_episodes`` is positive and ``way`` is not between 2
+            and the number of classes, or
             ``episode_size`` is below ``way``; or if the ``calib_frac`` split leaves a
             class with fewer than 2 calibration examples or too few training
             examples (more than ``support_size`` when ``num_episodes`` is
@@ -825,6 +827,10 @@ class EquineProtonet(Equine):
             )
         X, Y = dataset[:]
         labels = torch.unique(Y).tolist()
+        if len(labels) < 2:
+            raise ValueError(
+                f"dataset must hold at least 2 classes, got {len(labels)}."
+            )
         if num_episodes > 0:
             if not 2 <= way <= len(labels):
                 raise ValueError(
@@ -1208,7 +1214,8 @@ class EquineProtonet(Equine):
         support_x : torch.Tensor
             Tensor containing support examples for protonet.
         support_y : torch.Tensor
-            Tensor containing labels for given support examples.
+            Tensor containing labels for given support examples, of at least 2
+            classes.
         *args : Any
             Deprecated: ``calib_frac`` and ``label_names`` passed by position, in
             that order. Emits a ``DeprecationWarning`` and is then handled as the
@@ -1226,11 +1233,11 @@ class EquineProtonet(Equine):
             If ``calib_frac`` is missing, an option is passed both by position and
             by keyword, or more than two options are passed by position.
         ValueError
-            If the ``calib_frac`` split leaves a class with fewer than 2 support
-            or 2 calibration examples, a calibration example's embedding or OOD
-            distance holds a NaN or infinite value, or a class's calibration
-            examples all have the same OOD distance. A failed update leaves the
-            model as it was.
+            If ``support_y`` has fewer than 2 classes, the ``calib_frac`` split
+            leaves a class with fewer than 2 support or 2 calibration examples, a
+            calibration example's embedding or OOD distance holds a NaN or
+            infinite value, or a class's calibration examples all have the same
+            OOD distance. A failed update leaves the model as it was.
         """
         if len(args) > 2:
             raise TypeError(
@@ -1268,6 +1275,10 @@ class EquineProtonet(Equine):
             )
         with _eval_mode(self):
             all_labels = torch.unique(support_y).tolist()
+            if len(all_labels) < 2:
+                raise ValueError(
+                    f"support_y must hold at least 2 classes, got {len(all_labels)}."
+                )
             support_x, calib_x, support_y, calib_y = stratified_train_test_split(
                 support_x, support_y, test_size=calib_frac
             )
@@ -1442,7 +1453,8 @@ class EquineProtonet(Equine):
             ``python -m equine.upgrade``), or names an unregistered
             architecture. If ``device`` is unavailable here, names an index at
             or above its device count, or lacks a dtype the file holds (float64
-            on MPS: load such a file with ``device="cpu"``).
+            on MPS: load such a file with ``device="cpu"``). If the file's
+            support holds one class.
         """
         model_save = _load_checkpoint_for_device(path, device)
         _refuse_torchscript(model_save, path)
@@ -1486,6 +1498,11 @@ class EquineProtonet(Equine):
             raise ValueError(
                 "Model file's support is empty; an EquineProtonet needs at least one "
                 "labelled support example."
+            )
+        if len(support) == 1:
+            raise ValueError(
+                "Model file's support holds one class; an EquineProtonet needs at "
+                "least 2."
             )
         for label, rows in support.items():
             if rows.shape[0] < 2:

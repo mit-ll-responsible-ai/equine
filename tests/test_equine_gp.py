@@ -754,3 +754,293 @@ def test_laplace_without_mean_field_returns_the_full_covariance() -> None:
     assert pred_cov.shape == (7, 7)
     torch.testing.assert_close(pred, laplace.beta(k), atol=1e-12, rtol=0)
     torch.testing.assert_close(pred_cov, expected, atol=1e-12, rtol=0)
+
+
+class _ReversedFeatures(torch.utils.data.TensorDataset):
+    """A TensorDataset whose examples have their features in reverse order."""
+
+    def __getitem__(self, index):
+        x, y = super().__getitem__(index)
+        return x.flip(0), y
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "tensors",
+        "transposed",
+        "permuted",
+        "channels_last",
+        "grayscale",
+        "channels_last_rows",
+        "subclass",
+    ],
+)
+@pytest.mark.parametrize("shuffle", [True, False])
+@pytest.mark.parametrize("batch_size", [1, 7, 30, 64])
+def test_batch_loader_matches_dataloader(kind, shuffle, batch_size) -> None:
+    """``_batch_loader`` yields the batches of ``DataLoader(..., shuffle=shuffle)``,
+    with the same strides, and leaves the same RNG state."""
+    from equine.equine_gp import _batch_loader, _row_major_batch
+
+    gen = torch.Generator().manual_seed(3)
+    x = torch.rand(30, 4, generator=gen)
+    if kind == "transposed":
+        x = x.t().contiguous().t()
+    elif kind == "permuted":
+        x = torch.rand(30, 3, 4, generator=gen).permute(0, 2, 1)
+    elif kind == "channels_last":
+        x = torch.rand(30, 2, 3, 3, generator=gen)
+        x = x.to(memory_format=torch.channels_last)
+    elif kind == "grayscale":
+        x = torch.rand(30, 3, 3, 1, generator=gen).permute(0, 3, 1, 2)
+    elif kind == "channels_last_rows":
+        x = torch.rand(60, 3, 2, 2, generator=gen)
+        x = x.to(memory_format=torch.channels_last).view(30, 2, 3, 2, 2)
+    dataset_class = (
+        _ReversedFeatures if kind == "subclass" else torch.utils.data.TensorDataset
+    )
+    dataset = dataset_class(x, torch.arange(30).float())
+    torch.manual_seed(0)
+    expected = list(
+        torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    )
+    state = torch.get_rng_state()
+    loader = _batch_loader(dataset, batch_size, shuffle=shuffle)
+    batched = kind not in ("channels_last_rows", "subclass")
+    assert (loader.collate_fn is _row_major_batch) == batched
+    torch.manual_seed(0)
+    got = list(loader)
+    assert torch.equal(torch.get_rng_state(), state)
+    assert len(got) == len(expected)
+    assert {type(batch) for batch in got} == {type(batch) for batch in expected}
+    for (x_e, y_e), (x_g, y_g) in zip(expected, got):
+        assert torch.equal(x_g, x_e)
+        assert torch.equal(y_g, y_e)
+        assert y_g.dtype == y_e.dtype
+        assert (x_g.stride(), y_g.stride()) == (x_e.stride(), y_e.stride())
+
+
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        "uint8",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "bfloat16",
+        "float32",
+        "float64",
+        "complex64",
+        "complex128",
+    ],
+)
+def test_batch_loader_reads_each_listed_dtype_a_batch_at_a_time(dtype) -> None:
+    """For features of each dtype in ``_BATCH_DTYPES``, ``_batch_loader`` indexes the
+    dataset once per batch and yields the batches of ``DataLoader``."""
+    from equine.equine_gp import _batch_loader, _row_major_batch
+
+    gen = torch.Generator().manual_seed(3)
+    x = torch.randn(12, 2, 4, generator=gen).permute(0, 2, 1)
+    if dtype.startswith("complex"):
+        x = torch.complex(x, -x)
+    x = x.to(getattr(torch, dtype))
+    dataset = torch.utils.data.TensorDataset(x, torch.arange(12))
+    loader = _batch_loader(dataset, 5, shuffle=True)
+    assert loader.collate_fn is _row_major_batch
+    torch.manual_seed(0)
+    expected = list(torch.utils.data.DataLoader(dataset, batch_size=5, shuffle=True))
+    torch.manual_seed(0)
+    got = list(loader)
+    assert len(got) == len(expected)
+    for (x_e, y_e), (x_g, y_g) in zip(expected, got):
+        assert x_g.dtype == x_e.dtype
+        assert torch.equal(x_g, x_e)
+        assert x_g.stride() == x_e.stride()
+        assert torch.equal(y_g, y_e)
+
+
+def test_batch_loader_reads_every_other_dtype_through_dataloader() -> None:
+    """Features of a dtype outside ``_BATCH_DTYPES`` keep the ``DataLoader``."""
+    from equine.equine_gp import _BATCH_DTYPES, _batch_loader, _row_major_batch
+
+    listed = {
+        torch.uint8,
+        torch.int8,
+        torch.int16,
+        torch.int32,
+        torch.int64,
+        torch.float16,
+        torch.bfloat16,
+        torch.float32,
+        torch.float64,
+        torch.complex64,
+        torch.complex128,
+    }
+    assert _BATCH_DTYPES == listed
+    checked = set()
+    dtypes = {
+        value
+        for value in (getattr(torch, name) for name in dir(torch))
+        if isinstance(value, torch.dtype)
+    }
+    for dtype in dtypes - listed:
+        try:
+            x = torch.zeros(12, 8, dtype=torch.uint8).view(dtype)
+        except (RuntimeError, TypeError):
+            try:
+                x = torch.zeros(12, 4, dtype=dtype)
+            except (RuntimeError, TypeError):
+                continue
+        dataset = torch.utils.data.TensorDataset(x, torch.arange(12))
+        assert (
+            _batch_loader(dataset, 5, shuffle=True).collate_fn is not _row_major_batch
+        )
+        checked.add(dtype)
+    assert {
+        torch.bool,
+        torch.uint4,
+        torch.bits8,
+        torch.int4,
+        torch.float8_e4m3fn,
+    } <= checked
+
+
+def _features_of_kind(kind):
+    """Twelve rows of four features as a nested, jagged, quantized, sparse, uint4 or
+    bits8 tensor."""
+    if kind in ("uint4", "bits8"):
+        return torch.randint(0, 16, (12, 4), dtype=torch.uint8).view(
+            getattr(torch, kind)
+        )
+    rows = [torch.rand(4) for _ in range(12)]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if kind == "nested":
+            return torch.nested.nested_tensor(rows)
+        if kind == "jagged":
+            return torch.nested.nested_tensor(rows, layout=torch.jagged)
+        if kind == "quantized":
+            scales = torch.full((12,), 0.1)
+            zero_points = torch.zeros(12, dtype=torch.long)
+            return torch.quantize_per_channel(
+                torch.stack(rows), scales, zero_points, 0, torch.quint8
+            )
+    return torch.stack(rows).to_sparse()
+
+
+def _comparable(x):
+    """``x`` as a tensor that ``torch.equal`` compares."""
+    if x.is_quantized:
+        return x.dequantize()
+    if x.dtype in (torch.uint4, torch.bits8):
+        return x.view(torch.uint8)
+    return x
+
+
+@pytest.mark.parametrize(
+    "kind", ["nested", "jagged", "quantized", "sparse", "uint4", "bits8"]
+)
+def test_batch_loader_reads_other_tensor_kinds_as_dataloader_does(kind) -> None:
+    """For nested, quantized, sparse, uint4 and bits8 features, ``_batch_loader`` is
+    a ``DataLoader`` and yields its batches, or raises the same exception type."""
+    from equine.equine_gp import _batch_loader, _row_major_batch
+
+    torch.manual_seed(0)
+    dataset = torch.utils.data.TensorDataset(_features_of_kind(kind), torch.arange(12))
+    assert _batch_loader(dataset, 4, shuffle=True).collate_fn is not _row_major_batch
+
+    def batches(loader):
+        try:
+            return [(x.is_quantized, _comparable(x), y) for x, y in loader]
+        except Exception as error:
+            return type(error)
+
+    torch.manual_seed(0)
+    expected = batches(torch.utils.data.DataLoader(dataset, batch_size=4, shuffle=True))
+    torch.manual_seed(0)
+    got = batches(_batch_loader(dataset, 4, shuffle=True))
+    if isinstance(expected, type):
+        assert got is expected
+        return
+    assert isinstance(got, list)
+    assert len(got) == len(expected)
+    for (q_e, x_e, y_e), (q_g, x_g, y_g) in zip(expected, got):
+        assert q_g == q_e
+        assert torch.equal(x_g, x_e)
+        assert x_g.stride() == x_e.stride()
+        assert torch.equal(y_g, y_e)
+
+
+def test_train_model_on_a_tensor_dataset_matches_a_subset_of_it() -> None:
+    """A TensorDataset (read a batch at a time) and a Subset holding all of its
+    rows (read an example at a time) train the same model from the same seed."""
+    dataset, _, _ = separable_dataset()
+    subset = torch.utils.data.Subset(dataset, list(range(len(dataset))))
+    states = []
+    for data in (dataset, subset):
+        torch.manual_seed(0)
+        model = eq.EquineGP(
+            BasicEmbeddingModel(FEATURES, CLASSES),
+            CLASSES,
+            CLASSES,
+            num_random_features=16,
+        )
+        model.train_model(
+            data,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=3,
+            batch_size=32,
+            validation_dataset=data,
+            val_metrics=[torchmetrics.Accuracy(task="multiclass", num_classes=CLASSES)],
+        )
+        model.calibrate_model(data, num_calibration_epochs=2, calibration_batch_size=16)
+        states.append(model.state_dict())
+    assert states[0].keys() == states[1].keys()
+    for key in states[0]:
+        assert torch.equal(states[0][key], states[1][key]), key
+
+
+def test_training_and_calibration_batches_are_shuffled_and_validation_batches_are_not(
+    monkeypatch,
+) -> None:
+    import equine.equine_gp as equine_gp
+
+    calls = []
+    batch_loader = equine_gp._batch_loader
+
+    def recording_batch_loader(dataset, batch_size, shuffle):
+        calls.append((dataset, shuffle))
+        return batch_loader(dataset, batch_size, shuffle)
+
+    monkeypatch.setattr(equine_gp, "_batch_loader", recording_batch_loader)
+    train, _, _ = separable_dataset()
+    validation = torch.utils.data.TensorDataset(*train.tensors)
+    calibration = torch.utils.data.TensorDataset(*train.tensors)
+    torch.manual_seed(0)
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        CLASSES,
+        num_random_features=16,
+    )
+    model.train_model(
+        train,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+        validation_dataset=validation,
+        val_metrics=[torchmetrics.Accuracy(task="multiclass", num_classes=CLASSES)],
+    )
+    model.calibrate_model(calibration, calibration_batch_size=16)
+    expected = [(train, True), (validation, False), (calibration, True)]
+    assert len(calls) == len(expected)
+    for (dataset, shuffle), (expected_dataset, expected_shuffle) in zip(
+        calls, expected
+    ):
+        assert dataset is expected_dataset
+        assert shuffle is expected_shuffle

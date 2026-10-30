@@ -1766,6 +1766,76 @@ def generate_episode(
     return episode_support, episode_x, episode_y.to(torch.long)
 
 
+class _EpisodeSampler:
+    """
+    ``generate_episode`` for fixed ``train_x`` and ``train_y``.
+
+    The labels, their counts and the indices of each label's examples are computed
+    once, here. ``sample`` then makes the same random draws as ``generate_episode``
+    with the same arguments and returns equal tensors.
+    """
+
+    @icontract.require(lambda train_x: len(train_x.shape) >= 2)
+    @icontract.require(lambda train_y: len(train_y.shape) == 1)
+    def __init__(self, train_x: torch.Tensor, train_y: torch.Tensor) -> None:
+        self.train_x = train_x
+        self.labels, counts = torch.unique(train_y, return_counts=True)
+        self.counts = dict(zip(self.labels.tolist(), counts.tolist()))
+        self.indices = {
+            label: torch.argwhere(train_y == label).reshape(-1)
+            for label in self.labels.tolist()
+        }
+
+    @icontract.require(lambda support_size: support_size > 1)
+    @icontract.require(lambda way: way > 0)
+    @icontract.require(lambda episode_size: episode_size > 0)
+    def sample(
+        self, support_size: int, way: int, episode_size: int
+    ) -> tuple[OrderedDict[int, torch.Tensor], torch.Tensor, torch.Tensor]:
+        """
+        One episode, as ``generate_episode(train_x, train_y, support_size, way,
+        episode_size)`` returns it.
+
+        Raises
+        ------
+        ValueError
+            If ``way`` exceeds the number of labels, or a selected class has no
+            more than ``support_size`` examples.
+        """
+        if way > len(self.labels):
+            raise ValueError(
+                f"The way (#classes in each episode), {way}, must be <= number of labels, {len(self.labels)}"
+            )
+        selected_labels = sorted(
+            self.labels[torch.randperm(self.labels.shape[0])][:way].tolist()
+        )
+        for label in selected_labels:
+            if self.counts[label] <= support_size:
+                raise ValueError(
+                    f"Class {_label_text(label)} has {self.counts[label]} examples; "
+                    f"an episode needs more than support_size ({support_size})."
+                )
+        examples_per_task = episode_size // way
+        episode_support = OrderedDict()
+        episode_data_list = []
+        episode_label_list = []
+        for episode_label, label in enumerate(selected_labels):
+            label_idxs = self.indices[label]
+            shuffled = label_idxs[torch.randperm(label_idxs.shape[0])]
+            end = support_size + min(len(shuffled) - support_size, examples_per_task)
+            query_idxs = shuffled[support_size:end]
+            episode_support[episode_label] = self.train_x[shuffled[:support_size]]
+            episode_data_list.append(self.train_x[query_idxs])
+            episode_label_list.append(
+                torch.full((len(query_idxs),), episode_label, dtype=torch.long)
+            )
+        return (
+            episode_support,
+            torch.concat(episode_data_list),
+            torch.concat(episode_label_list),
+        )
+
+
 def _labels_to_columns(y: torch.Tensor, label_order: list[int]) -> torch.Tensor:
     """
     The column of each label in ``y``, where column ``j`` holds ``label_order[j]``.

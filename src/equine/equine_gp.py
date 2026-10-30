@@ -6,14 +6,21 @@ import math
 import sys
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Sized
+from collections.abc import Callable, Iterable, Sequence, Sized
 from datetime import datetime
 from typing import Any, Self, cast
 
 import icontract
 import torch
 from beartype import beartype
-from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data import (
+    BatchSampler,
+    DataLoader,
+    Dataset,
+    RandomSampler,
+    SequentialSampler,
+    TensorDataset,
+)
 from torchmetrics.metric import Metric
 from tqdm import tqdm
 
@@ -466,6 +473,54 @@ class _Laplace(torch.nn.Module):
         return pred, k
 
 
+_BATCH_DTYPES = frozenset(
+    {
+        torch.uint8,
+        torch.int8,
+        torch.int16,
+        torch.int32,
+        torch.int64,
+        torch.float16,
+        torch.bfloat16,
+        torch.float32,
+        torch.float64,
+        torch.complex64,
+        torch.complex128,
+    }
+)
+
+
+def _row_major_batch(batch: Sequence[torch.Tensor]) -> list[torch.Tensor]:
+    """The tensors of ``batch``, each contiguous, with row-major strides."""
+    return [tensor.contiguous().view(-1).view(tensor.shape) for tensor in batch]
+
+
+def _batch_loader(dataset: Dataset[Any], batch_size: int, shuffle: bool) -> DataLoader:
+    """
+    ``DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)``.
+
+    A ``TensorDataset``, not a subclass, of strided, non-nested tensors with at most 4
+    dimensions and a dtype in ``_BATCH_DTYPES`` is read with one ``dataset[indices]``
+    per batch, with row-major strides; the batches and the random draws are those of
+    that ``DataLoader``.
+    """
+    if type(dataset) is TensorDataset and all(
+        tensor.layout == torch.strided
+        and not tensor.is_nested
+        and tensor.dim() <= 4
+        and tensor.dtype in _BATCH_DTYPES
+        for tensor in dataset.tensors
+    ):
+        sampler = RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        return DataLoader(
+            dataset,
+            sampler=BatchSampler(sampler, batch_size, drop_last=False),
+            batch_size=None,
+            collate_fn=_row_major_batch,
+        )
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
+
+
 _DEFAULT_NUM_RANDOM_FEATURES = 1024
 
 _DEVICE_TYPE_DEPRECATION = (
@@ -702,18 +757,11 @@ class EquineGP(Equine):
 
         self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
 
-        train_loader = DataLoader(
-            dataset, batch_size=batch_size, shuffle=True, drop_last=False
-        )
+        train_loader = _batch_loader(dataset, batch_size, shuffle=True)
 
         val_loader: DataLoader | None = None
         if validation_dataset is not None:
-            val_loader = DataLoader(
-                validation_dataset,
-                batch_size=batch_size,
-                shuffle=False,
-                drop_last=False,
-            )
+            val_loader = _batch_loader(validation_dataset, batch_size, shuffle=False)
 
         self.model.set_training_params(len(cast(Sized, dataset)), batch_size)
         val_metrics_outputs: list[list[Any]] | None = None
@@ -981,11 +1029,8 @@ class EquineGP(Equine):
             Batch size of the calibration data loader.
         """
 
-        calibration_loader = DataLoader(
-            dataset,
-            batch_size=calibration_batch_size,
-            shuffle=True,
-            drop_last=False,
+        calibration_loader = _batch_loader(
+            dataset, calibration_batch_size, shuffle=True
         )
 
         temperature = cast(torch.Tensor, self.temperature)

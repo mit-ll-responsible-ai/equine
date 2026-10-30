@@ -1184,6 +1184,55 @@ def test_train_model_refuses_one_class(num_episodes) -> None:
     assert model.temperature.item() == 0.5
 
 
+LABEL_KINDS = ["fraction", "merged", "infinite", "nan", "column"]
+
+
+def _labels_of_kind(y: torch.Tensor, kind: str) -> tuple[torch.Tensor, str]:
+    """Labels 0, 1 and 2 turned into labels of ``kind``, and the refusal's words."""
+    if kind == "fraction":
+        return y.float() + 0.5, "must be whole numbers, got 0.5"
+    if kind == "merged":
+        return y.float() / 2, "must be whole numbers, got 0.5"
+    if kind == "infinite":
+        return torch.where(
+            y == 2, torch.inf, y.float()
+        ), "must be whole numbers, got inf"
+    if kind == "nan":
+        return torch.where(
+            y == 2, torch.nan, y.float()
+        ), "must be whole numbers, got nan"
+    return y.float()[:, None], r"must be 1-D, got shape \(\d+, 1\)"
+
+
+@pytest.mark.parametrize("labels", LABEL_KINDS)
+@pytest.mark.parametrize("num_episodes", [0, 1])
+def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
+    labels, num_episodes
+) -> None:
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    y, message = _labels_of_kind(y, labels)
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = [p.detach().clone() for p in model.parameters()]
+    with pytest.raises(ValueError, match=f"dataset labels {message}"):
+        model.train_model(
+            torch.utils.data.TensorDataset(x, y),
+            num_episodes=num_episodes,
+            support_size=10,
+            way=2,
+            episode_size=30,
+        )
+    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
+    assert len(model.model.support) == 0
+    assert not model.training
+    assert model.temperature.item() == 0.5
+
+
 @pytest.mark.parametrize("trained", [False, True])
 def test_update_support_refuses_one_class(trained) -> None:
     if trained:
@@ -1200,6 +1249,29 @@ def test_update_support_refuses_one_class(trained) -> None:
         ValueError, match="support_y must hold at least 2 classes, got 1"
     ):
         model.update_support(x[keep], y[keep].float(), calib_frac=0.2)
+    assert list(model.model.support) == list(support)
+    assert all(torch.equal(model.model.support[k], v) for k, v in support.items())
+    assert list(model.outlier_score_kde) == kde_labels
+    assert model.training == training
+
+
+@pytest.mark.parametrize("labels", LABEL_KINDS)
+@pytest.mark.parametrize("trained", [False, True])
+def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(
+    labels, trained
+) -> None:
+    if trained:
+        model, x, y = _briefly_trained_protonet_with_data()
+    else:
+        torch.manual_seed(0)
+        _, x, y = separable_dataset()
+        model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    y, message = _labels_of_kind(y, labels)
+    support = {k: v.clone() for k, v in model.model.support.items()}
+    kde_labels = list(model.outlier_score_kde)
+    training = model.training
+    with pytest.raises(ValueError, match=f"support_y {message}"):
+        model.update_support(x, y, calib_frac=0.2)
     assert list(model.model.support) == list(support)
     assert all(torch.equal(model.model.support[k], v) for k, v in support.items())
     assert list(model.outlier_score_kde) == kde_labels

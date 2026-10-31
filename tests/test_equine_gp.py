@@ -575,3 +575,39 @@ def test_laplace_counts_an_unbatched_training_example_as_one_row() -> None:
     assert model.model._seen_count == 1
     # The remaining rows complete the epoch without the reset check firing.
     model.model(x[1:120])
+
+
+@pytest.fixture
+def bounded_random_ortho(monkeypatch):
+    calls = []
+    real = eq.equine_gp._random_ortho
+
+    def bounded(n, m):
+        calls.append(1)
+        if len(calls) > 100:
+            raise AssertionError("_RandomFourierFeatures loops without end")
+        return real(n, m)
+
+    monkeypatch.setattr(eq.equine_gp, "_random_ortho", bounded)
+
+
+@pytest.mark.parametrize(
+    "kwargs, name",
+    [
+        ({"emb_out_dim": 0, "num_classes": 2, "num_random_features": 8}, "emb_out_dim"),
+        (
+            {"emb_out_dim": -1, "num_classes": 2, "num_random_features": 8},
+            "emb_out_dim",
+        ),
+        ({"emb_out_dim": 4, "num_classes": 0, "num_random_features": 8}, "num_classes"),
+        (
+            {"emb_out_dim": 4, "num_classes": 2, "num_random_features": 0},
+            "num_random_features",
+        ),
+    ],
+)
+def test_equine_gp_refuses_non_positive_sizes(
+    bounded_random_ortho, kwargs, name
+) -> None:
+    with pytest.raises(ValueError, match=f"{name} must be a positive integer"):
+        eq.EquineGP(torch.nn.Identity(), **kwargs)

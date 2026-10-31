@@ -553,7 +553,16 @@ class EquineGP(Equine):
             List of strings of the names of the tabular features (ex ["duration", "fiat_mean", ...])
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...])
+
+        Raises
+        ------
+        ValueError
+            If ``emb_out_dim``, ``num_classes`` or ``num_random_features`` is
+            not a positive integer.
         """
+        _positive_int(emb_out_dim, "emb_out_dim")
+        _positive_int(num_classes, "num_classes")
+        _positive_int(num_random_features, "num_random_features")
         super().__init__(
             embedding_model,
             device=device,

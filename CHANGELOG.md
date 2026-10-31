@@ -230,6 +230,15 @@
   other tensors and other datasets keep the `DataLoader`.
   The random draws are the same, so a seed selects the same episodes and
   batches (#284).
+- `EquineGP.train_model` adds each batch to the precision matrix with `addmm_`
+  on accelerators, and on the CPU from a row-major copy of the transposed
+  features instead of a transposed view. On macOS the update for a 64-row
+  batch with 1,024 random features takes 0.30 ms instead of 2.1 ms; on Linux
+  arm64 the copy makes it about 6% slower. For float32 and float64 models
+  whose precision matrix has the model's dtype, trained outside autocast, each
+  batch's update can change by rounding, and inverting the precision matrix in
+  `predict` can enlarge the change in the covariance, probabilities and OOD
+  scores (#285).
 - In evaluation mode (`predict`, and `forward` after `eval()`), `EquineGP`
   computes only the predictive variance of each example, the diagonal of the
   Laplace predictive covariance, instead of the whole batch-by-batch
@@ -442,3 +451,16 @@
   precision matrix. Under a float16 or bfloat16 default, where the precision
   was half precision, it is now float32 or wider unless the model has that
   same dtype (#294).
+- In a float16 or bfloat16 `EquineGP`, and in a float32 `EquineGP` trained
+  under `torch.autocast`, each batch's precision update `k.t() @ k` ran in
+  half precision. Its rounding could leave the precision matrix without
+  positive definiteness (bfloat16 after a few epochs, on CPU and MPS), and
+  `predict` then raised an error, or under `python -O` returned NaN OOD
+  scores. The update now runs in the precision's dtype and outside autocast
+  (on accelerators it is an in-place `addmm_`, which autocast does not
+  change): float32 for those models under the float32 default, and float64
+  under a float64 default. A half-precision model trained with its own dtype
+  as the default dtype keeps a half-precision precision matrix, which
+  `predict` cannot invert. When the precision holds NaN or infinite values, as
+  after training that diverged, `predict` raises an error that says so, where
+  the inversion could return a NaN or wrong inverse without an error (#297).

@@ -11,9 +11,11 @@ import pytest
 import torch
 from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
+    LABEL_KINDS,
     BasicEmbeddingModel,
     assert_valid_prediction,
     generate_random_string_list,
+    labels_of_kind,
     random_dataset,
     stored_tensors,
     use_basic_embedding_model,
@@ -1184,26 +1186,6 @@ def test_train_model_refuses_one_class(num_episodes) -> None:
     assert model.temperature.item() == 0.5
 
 
-LABEL_KINDS = ["fraction", "merged", "infinite", "nan", "column"]
-
-
-def _labels_of_kind(y: torch.Tensor, kind: str) -> tuple[torch.Tensor, str]:
-    """Labels 0, 1 and 2 turned into labels of ``kind``, and the refusal's words."""
-    if kind == "fraction":
-        return y.float() + 0.5, "must be whole numbers, got 0.5"
-    if kind == "merged":
-        return y.float() / 2, "must be whole numbers, got 0.5"
-    if kind == "infinite":
-        return torch.where(
-            y == 2, torch.inf, y.float()
-        ), "must be whole numbers, got inf"
-    if kind == "nan":
-        return torch.where(
-            y == 2, torch.nan, y.float()
-        ), "must be whole numbers, got nan"
-    return y.float()[:, None], r"must be 1-D, got shape \(\d+, 1\)"
-
-
 @pytest.mark.parametrize("labels", LABEL_KINDS)
 @pytest.mark.parametrize("num_episodes", [0, 1])
 def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
@@ -1211,7 +1193,7 @@ def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
 ) -> None:
     torch.manual_seed(0)
     dataset, x, y = separable_dataset()
-    y, message = _labels_of_kind(y, labels)
+    y, message = labels_of_kind(y, labels)
     model = eq.EquineProtonet(
         BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
     )
@@ -1266,7 +1248,7 @@ def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(
         torch.manual_seed(0)
         _, x, y = separable_dataset()
         model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
-    y, message = _labels_of_kind(y, labels)
+    y, message = labels_of_kind(y, labels)
     support = {k: v.clone() for k, v in model.model.support.items()}
     kde_labels = list(model.outlier_score_kde)
     training = model.training

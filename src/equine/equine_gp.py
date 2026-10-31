@@ -38,12 +38,14 @@ from .utils import (
     _plain_train_summary,
     _rebuild_embedding,
     _refuse_torchscript,
+    _require_class_indices,
     _require_device,
     _require_entries,
     _require_examples,
     _require_finite_embeddings,
     _require_matching_weights,
     _require_names,
+    _require_whole_number_labels,
     _support_from_file,
     generate_support,
     generate_train_summary,
@@ -749,6 +751,14 @@ class EquineGP(Equine):
             was not given). The entry for epoch ``n`` covers that epoch's
             validation pass only.
 
+        Raises
+        ------
+        ValueError
+            If the feature or label names do not match the data or the number
+            of classes, or the labels of ``dataset`` are not 1-D, not whole
+            numbers or not class indices (0 to ``num_classes - 1``). The model
+            is then unchanged.
+
         Notes
         -----
         Training and eval mode are toggled on this wrapper, which propagates to the
@@ -756,6 +766,9 @@ class EquineGP(Equine):
         """
 
         self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
+        train_y = dataset[:][1]
+        _require_whole_number_labels(train_y, None, "dataset labels")
+        _require_class_indices(train_y, self.num_outputs, "dataset labels")
 
         train_loader = _batch_loader(dataset, batch_size, shuffle=True)
 
@@ -809,7 +822,6 @@ class EquineGP(Equine):
             tensors = cast(TensorDataset, dataset).tensors
             self.update_support(tensors[0], tensors[1], support_size=support_size)
 
-        _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         self.train_summary: dict[str, Any] = generate_train_summary(
             self, train_y, date_trained
@@ -858,7 +870,9 @@ class EquineGP(Equine):
             If ``support_size`` is missing, is passed both by position and by
             keyword, or more than one option is passed by position.
         ValueError
-            If ``support_x`` and ``support_y`` hold different numbers of examples.
+            If ``support_x`` and ``support_y`` hold different numbers of examples,
+            or ``support_y`` is not 1-D or holds a label that is not a whole number
+            or not a class index (0 to ``num_classes - 1``).
         """
         if len(args) > 1:
             raise TypeError(
@@ -893,6 +907,8 @@ class EquineGP(Equine):
                     f"{support_y.shape[0]} labels; they must match."
                 )
             labels, counts = torch.unique(support_y, return_counts=True)
+            _require_whole_number_labels(support_y, labels.tolist(), "support_y")
+            _require_class_indices(support_y, self.num_outputs, "support_y")
             shuffled_idxs = _get_shuffle_idxs_by_class(support_y, labels.tolist())
             support = OrderedDict()
             for label, count in list(zip(labels.tolist(), counts.tolist())):
@@ -1027,6 +1043,13 @@ class EquineGP(Equine):
             Learning rate for temperature optimization.
         calibration_batch_size : int, optional
             Batch size of the calibration data loader.
+
+        Raises
+        ------
+        ValueError
+            If the labels of a batch are not 1-D or hold a label that is not a
+            whole number or not a class index (0 to ``num_classes - 1``). A call
+            that raises leaves the temperature as it was.
         """
 
         calibration_loader = _batch_loader(
@@ -1034,21 +1057,31 @@ class EquineGP(Equine):
         )
 
         temperature = cast(torch.Tensor, self.temperature)
-        temperature.requires_grad = True
+        # Restored if calibration raises.
+        initial_temperature = temperature.detach().clone()
         loss_fn = torch.nn.functional.cross_entropy
-        optimizer = torch.optim.Adam([temperature], lr=calibration_lr)
-        for _ in range(num_calibration_epochs):
-            for xs, labels in calibration_loader:
-                optimizer.zero_grad()
-                xs = self._input_to_model(xs)
-                labels = labels.to(self.device)
-                with torch.no_grad():
-                    logits = self.model(xs)
-                logits = logits / temperature
-                loss = loss_fn(logits, labels.to(torch.long))
-                loss.backward()
-                optimizer.step()
-        temperature.requires_grad = False
+        try:
+            temperature.requires_grad = True
+            optimizer = torch.optim.Adam([temperature], lr=calibration_lr)
+            for _ in range(num_calibration_epochs):
+                for xs, labels in calibration_loader:
+                    _require_whole_number_labels(labels, None, "dataset labels")
+                    _require_class_indices(labels, self.num_outputs, "dataset labels")
+                    optimizer.zero_grad()
+                    xs = self._input_to_model(xs)
+                    labels = labels.to(self.device)
+                    with torch.no_grad():
+                        logits = self.model(xs)
+                    logits = logits / temperature
+                    loss = loss_fn(logits, labels.to(torch.long))
+                    loss.backward()
+                    optimizer.step()
+        except BaseException:
+            with torch.no_grad():
+                temperature.copy_(initial_temperature)
+            raise
+        finally:
+            temperature.requires_grad = False
 
     def _input_to_model(self, X: torch.Tensor) -> torch.Tensor:
         """

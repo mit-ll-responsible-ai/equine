@@ -310,3 +310,20 @@
   `num_random_features` are positive integers; zero `num_classes` or
   `num_random_features` built an empty head and a negative size raised a torch
   `RuntimeError` (#264).
+- Docstrings that contradicted the code now match it: `Equine.predict`
+  returns probabilities, `EquineGP.forward` returns logits,
+  `EquineProtonet.forward` and `Protonet.compute_classes` return
+  probabilities, `Protonet.create_model_head` returns an `Identity`,
+  `EquineProtonet.calibrate_temperature` is run by `train_model` only when
+  `use_temperature` is True, `generate_support` and `generate_episode`
+  describe their arguments and return values, and
+  `EquineGP.train_model` documents `scheduler`, `vis_support` and
+  `support_size` (#208).
+- The `EquineGP.calibrate_model` docstring said `train_model` also runs it; it
+  does not, and `temperature` stays at `init_temperature` until
+  `calibrate_model` is called. The `calibration_batch_size` parameter is now
+  documented (#192).
+- The `EquineGP.train_model` docstring said it takes a `TensorDataset`.
+  It needs a `dataset` whose `dataset[:]` returns the inputs and labels
+  (a `TensorDataset`, a `Subset` of one or a `random_split` part), and
+  `vis_support=True` needs a `TensorDataset` (#171).

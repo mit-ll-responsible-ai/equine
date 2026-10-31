@@ -404,3 +404,16 @@
   infinities included). Calls that could run before and now raise include
   those merges and, under `python -O`, `train_model` and `update_support` on
   labels holding NaN (#289).
+- `EquineGP.train_model`, `calibrate_model` and `update_support` truncated
+  labels that are not whole numbers, so labels such as 0 and 0.5 trained,
+  calibrated or entered the support as one class without an error. They now
+  raise `ValueError` when the labels are not 1-D or not whole numbers (NaN
+  and infinities included): `train_model` and `update_support` before the
+  model changes, `calibrate_model` at the first batch holding such a label.
+  A `calibrate_model` call that raises now leaves the temperature as it was,
+  without gradients enabled. `train_model` reads `dataset[:]` before training
+  instead of after it, so a dataset that draws random numbers when indexed
+  trains differently from the same seed. Labels of `validation_dataset` still
+  go to `val_metrics` as given. Calls that could run before and now raise
+  include those merges, NaN labels on some platforms and, under `python -O`,
+  `train_model` on 2-D labels with a `loss_fn` that accepts them (#290).

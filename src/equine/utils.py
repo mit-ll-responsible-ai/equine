@@ -961,6 +961,37 @@ def _require_finite_embeddings(embeddings: torch.Tensor) -> None:
         )
 
 
+def _require_whole_number_labels(
+    y: torch.Tensor, labels: list[Any] | None, name: str
+) -> None:
+    """
+    Refuse labels that are not 1-D or not whole numbers.
+
+    Parameters
+    ----------
+    y : torch.Tensor
+        The labels.
+    labels : list[Any] or None
+        The distinct values in ``y``. With None, they are computed from ``y``
+        when ``y`` is a floating-point tensor.
+    name : str
+        What ``y`` is, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``y`` is not 1-D, or ``y`` is a floating-point tensor and a value in
+        ``labels`` is not a whole number (a fraction, an infinity or NaN).
+    """
+    if y.dim() != 1:
+        raise ValueError(f"{name} must be 1-D, got shape {tuple(y.shape)}.")
+    if y.is_floating_point():
+        values = torch.unique(y).tolist() if labels is None else labels
+        fractional = [label for label in values if not label.is_integer()]
+        if fractional:
+            raise ValueError(f"{name} must be whole numbers, got {fractional[0]}.")
+
+
 def _label_text(label: Any) -> str:
     """``label`` as text, with an integral float shown as an integer."""
     if isinstance(label, float) and label.is_integer():

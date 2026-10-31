@@ -199,6 +199,7 @@ def test_positional_options_warn_and_update_like_the_keywords_under_python_O() -
     _assert_like_the_keywords(result["report"])
 
 
+@pytest.mark.contracts
 @pytest.mark.parametrize(
     "call, match",
     [
@@ -227,6 +228,7 @@ def test_out_of_range_calib_frac_violates_a_contract(call, match) -> None:
     assert model.label_names is None
 
 
+@pytest.mark.contracts
 @pytest.mark.parametrize(
     "build, call",
     [

@@ -68,9 +68,9 @@
   calibration pass there (previously twice). That calibration pass also runs
   under `torch.no_grad()` now. `EquineGP.update_support`
   and `EquineGP.load` embed the support set once per class; loaded GP models
-  expose `support_embeddings`. The public `EquineGP.compute_prototypes()` still
-  re-embeds the support and returns the prototypes without storing anything
-  on the model.
+  expose `support_embeddings` (#214). The public
+  `EquineGP.compute_prototypes()` still re-embeds the support and returns the
+  prototypes without storing anything on the model.
 - **Device handling** (#170, #177, #206, #216, #188). Both model classes now
   keep every tensor they own on their `device`: the `temperature` buffer, the
   support set, the GP's Laplace `seen_data` counter and the covariances it
@@ -198,12 +198,31 @@
   `EquineGP` files too, whose contents are otherwise unchanged. An EQUINE that
   reads format version 2 at most refuses them with "Unsupported EQUINE model
   format version 3" (#210).
+- `Equine` declares `get_support()` and `update_support(support_x,
+  support_y, *args, **kwargs)` as abstract methods, so a subclass of `Equine`
+  must implement both. `update_support` on both model classes takes its
+  options by keyword: `calib_frac` and `label_names` on `EquineProtonet`,
+  `support_size` on `EquineGP` (passing them by position is deprecated, see
+  below) (#215).
+- `EquineProtonet.support`, `support_embeddings` and `prototypes` return the
+  model's support examples, their embeddings and the class prototypes (the
+  objects `get_support()` and `get_prototypes()` return; empty, and an empty
+  tensor for `prototypes`, before the first support update) and are
+  read-only: assigning one raises `AttributeError`. In EQUINE 0.1.8 they were
+  empty containers that the model never filled. `Equine.__init__` no longer
+  creates these attributes; `EquineGP.__init__` creates its own (#214).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading
   or assigning it emits a `DeprecationWarning`; assigning it moves the model
   with `model.to(value)` and then sets `device` to `value`. To move a model,
   call `model.to(value)`.
+- Passing the options of `update_support` by position, as in
+  `EquineProtonet.update_support(x, y, 0.2)` or
+  `EquineGP.update_support(x, y, 25)`: pass `calib_frac=`, `label_names=`
+  and `support_size=` by keyword. A positional call emits a
+  `DeprecationWarning` and then runs as the keyword call; it stops working in
+  the next release (#215).
 
 ### Removed
 - TorchScript in model files: `save(..., allow_executable=True)`,

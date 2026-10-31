@@ -9,6 +9,7 @@ layer underneath (``load_checkpoint``) is tested in test_safe_loading.py.
 """
 
 import os
+import pickle
 import subprocess
 import sys
 import time
@@ -129,7 +130,7 @@ def test_registered_embedding_saves_data_only_and_round_trips(
     model.save(path)
 
     ckpt = torch.load(path, weights_only=True)  # must not raise
-    assert ckpt["equine_format_version"] == 2
+    assert ckpt["equine_format_version"] == equine.utils.EQUINE_FORMAT_VERSION
     assert "contains_executable" not in ckpt and "embed_jit_save" not in ckpt
     assert "embed_jit_save" not in ckpt
     assert ckpt["embedding_recipe"] == {
@@ -2272,6 +2273,20 @@ def test_outlier_kde_objects_are_refused_and_name_the_upgrade() -> None:
             "device",
             id="protonet-meta",
         ),
+        pytest.param(
+            train_protonet,
+            eq.EquineProtonet,
+            {"ood_distance": "rmd"},
+            r"settings\['ood_distance'\]",
+            id="ood_distance-unknown",
+        ),
+        pytest.param(
+            train_protonet,
+            eq.EquineProtonet,
+            {"ood_distance": 2},
+            r"settings\['ood_distance'\]",
+            id="ood_distance-int",
+        ),
         pytest.param(train_gp, eq.EquineGP, {"device": "meta"}, "device", id="gp-meta"),
     ],
 )
@@ -2389,10 +2404,11 @@ def test_unknown_recipe_is_actionable_in_a_fresh_interpreter(
 
 
 def _protonet_on_labels(labels):
-    """``train_protonet`` with class ``k`` of ``_dataset`` relabelled ``labels[k]``."""
+    """``train_protonet`` with ``ood_distance="rmd_sqrt"``, and class ``k`` of
+    ``_dataset`` relabelled ``labels[k]``."""
     dataset, X = _dataset()
     Y = torch.tensor(labels)[dataset.tensors[1]]
-    model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3)
+    model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
         torch.utils.data.TensorDataset(X, Y),
         num_episodes=5,
@@ -2408,7 +2424,9 @@ def _write_v2_protonet_file(model, path: str, label_order=None) -> None:
     """
     Write ``model`` in the format-version-2 layout, built key by key: its
     support and KDEs stored in ``label_order`` (by default the support's order).
+    The settings hold no ``ood_distance``; ``model`` must use ``"rmd_sqrt"``.
     """
+    assert model.ood_distance == "rmd_sqrt"
     labels = list(model.get_support()) if label_order is None else label_order
     torch.save(
         {
@@ -2483,3 +2501,43 @@ def test_save_load_round_trip_keeps_non_contiguous_labels(tmp_path) -> None:
     loaded = eq.load_equine_model(path)
     assert list(loaded.get_support()) == [0, 2, 5]
     assert_same(model, loaded, X)
+
+
+@pytest.mark.parametrize("ood_distance", ["rmd_sq", "rmd_sqrt"])
+def test_ood_distance_is_saved_and_loaded(tmp_path, ood_distance) -> None:
+    model, X = train_protonet(
+        BasicEmbeddingModel(6, 3), use_temperature=True, ood_distance=ood_distance
+    )
+    model.temperature.fill_(0.5)
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    ckpt = torch.load(path, weights_only=True)
+    assert ckpt["settings"]["ood_distance"] == ood_distance
+    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+        loaded = loader(path)
+        assert loaded.ood_distance == ood_distance
+        assert_same(model, loaded, X)
+
+
+def test_protonet_file_without_ood_distance_loads_as_rmd_sqrt(tmp_path) -> None:
+    model, X = train_protonet(BasicEmbeddingModel(6, 3), ood_distance="rmd_sqrt")
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    ckpt = torch.load(path, weights_only=True)
+    del ckpt["settings"]["ood_distance"]
+    torch.save(ckpt, path)
+    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+        loaded = loader(path)
+        assert loaded.ood_distance == "rmd_sqrt"
+        assert_same(model, loaded, X)
+
+
+def test_pickle_without_ood_distance_unpickles_as_rmd_sqrt() -> None:
+    """A pickled model whose state has no ``ood_distance`` unpickles with
+    ``"rmd_sqrt"`` and predicts as the model it was pickled from."""
+    model, X = train_protonet(BasicEmbeddingModel(6, 3), ood_distance="rmd_sqrt")
+    del model.__dict__["ood_distance"]
+    restored = pickle.loads(pickle.dumps(model))
+    assert restored.ood_distance == "rmd_sqrt"
+    model.ood_distance = "rmd_sqrt"
+    assert_same(model, restored, X)

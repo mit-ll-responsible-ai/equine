@@ -27,7 +27,8 @@
    "feature_names": null,
    "label_names": null,
    "temperature": 1.0,
-   "modelType": "EquineProtonet"
+   "modelType": "EquineProtonet",
+   "ood_distance": "rmd_sqrt"
   }
  },
  "gp": {
@@ -102,7 +103,8 @@
    "temperature": 0.9800060391426086,
    "modelType": "EquineProtonet",
    "cov_type": "full",
-   "relative_mahal": false
+   "relative_mahal": false,
+   "ood_distance": "rmd_sqrt"
   }
  },
  "gp_nondefault": {

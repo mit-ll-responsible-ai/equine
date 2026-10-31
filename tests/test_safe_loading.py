@@ -63,9 +63,14 @@ def _tiny_dataset(seed: int = 0):
 
 
 def _trained_protonet(cov_type=eq.CovType.UNIT, use_temperature=False):
+    """A Protonet trained on ``_tiny_dataset`` with ``ood_distance="rmd_sqrt"``."""
     dataset, X = _tiny_dataset()
     model = eq.EquineProtonet(
-        BasicEmbeddingModel(6, 3), 3, cov_type=cov_type, use_temperature=use_temperature
+        BasicEmbeddingModel(6, 3),
+        3,
+        cov_type=cov_type,
+        use_temperature=use_temperature,
+        ood_distance="rmd_sqrt",
     )
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
@@ -122,7 +127,11 @@ def _jit_buffer(module: torch.nn.Module) -> io.BytesIO:
 
 
 def _write_legacy_protonet_file(model, path: str) -> None:
-    """Write a Protonet file in the legacy layout: BytesIO, Enum and scipy objects."""
+    """Write a Protonet file in the legacy layout: BytesIO, Enum and scipy objects.
+
+    The settings hold no ``ood_distance``; ``model`` must use ``"rmd_sqrt"``.
+    """
+    assert model.ood_distance == "rmd_sqrt"
     torch.save(
         {
             "embed_jit_save": _jit_buffer(model.model.embedding_model),
@@ -218,7 +227,7 @@ def test_loading_untrusted_file_does_not_execute_payload(tmp_path, loader) -> No
 
 def _assert_weights_only_safe_layout(path: str) -> dict:
     checkpoint = torch.load(path, weights_only=True)  # must not raise
-    assert checkpoint["equine_format_version"] == 2
+    assert checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION
     assert isinstance(checkpoint["embedding_recipe"]["builder"], str)
     assert "embedding_state_dict" in checkpoint
     assert "embed_jit_save" not in checkpoint
@@ -409,7 +418,8 @@ def test_legacy_refusal_is_its_own_error_type(tmp_path) -> None:
 
 def test_upgrade_does_not_downgrade_a_newer_format(tmp_path) -> None:
     """A file written by a newer EQUINE is refused by the loader with its own
-    message; the upgrade must not unpickle it and re-stamp it as version 2."""
+    message; the upgrade must not unpickle it and re-stamp it as the current
+    version."""
     model, _ = _trained_protonet()
     path = tmp_path / "newer.eq"
     model.save(str(path))
@@ -1415,7 +1425,9 @@ class _NormalizedWithAttributes(torch.nn.Module):
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_takes_tensors_the_archive_keeps_as_attributes(tmp_path) -> None:
     dataset, X = _tiny_dataset()
-    model = eq.EquineProtonet(_NormalizedWithAttributes(6, 3), 3)
+    model = eq.EquineProtonet(
+        _NormalizedWithAttributes(6, 3), 3, ood_distance="rmd_sqrt"
+    )
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -1468,7 +1480,9 @@ def test_upgrade_checks_the_written_file_not_the_callers_instance(tmp_path) -> N
             return self.stack((x - self.train_means) / self.train_deviations)
 
     dataset, _ = _tiny_dataset()
-    legacy = eq.EquineProtonet(_NormalizedWithAttributes(6, 3), 3)
+    legacy = eq.EquineProtonet(
+        _NormalizedWithAttributes(6, 3), 3, ood_distance="rmd_sqrt"
+    )
     legacy.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -1526,7 +1540,7 @@ class _WithExtras(torch.nn.Module):
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_keeps_extra_state_and_non_persistent_buffers(tmp_path) -> None:
     dataset, X = _tiny_dataset()
-    model = eq.EquineProtonet(_LegacyWithBuffer(6, 3), 3)
+    model = eq.EquineProtonet(_LegacyWithBuffer(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -1696,7 +1710,9 @@ def test_upgrade_without_the_check_still_compares_support_rows(
     """allow_unchecked (--no-check) waives only a comparison there are no rows
     for: a tanh MLP's support rows still refuse the default (relu) recipe."""
     dataset, _ = _tiny_dataset()
-    model = eq.EquineProtonet(eq.MLP(6, [8], 3, activation="tanh"), 3)
+    model = eq.EquineProtonet(
+        eq.MLP(6, [8], 3, activation="tanh"), 3, ood_distance="rmd_sqrt"
+    )
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -1814,7 +1830,7 @@ def test_upgrade_of_a_model_over_integer_inputs(tmp_path) -> None:
     x = torch.randint(0, 50, (120, 5))
     y = torch.arange(3).repeat_interleave(40)
     dataset = torch.utils.data.TensorDataset(x, y)
-    model = eq.EquineProtonet(_Tokens(50, 8), 3)
+    model = eq.EquineProtonet(_Tokens(50, 8), 3, ood_distance="rmd_sqrt")
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -2808,7 +2824,7 @@ def test_upgrade_compares_in_eval_mode(tmp_path) -> None:
         pass
 
     dataset, X = _tiny_dataset()
-    model = eq.EquineProtonet(_DropoutEmbedding(6, 3), 3)
+    model = eq.EquineProtonet(_DropoutEmbedding(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -2877,7 +2893,7 @@ def _train_subclass_protonet():
         pass
 
     dataset, X = _tiny_dataset()
-    model = MyProtonet(BasicEmbeddingModel(6, 3), 3)
+    model = MyProtonet(BasicEmbeddingModel(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
         dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
     )
@@ -3101,3 +3117,20 @@ def test_upgrade_keeps_the_support_order_of_a_legacy_file(tmp_path) -> None:
     loaded = eq.load_equine_model(path)
     assert list(loaded.get_support()) == [2, 0, 1]
     _assert_same_predictions(model, loaded, X)
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
+    tmp_path,
+) -> None:
+    model, X = _trained_protonet()
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+    _upgrade(path)
+
+    checkpoint = torch.load(path, weights_only=True)
+    assert checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION
+    assert "ood_distance" not in checkpoint["settings"]
+    upgraded = eq.load_equine_model(path)
+    assert upgraded.ood_distance == "rmd_sqrt"
+    _assert_same_predictions(model, upgraded, X)

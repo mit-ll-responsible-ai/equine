@@ -308,6 +308,26 @@ def use_save_load_model_tests(model, X, tmp_filename: str = "tmp.eq"):
     return new_model
 
 
+LABEL_KINDS = ["fraction", "merged", "infinite", "nan", "column"]
+
+
+def labels_of_kind(y: torch.Tensor, kind: str) -> tuple[torch.Tensor, str]:
+    """Labels 0, 1 and 2 turned into labels of ``kind``, and the refusal's words."""
+    if kind == "fraction":
+        return y.float() + 0.5, "must be whole numbers, got 0.5"
+    if kind == "merged":
+        return y.float() / 2, "must be whole numbers, got 0.5"
+    if kind == "infinite":
+        return torch.where(
+            y == 2, torch.inf, y.float()
+        ), "must be whole numbers, got inf"
+    if kind == "nan":
+        return torch.where(
+            y == 2, torch.nan, y.float()
+        ), "must be whole numbers, got nan"
+    return y.float()[:, None], r"must be 1-D, got shape \(\d+, 1\)"
+
+
 # return a list of random strings
 # based off https://stackoverflow.com/a/34485032
 def generate_random_string_list(list_length: int, str_length: int = 3):

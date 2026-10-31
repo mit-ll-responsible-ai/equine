@@ -45,6 +45,7 @@ from .utils import (
     _require_finite_embeddings,
     _require_matching_weights,
     _require_names,
+    _require_whole_number_labels,
     _shown,
     _support_from_file,
     generate_support,
@@ -591,33 +592,6 @@ def _require_examples_per_class(
                 f"Class {_label_text(label)} has {count} {part} example(s) after the "
                 f"calib_frac split; it needs at least {minimum}."
             )
-
-
-def _require_whole_number_labels(y: torch.Tensor, labels: list[Any], name: str) -> None:
-    """
-    Refuse labels that are not 1-D or not whole numbers.
-
-    Parameters
-    ----------
-    y : torch.Tensor
-        The labels.
-    labels : list[Any]
-        The distinct values in ``y``.
-    name : str
-        What ``y`` is, named in the message.
-
-    Raises
-    ------
-    ValueError
-        If ``y`` is not 1-D, or ``y`` is a floating-point tensor and a value in
-        ``labels`` is not a whole number (a fraction, an infinity or NaN).
-    """
-    if y.dim() != 1:
-        raise ValueError(f"{name} must be 1-D, got shape {tuple(y.shape)}.")
-    if y.is_floating_point():
-        fractional = [label for label in labels if not label.is_integer()]
-        if fractional:
-            raise ValueError(f"{name} must be whole numbers, got {fractional[0]}.")
 
 
 ###############################################

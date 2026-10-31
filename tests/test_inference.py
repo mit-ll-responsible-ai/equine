@@ -144,6 +144,7 @@ def test_protonet_update_support_calibration_pass_records_no_graph():
     assert rows == x.shape[0] - sum(r for r, _ in seen[:-1])
 
 
+@pytest.mark.contracts
 def test_gp_untrained_forward_and_predict_violate_precondition():
     """Neither entry point computes anything or touches the Laplace buffers before
     training: the training-parameters precondition guards the single-pass helper."""

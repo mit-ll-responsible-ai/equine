@@ -206,6 +206,7 @@ def test_mahalanobis():
     assert torch.isclose(dist[0, 0], target_val)
 
 
+@pytest.mark.contracts
 def test_stratified_split_invalid_test_size():
     X = torch.arange(10).float().unsqueeze(1)
     Y = torch.randint(0, 2, (10,))
@@ -221,6 +222,7 @@ def test_stratified_split_invalid_test_size():
         eq.utils.stratified_train_test_split(X, Y, test_size=0)
 
 
+@pytest.mark.contracts
 def test_stratified_split_mismatched_lengths():
     X = torch.arange(10).float().unsqueeze(1)
     Y = torch.randint(0, 2, (8,))  # Mismatched length
@@ -442,6 +444,7 @@ def test_mahalanobis_raises_on_a_covariance_that_is_not_positive_definite(cov):
         eq.mahalanobis_distance_nosq(torch.ones(1, 3, 2), cov)
 
 
+@pytest.mark.contracts
 def test_mahalanobis_rejects_an_unbatched_covariance():
     """A single (dim, dim) covariance is refused."""
     m = torch.randn(4, 4)

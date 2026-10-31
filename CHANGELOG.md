@@ -215,6 +215,12 @@
   predicted as one class in one batched pass, instead of one
   `gaussian_kde.integrate_box_1d` call per example. The scores are the
   same apart from rounding in the last bits (#178).
+- `generate_episode` and `generate_support` gather only the rows they
+  keep (the support and the query examples) instead of every row of each
+  selected class, and `update_support` on both classes no longer runs
+  `torch.unique` over all the labels once per class. The random draws are
+  the same `torch.randperm` calls, in the same order, so a seed selects the
+  same rows (#196, #213).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading

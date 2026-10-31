@@ -611,3 +611,51 @@ def test_equine_gp_refuses_non_positive_sizes(
 ) -> None:
     with pytest.raises(ValueError, match=f"{name} must be a positive integer"):
         eq.EquineGP(torch.nn.Identity(), **kwargs)
+
+
+@pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
+@pytest.mark.parametrize("shift", [0, 7])
+def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> None:
+    """The support and the RNG state after the call equal a replay of one
+    ``randperm`` over each class's rows in ascending label order, each class keeping
+    its first ``min(count, support_size)`` rows. The class of label ``1 + shift``
+    has one example."""
+    support_y = torch.tensor([0] * 6 + [1] + [2] * 9) + shift
+    order = torch.randperm(len(support_y), generator=torch.Generator().manual_seed(1))
+    support_y = support_y[order].to(label_dtype)
+    support_x = torch.rand(
+        len(support_y), FEATURES, generator=torch.Generator().manual_seed(2)
+    )
+    support_x[:, 0] = torch.arange(len(support_y))
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    for seed in range(5):
+        torch.manual_seed(seed)
+        model.update_support(support_x, support_y, support_size=5)
+        state = torch.get_rng_state()
+
+        torch.manual_seed(seed)
+        expected = []
+        for label in torch.unique(support_y).tolist():
+            rows = torch.argwhere(support_y == label).reshape(-1)
+            expected.append((label, support_x[rows[torch.randperm(len(rows))][:5]]))
+        support = model.get_support()
+        assert list(support) == [label for label, _ in expected]
+        assert [len(rows) for rows in support.values()] == [5, 1, 5]
+        for label, rows in expected:
+            assert torch.equal(support[label], rows)
+        assert torch.equal(torch.get_rng_state(), state)
+
+
+def test_update_support_refuses_support_x_and_support_y_of_different_lengths() -> None:
+    """The refusal comes before any random draw, for every seed."""
+    model = eq.EquineGP(torch.nn.Identity(), 4, 3)
+    x = torch.rand(20, 4)
+    y = torch.arange(20) % 3
+    for seed in range(20):
+        torch.manual_seed(seed)
+        state = torch.get_rng_state()
+        with pytest.raises(ValueError, match="support_x has 19 examples"):
+            model.update_support(x[1:], y, support_size=3)
+        assert torch.equal(torch.get_rng_state(), state)

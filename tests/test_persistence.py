@@ -1102,8 +1102,8 @@ def test_recipe_that_shares_containers_loads_quickly(tmp_path, train, cls) -> No
 
 
 def test_protonet_saves_only_the_support_rows(tmp_path) -> None:
-    """Each label's support is a view of all that class's training rows; the file holds
-    only the support rows."""
+    """The saved file holds only the support rows, not the training rows they were
+    drawn from."""
     torch.manual_seed(0)
     X = torch.rand(3000, 6)
     Y = torch.tensor([0] * 1000 + [1] * 1000 + [2] * 1000)
@@ -1131,8 +1131,8 @@ def test_protonet_saves_only_the_support_rows(tmp_path) -> None:
 
 
 def test_gp_saves_only_the_support_rows(tmp_path) -> None:
-    """EquineGP's support comes from generate_support too, as a view of all that class's
-    training rows; the file holds only the support rows."""
+    """A support set by hand from slices of the training rows is saved as copies of
+    the slices: the file holds only the support rows."""
     torch.manual_seed(0)
     X = torch.rand(3000, 6)
     Y = torch.tensor([0] * 1000 + [1] * 1000 + [2] * 1000)
@@ -1143,8 +1143,9 @@ def test_gp_saves_only_the_support_rows(tmp_path) -> None:
         torch.optim.SGD(model.parameters(), lr=0.001),
         num_epochs=1,
         batch_size=500,
-        vis_support=True,
-        support_size=10,
+    )
+    model.support = OrderedDict(
+        (label, X[1000 * label : 1000 * label + 10]) for label in range(3)
     )
     in_memory = list(model.support.values())
     assert any(

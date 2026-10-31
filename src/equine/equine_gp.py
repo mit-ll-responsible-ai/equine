@@ -203,8 +203,13 @@ def _inverse_via_cholesky(a: torch.Tensor) -> torch.Tensor:
     Raises
     ------
     torch.linalg.LinAlgError
-        If ``a`` is not positive definite.
+        If ``a`` holds a NaN or infinite value, or is not positive definite.
     """
+    if not bool(torch.isfinite(a).all()):
+        raise torch.linalg.LinAlgError(  # type: ignore
+            "Precision matrix inversion failed: the matrix holds NaN or "
+            "infinite values."
+        )
     u, info = torch.linalg.cholesky_ex(a)
     if not bool((info == 0).all()):
         raise torch.linalg.LinAlgError("Precision matrix inversion failed!")  # type: ignore
@@ -440,9 +445,12 @@ class _Laplace(torch.nn.Module):
 
         if self.training:
             # Detached: the stored precision carries no autograd graph.
-            k_detached = k.detach()
-            precision_minibatch = k_detached.t() @ k_detached
-            self.precision += precision_minibatch
+            k_detached = k.detach().to(self.precision.dtype)
+            if k_detached.device.type == "cpu":
+                with torch.autocast("cpu", enabled=False):
+                    self.precision += k_detached.t().contiguous() @ k_detached
+            else:
+                self.precision.addmm_(k_detached.t(), k_detached)
             # Marks any covariance cached since the last reset as stale.
             self.recompute_covariance = True
             self.seen_data += k.shape[0]

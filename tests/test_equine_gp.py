@@ -458,6 +458,77 @@ def test_laplace_refuses_more_rows_than_num_data_in_one_epoch() -> None:
         model.model(x[:1])
 
 
+@pytest.mark.parametrize(
+    "dtype, default_dtype, precision_dtype",
+    [
+        (torch.float16, torch.float32, torch.float32),
+        (torch.bfloat16, torch.float32, torch.float32),
+        (torch.float32, torch.float32, torch.float32),
+        (torch.float64, torch.float32, torch.float64),
+        (torch.float32, torch.float64, torch.float64),
+        (torch.float32, torch.float16, torch.float32),
+        (torch.bfloat16, torch.float16, torch.float32),
+        (torch.float16, torch.float16, torch.float16),
+        (torch.bfloat16, torch.bfloat16, torch.bfloat16),
+    ],
+)
+def test_train_model_accumulates_the_precision_in_the_promoted_dtype(
+    dtype, default_dtype, precision_dtype
+) -> None:
+    """After train_model under ``default_dtype`` the precision matrix has
+    ``precision_dtype`` and equals the identity plus the sum of ``k.t() @ k`` over
+    the epoch's features to within the rounding of the model's dtype."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    ).to(dtype)
+    features = []
+
+    def record(module, inputs, output):
+        if model.model.training:
+            features.append(output.detach().double())
+
+    model.model.rff.register_forward_hook(record)
+    previous = torch.get_default_dtype()
+    torch.set_default_dtype(default_dtype)
+    try:
+        model.train_model(
+            torch.utils.data.TensorDataset(x.to(dtype), y.to(dtype)),
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=1,
+            batch_size=32,
+        )
+    finally:
+        torch.set_default_dtype(previous)
+    expected = torch.eye(16, dtype=torch.float64) + sum(k.t() @ k for k in features)
+    precision = model.model.precision
+    assert precision.dtype == precision_dtype
+    error = (precision.double() - expected).abs().max() / expected.abs().max()
+    assert error <= 16 * torch.finfo(dtype).eps
+
+
+def test_a_float64_gp_with_a_float32_precision_accumulates_in_float64() -> None:
+    """A float32 precision buffer in a float64 model becomes float64 at the next
+    train_model."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    data = torch.utils.data.TensorDataset(x.double(), y.float())
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    ).double()
+    model.model.precision = model.model.precision.float()
+    model.train_model(
+        data,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    assert model.model.precision.dtype == torch.float64
+
+
 def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:
     model = eq.EquineGP(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES)
     model.model.set_training_params(120, 32)

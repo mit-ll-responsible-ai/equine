@@ -6,14 +6,14 @@ import math
 import sys
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sized
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import icontract
 import torch
 from beartype import beartype
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 from torchmetrics.metric import Metric
 from tqdm import tqdm
 
@@ -120,6 +120,10 @@ class _RandomFourierFeatures(torch.nn.Module):
     A private class to generate random Fourier features for the embedding model.
     """
 
+    W: torch.Tensor
+    b: torch.Tensor
+    feature_scale: torch.Tensor
+
     def __init__(
         self, in_dim: int, num_random_features: int, feature_scale: float | None
     ) -> None:
@@ -207,6 +211,8 @@ class _Laplace(torch.nn.Module):
     """
     A private class to compute a Laplace approximation to a Gaussian Process (GP)
     """
+
+    random_matrix: torch.Tensor
 
     def __init__(
         self,
@@ -630,13 +636,13 @@ class EquineGP(Equine):
 
     def train_model(
         self,
-        dataset: Dataset,
+        dataset: Dataset[Any],
         loss_fn: Callable,
         opt: torch.optim.Optimizer,
         num_epochs: int,
         scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
         batch_size: int = 64,
-        validation_dataset: Dataset | None = None,
+        validation_dataset: Dataset[Any] | None = None,
         val_metrics: Iterable[Metric] | None = None,
         vis_support: bool = False,
         support_size: int = 25,
@@ -706,7 +712,7 @@ class EquineGP(Equine):
                 drop_last=False,
             )
 
-        self.model.set_training_params(len(dataset), batch_size)
+        self.model.set_training_params(len(cast(Sized, dataset)), batch_size)
         val_metrics_outputs: list[list[Any]] | None = None
 
         if validation_dataset is not None and val_metrics is not None:
@@ -749,9 +755,8 @@ class EquineGP(Equine):
                 for i, metric in enumerate(val_metrics):
                     val_metrics_outputs[i].append(metric.compute())
         if vis_support:
-            self.update_support(
-                dataset.tensors[0], dataset.tensors[1], support_size=support_size
-            )
+            tensors = cast(TensorDataset, dataset).tensors
+            self.update_support(tensors[0], tensors[1], support_size=support_size)
 
         _, train_y = dataset[:]
         date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
@@ -949,7 +954,7 @@ class EquineGP(Equine):
     @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
     def calibrate_model(
         self,
-        dataset: torch.utils.data.Dataset,
+        dataset: Dataset[Any],
         num_calibration_epochs: int = 1,
         calibration_lr: float = 0.01,
         calibration_batch_size: int = 256,
@@ -980,9 +985,10 @@ class EquineGP(Equine):
             drop_last=False,
         )
 
-        self.temperature.requires_grad = True
+        temperature = cast(torch.Tensor, self.temperature)
+        temperature.requires_grad = True
         loss_fn = torch.nn.functional.cross_entropy
-        optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
+        optimizer = torch.optim.Adam([temperature], lr=calibration_lr)
         for _ in range(num_calibration_epochs):
             for xs, labels in calibration_loader:
                 optimizer.zero_grad()
@@ -990,11 +996,11 @@ class EquineGP(Equine):
                 labels = labels.to(self.device)
                 with torch.no_grad():
                     logits = self.model(xs)
-                logits = logits / self.temperature
+                logits = logits / temperature
                 loss = loss_fn(logits, labels.to(torch.long))
                 loss.backward()
                 optimizer.step()
-        self.temperature.requires_grad = False
+        temperature.requires_grad = False
 
     def _input_to_model(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -1122,7 +1128,7 @@ class EquineGP(Equine):
             "emb_out_dim": self.num_deep_features,
             "num_classes": self.num_outputs,
             "num_random_features": self.num_random_features,
-            "init_temperature": self.temperature.item(),
+            "init_temperature": cast(torch.Tensor, self.temperature).item(),
             "device": self.device,
         }
         # The feature extractor is the embedding model, stored separately.
@@ -1155,7 +1161,7 @@ class EquineGP(Equine):
         device: str | None = None,
         *,
         embedding_model: torch.nn.Module | None = None,
-    ) -> Equine:
+    ) -> Self:
         """
         Load a previously saved EquineGP model.
 
@@ -1201,7 +1207,7 @@ class EquineGP(Equine):
         model_save: dict[str, Any],
         device: str | None = None,
         embedding_model: torch.nn.Module | None = None,
-    ) -> Equine:
+    ) -> Self:
         """
         Rebuild an EquineGP from an already-loaded checkpoint dictionary.
 
@@ -1270,24 +1276,19 @@ class EquineGP(Equine):
 
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
-        eq_model.train_summary = model_save.get("train_summary")
+        eq_model.train_summary = cast(dict[str, Any], model_save.get("train_summary"))
 
         _adopt_stored_dtypes(
             eq_model.model, model_save["laplace_model_save"], "laplace_model_save"
         )
-        eq_model.model.load_state_dict(
-            model_save.get("laplace_model_save"), strict=False
-        )
+        laplace_save = cast(dict[str, Any], model_save.get("laplace_model_save"))
+        eq_model.model.load_state_dict(laplace_save, strict=False)
         # The load_state_dict post hook has already updated _seen_count.
-        eq_model.model.seen_data = (
-            model_save.get("laplace_model_save")
-            .get("seen_data")
-            .to(eq_model.model.precision.device)
+        eq_model.model.seen_data = cast(torch.Tensor, laplace_save.get("seen_data")).to(
+            eq_model.model.precision.device
         )
 
-        eq_model.model.set_training_params(
-            model_save.get("num_data"), model_save.get("train_batch_size")
-        )
+        eq_model.model.set_training_params(num_data, batch_size)
         eq_model.eval()
 
         # load_checkpoint returns CPU tensors; the support goes to the model's device.

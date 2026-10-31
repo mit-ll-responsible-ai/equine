@@ -227,6 +227,16 @@
   covariance matrix (1 GiB at 16384 rows in float32). Memory grows linearly
   with the batch size and large batches run faster; predictions are equal up
   to floating-point rounding (#181).
+- **Type annotations.** `load` on `Equine`, `EquineGP` and `EquineProtonet`
+  is annotated to return `Self`, so a type checker reads
+  `EquineProtonet.load(path)` as an `EquineProtonet` and `EquineGP.load(path)`
+  as an `EquineGP` (EQUINE 0.1.8 annotated both as returning `Equine`).
+  `EquineProtonet.model` is declared as a `Protonet` instead of a
+  `torch.nn.Module`. The datasets that `EquineGP.train_model` and
+  `EquineGP.calibrate_model` take are declared as `Dataset[Any]` instead of
+  `Dataset`; they accept the same values. pyright reports no errors in `src/`
+  and a 100% type-completeness score for the public API, and CI runs both
+  checks (`tox -e pyright`) (#172, #208, #233).
 
 ### Deprecated
 - `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading

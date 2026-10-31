@@ -1997,7 +1997,7 @@ def _cholesky_with_jitter(cov: torch.Tensor) -> torch.Tensor:
         failed = (info != 0) | ~torch.isfinite(factor).flatten(-2).all(-1)
         if not bool(failed.any()):
             return factor
-    raise torch.linalg.LinAlgError(
+    raise torch.linalg.LinAlgError(  # type: ignore
         "A covariance matrix is not positive definite even with a diagonal "
         f"jitter of {eps * 10.0 ** (steps - 1):.1e} times its largest variance."
     )

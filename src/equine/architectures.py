@@ -139,7 +139,7 @@ class MLP(torch.nn.Module):
             layers += [torch.nn.Linear(width, hidden), _ACTIVATIONS[activation]()]
             width = hidden
         layers.append(torch.nn.Linear(width, out_features))
-        self.net = torch.nn.Sequential(*layers)
+        self.net: torch.nn.Sequential = torch.nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Embed ``x`` by applying the linear/activation stack in ``self.net``."""

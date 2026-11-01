@@ -1399,10 +1399,6 @@ class EquineGP(Equine):
         )
         laplace_save = cast(dict[str, Any], model_save.get("laplace_model_save"))
         eq_model.model.load_state_dict(laplace_save, strict=False)
-        # The load_state_dict post hook has already updated _seen_count.
-        eq_model.model.seen_data = cast(torch.Tensor, laplace_save.get("seen_data")).to(
-            eq_model.model.precision.device
-        )
 
         eq_model.model.set_training_params(num_data, batch_size)
         eq_model.eval()

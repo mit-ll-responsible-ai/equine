@@ -12,7 +12,7 @@ import pickle
 import sys
 import warnings
 import zipfile
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Mapping
 from typing import Any
 
@@ -118,6 +118,26 @@ _PICKLE_STORAGE_CALL_ERROR = (
     "tensor's storage; refusing to load."
 )
 
+_PICKLE_BYTES_ERROR = (
+    "Model file holds a bytes or bytearray value, which `save()` never writes; "
+    "refusing to load. To repair the file, read it with "
+    "`torch.load(path, map_location='cpu', weights_only=True)`, which names anything "
+    "else in the file it does not read, store binary data as uint8 tensors (for "
+    "example `torch.frombuffer(bytearray(data), dtype=torch.uint8)`, or "
+    "`torch.empty(0, dtype=torch.uint8)` for empty data), and write it back with "
+    "`torch.save`. An embedding archive (`embed_jit_save`) stored that way is then "
+    f"converted by `{_UPGRADE_HINT}`. Only upgrade files you trust: the upgrade loads "
+    "the TorchScript archive, which runs code from the file."
+)
+
+_PICKLE_PROTOCOL_ERROR = (
+    "Model file's pickle uses protocol {protocol}, which torch's safe loader does not "
+    "read; `save()` writes protocol 2; refusing to load. If you trust the file, read "
+    "it with `torch.load(path, map_location='cpu', weights_only=False)`, which runs "
+    "any code the file holds, and write it back with `torch.save` and its default "
+    "protocol."
+)
+
 # Functions, storage classes and dtypes a model file's pickle may name.
 _PICKLE_FUNCTIONS = frozenset(
     {
@@ -163,11 +183,20 @@ _STORAGE_SIZE_ERROR = (
     "refusing to load."
 )
 
+_OVERLAPPING_STORAGE_ERROR = (
+    "Model file contains tensors whose storages overlap in the file, which `save()` "
+    "never writes; refusing to load."
+)
+
 _ALIASED_SUPPORT_ERROR = (
-    "Model file's support/KDE tensors alias one another, which lets a small file "
-    "multiply the memory and work of loading it; refusing to load. The current "
-    f"format stores each label's data separately; `{_UPGRADE_HINT}` rewrites a "
-    "trusted file from an earlier release with the tensors copied apart."
+    "Model file's support/KDE tensors alias one another (entries share a tensor, a "
+    "storage or a container), which lets a small file multiply the memory and work of "
+    "loading it; refusing to load. `save()` writes each label's tensors separately. "
+    "If you made this file, repair it: read it with "
+    "`torch.load(path, map_location='cpu', weights_only=True)`, give each label new "
+    "containers holding `.clone()` copies of its support and KDE tensors, and "
+    "write it back with `torch.save`. The copies need as much memory as all the "
+    "labels' data, which can far exceed the file's size."
 )
 
 _SET_ERROR = "Model file contains a set; EQUINE files never do; refusing to load."
@@ -210,9 +239,12 @@ def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any
     Memory is bounded by the bytes present in the file. The file must be a plain zip
     archive (see ``_check_zip_archive``) whose pickle names only what ``save`` writes
     (see ``_check_pickle_globals``), and is mapped with ``mmap=True``; each storage is a
-    slice of the file. Expanded or overlapping views, meta and sparse tensors, and
-    support/KDE tensors that alias one another are refused. Every storage is then
-    copied once off the mapping, onto ``map_location``.
+    slice of the file. A file without ``equine_format_version`` is refused before its
+    tensors are checked. Expanded or overlapping views, meta and sparse tensors, and
+    support/KDE tensors that alias one another are refused; a file holding a TorchScript
+    archive (``embed_jit_save``) whose support/KDE tensors alias one another is refused
+    as a TorchScript file. Every storage is then copied once off the mapping, onto
+    ``map_location``.
 
     The file contains no executable code: the embedding model is stored as a recipe and
     weights.
@@ -243,7 +275,21 @@ def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any
         could exhaust memory (compressed or oversized entries, a pickle global
         ``save`` does not write, no dictionary at the top level, a set, a tensor
         whose storage is smaller than its shape, storages that overlap in the
-        file, aliased support/KDE tensors).
+        file, aliased support/KDE tensors). A file from an earlier release, or
+        a dictionary without ``equine_format_version`` that passes the archive and
+        pickle checks and that ``torch.load`` reads, raises ``LegacyFormatError``, a
+        ``ValueError``.
+    """
+    return _load_checkpoint(path, map_location)
+
+
+def _load_checkpoint(
+    path: str, map_location: str | None = None, *, aliased_archive: bool = False
+) -> dict[str, Any]:
+    """
+    ``load_checkpoint``. With ``aliased_archive``, a file holding a TorchScript archive
+    (``embed_jit_save``) is returned even when its support/KDE tensors alias one
+    another; ``equine.upgrade`` reads files this way and copies them apart.
     """
     if map_location is not None:
         # Checked before the file is opened.
@@ -266,15 +312,18 @@ def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any
             f"({_truncate(str(err), 200)}); refusing to load."
         ) from err
     _require_dict(checkpoint, path)
+    if "equine_format_version" not in checkpoint:
+        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
     _validate_format_version(checkpoint)
     tensors = _unique_tensors(checkpoint)
     _reject_storage_tricks(tensors)
     _reject_overlapping_storages(tensors)
     # Checked before the copy below.
     if _support_is_aliased(checkpoint):
-        raise ValueError(_ALIASED_SUPPORT_ERROR)
-    if "equine_format_version" not in checkpoint:
-        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
+        if "embed_jit_save" not in checkpoint:
+            raise ValueError(_ALIASED_SUPPORT_ERROR)
+        if not aliased_archive:
+            raise ValueError(_TORCHSCRIPT_FILE_ERROR.format(path=path))
     if map_location is not None:
         _require_supported_dtypes(tensors, torch.device(map_location))
     _copy_off_the_file(tensors, map_location)
@@ -392,6 +441,32 @@ class _Placeholder:
     """What the dry run of a model file's pickle builds for a tensor or storage."""
 
 
+class _Bytes:
+    """
+    What the dry run of a model file's pickle builds for a bytes or bytearray value of
+    ``size`` bytes. ``fresh`` is set while no ``bytearray`` has copied a value
+    ``_codecs.encode`` built.
+    """
+
+    def __init__(self, size: int, fresh: bool) -> None:
+        self.size = size
+        self.fresh = fresh
+
+    def __len__(self) -> int:
+        return self.size
+
+
+class _BytesCall:
+    """``_codecs.encode`` or ``bytearray`` named by the pickle; ``build`` makes the value."""
+
+    def __init__(self, full_name: str, build: Any) -> None:
+        self.full_name = full_name
+        self.build = build
+
+    def __call__(self, *args: Any) -> _Bytes:
+        return self.build(self.full_name, *args)
+
+
 class _StorageClass:
     """A storage class named by the pickle; only a storage reference may hold it."""
 
@@ -414,6 +489,15 @@ class _DryRunUnpickler(pickle._Unpickler):
     The calls it allows and the state ``BUILD`` sets are charged their number of
     arguments plus the lengths of those arguments; together they may use at most
     ``budget`` items. ``NEWOBJ`` is refused.
+
+    A bytes value, which protocol 2 writes as ``_codecs.encode(text, "latin1")``, and a
+    ``bytearray`` of one (or an empty one) build placeholders and set ``holds_bytes``;
+    other calls of those two are refused. Encoding is charged its arguments with the
+    text's length; a ``bytearray`` is charged the length it copies, except the first
+    copy of a fresh value, which is charged its one argument. Each reference to either
+    name that the pickle puts on the stack (by name, from the memo, or by ``DUP``) is
+    counted in ``references``, and each ``REDUCE`` that calls one, which takes the
+    reference off the stack, in ``calls``.
     """
 
     dispatch = dict(pickle._Unpickler.dispatch)
@@ -422,6 +506,9 @@ class _DryRunUnpickler(pickle._Unpickler):
     def __init__(self, file: Any, budget: int) -> None:
         super().__init__(file)
         self.budget = budget
+        self.holds_bytes = False
+        self.references: Counter[str] = Counter()
+        self.calls: Counter[str] = Counter()
 
     def _spend(self, items: int) -> None:
         self.budget -= items
@@ -443,8 +530,82 @@ class _DryRunUnpickler(pickle._Unpickler):
         self._spend(_sizes((source, *args)))
         return _Placeholder()
 
+    def _bytes(self, cost: int, value: _Bytes) -> _Bytes:
+        self._spend(cost)
+        self.holds_bytes = True
+        return value
+
+    def _encode(self, full_name: str, *args: Any) -> _Bytes:
+        if not (
+            len(args) == 2
+            and type(args[0]) is str
+            and args[1] == "latin1"
+            and all(ord(character) < 256 for character in args[0])
+        ):
+            raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name=full_name))
+        return self._bytes(_sizes(args), _Bytes(len(args[0]), fresh=True))
+
+    def _bytearray(self, full_name: str, *args: Any) -> _Bytes:
+        if not args:
+            return self._bytes(0, _Bytes(0, fresh=False))
+        source = args[0]
+        if len(args) != 1 or not isinstance(source, _Bytes):
+            raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name=full_name))
+        cost = 1 if source.fresh else _sizes(args)
+        source.fresh = False
+        return self._bytes(cost, _Bytes(len(source), fresh=False))
+
+    def refuse_uncalled(self) -> None:
+        """
+        Refuse a ``_codecs.encode`` or ``bytearray`` reference that the pickle puts on
+        the stack and does not call: each call consumes one reference.
+        """
+        for name, count in self.references.items():
+            if count > self.calls[name]:
+                raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name=name))
+
+    def _count_reference(self) -> None:
+        top = self.stack[-1]
+        if isinstance(top, _BytesCall):
+            self.references[top.full_name] += 1
+
+    def load_get(self) -> None:
+        pickle._Unpickler.load_get(self)  # type: ignore
+        self._count_reference()
+
+    dispatch[pickle.GET[0]] = load_get  # type: ignore
+
+    def load_binget(self) -> None:
+        pickle._Unpickler.load_binget(self)  # type: ignore
+        self._count_reference()
+
+    dispatch[pickle.BINGET[0]] = load_binget  # type: ignore
+
+    def load_long_binget(self) -> None:
+        pickle._Unpickler.load_long_binget(self)  # type: ignore
+        self._count_reference()
+
+    dispatch[pickle.LONG_BINGET[0]] = load_long_binget  # type: ignore
+
+    def load_dup(self) -> None:
+        pickle._Unpickler.load_dup(self)  # type: ignore
+        self._count_reference()
+
+    dispatch[pickle.DUP[0]] = load_dup  # type: ignore
+
+    def load_reduce(self) -> None:
+        func = self.stack[-2] if len(self.stack) > 1 else None
+        if isinstance(func, _BytesCall):
+            self.calls[func.full_name] += 1
+        pickle._Unpickler.load_reduce(self)  # type: ignore
+
+    dispatch[pickle.REDUCE[0]] = load_reduce  # type: ignore
+
     def load_build(self) -> None:
         state = self.stack[-1]
+        inst = self.stack[-2] if len(self.stack) > 1 else None
+        if isinstance(inst, _BytesCall):
+            raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name=inst.full_name))
         self._spend(_sizes(state if isinstance(state, tuple) else (state,)))
         pickle._Unpickler.load_build(self)  # type: ignore
 
@@ -463,6 +624,12 @@ class _DryRunUnpickler(pickle._Unpickler):
             return self._counted(tuple)
         if full_name in ("__builtin__.set", "builtins.set"):
             return self._counted(set)
+        if full_name == "_codecs.encode":
+            self.references[full_name] += 1
+            return _BytesCall(full_name, self._encode)
+        if full_name in ("__builtin__.bytearray", "builtins.bytearray"):
+            self.references[full_name] += 1
+            return _BytesCall(full_name, self._bytearray)
         if full_name in _PICKLE_DTYPES:
             return _PICKLE_DTYPES[full_name]
         if full_name in _PICKLE_FUNCTIONS:
@@ -488,14 +655,19 @@ def _check_pickle_globals(path: str) -> None:
     """
     Refuse a pickle that names a global ``save`` does not write, before ``torch.load``.
 
-    The pickle checked is the record ``torch.load`` reads. A global outside torch's
-    default ``weights_only`` allowlist marks a file from an earlier release
-    (``LegacyFormatError``). Of the globals torch allows, a model file may name only
-    ``OrderedDict``, ``torch.Size``, ``set``, torch dtypes, the tensor and parameter
-    rebuild functions, and the storage classes, which only a storage reference may
-    hold. The pickle is then unpickled with placeholders for tensors and storages; that
-    dry run calls no torch function, and the arguments of the calls it allows, counted
-    with their lengths, add up to at most as many items as the pickle has bytes.
+    The pickle checked is the record ``torch.load`` reads. A pickle torch cannot scan
+    for globals is refused, naming its protocol when its header gives 4 to
+    ``pickle.HIGHEST_PROTOCOL``. A global outside torch's default ``weights_only``
+    allowlist marks a file from an earlier release (``LegacyFormatError``). Of the
+    globals torch allows, a model file may name only ``OrderedDict``, ``torch.Size``,
+    ``set``, torch dtypes, the tensor and parameter rebuild functions, and the storage
+    classes, which only a storage reference may hold, plus the calls that build bytes
+    and bytearray values, which it must call. The pickle is then unpickled with
+    placeholders for tensors, storages and bytes; that dry run calls no torch function,
+    and the arguments of the calls it allows, counted with their lengths (the first
+    bytearray copy of an encoded value counts as one item), add up to at most as many
+    items as the pickle has bytes. A pickle that passes the dry run but holds a bytes
+    or bytearray value is refused.
     """
     try:
         with (
@@ -503,16 +675,31 @@ def _check_pickle_globals(path: str) -> None:
             torch.serialization._open_zipfile_reader(file) as archive,
         ):
             pickled = archive.get_record("data.pkl")
+    except Exception as err:  # malformed archive
+        raise ValueError(
+            f"Model file could not be read as a PyTorch archive "
+            f"({_truncate(str(err), 200)}); refusing to load."
+        ) from err
+    try:
         names = _weights_only_unpickler.get_globals_in_pkl(io.BytesIO(pickled))
-    except Exception as err:  # malformed pickle or archive
+    except Exception as err:  # malformed pickle, or opcodes torch's scan does not read
+        if (
+            pickled[:1] == pickle.PROTO
+            and len(pickled) > 1
+            and 4 <= pickled[1] <= pickle.HIGHEST_PROTOCOL
+        ):
+            raise ValueError(
+                _PICKLE_PROTOCOL_ERROR.format(protocol=pickled[1])
+            ) from err
         raise ValueError(
             f"Model file could not be read as a PyTorch archive "
             f"({_truncate(str(err), 200)}); refusing to load."
         ) from err
     if not names <= _weights_only_unpickler._get_allowed_globals().keys():
         raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
+    unpickler = _DryRunUnpickler(io.BytesIO(pickled), budget=len(pickled))
     try:
-        _DryRunUnpickler(io.BytesIO(pickled), budget=len(pickled)).load()
+        unpickler.load()
     except _PickleRefusal:
         raise
     except Exception as err:  # malformed pickle
@@ -520,6 +707,9 @@ def _check_pickle_globals(path: str) -> None:
             f"Model file could not be read as a PyTorch archive "
             f"({_truncate(str(err), 200)}); refusing to load."
         ) from err
+    unpickler.refuse_uncalled()
+    if unpickler.holds_bytes:
+        raise _PickleRefusal(_PICKLE_BYTES_ERROR)
 
 
 def _has_honest_storage(tensor: torch.Tensor) -> bool:
@@ -610,7 +800,7 @@ def _reject_overlapping_storages(tensors: list[torch.Tensor]) -> None:
         if nbytes == 0:
             continue
         if start < end:
-            raise ValueError(_STORAGE_SIZE_ERROR)
+            raise ValueError(_OVERLAPPING_STORAGE_ERROR)
         end = max(end, start + nbytes)
 
 

@@ -62,6 +62,7 @@ from .utils import (
     _embedding_checkpoint,
     _holds_torchscript,
     _is_extra_state_key,
+    _load_checkpoint,
     _unalias_support,
     load_checkpoint,
 )
@@ -127,8 +128,8 @@ def _load_archive(archive: Any) -> torch.nn.Module:
     """
     The TorchScript module stored in a checkpoint, loaded on the CPU.
 
-    Accepts the ``uint8`` tensor of a current-format file and the ``bytes`` and
-    ``io.BytesIO`` forms of files from earlier releases.
+    Accepts a ``uint8`` tensor (as format-2 files store it), an ``io.BytesIO`` (as files
+    from EQUINE 0.1.8 and earlier store it), and ``bytes`` or ``bytearray``.
     """
     load = getattr(getattr(torch, "jit", None), "load", None)
     if load is None:
@@ -381,10 +382,12 @@ def _require_arguments(
 def _read_safely(path: str) -> dict[str, Any] | None:
     """
     ``path`` read with the safe loader, or None for a file from an earlier
-    release, which only the unrestricted read in ``_read_legacy`` opens.
+    release, which only the unrestricted read in ``_read_legacy`` opens. A file
+    holding a TorchScript archive is returned even when its support/KDE tensors
+    alias one another.
     """
     try:
-        return load_checkpoint(path)
+        return _load_checkpoint(path, aliased_archive=True)
     except LegacyFormatError:
         return None
 
@@ -398,7 +401,10 @@ def _read_legacy(path: str) -> dict[str, Any]:
             f"'{path}' could not be read as a PyTorch file ({_describe_error(err)})."
         ) from err
     if not isinstance(checkpoint, dict) or "train_summary" not in checkpoint:
-        raise ValueError(f"'{path}' is not an EQUINE model file.")
+        raise ValueError(
+            f"'{path}' is not an EQUINE model file: every EQUINE model file is a "
+            "dictionary with a train_summary."
+        )
     return checkpoint
 
 
@@ -417,13 +423,16 @@ def _temp_named_as(message: str, partial: str, path: str) -> str:
 def _reason(err: Exception, partial: str, path: str) -> str:
     """
     ``err`` as one sentence for an upgrade error: the temp file named as
-    ``path``, the loader's upgrade hint and its tampering suspicion cut off,
-    the type named unless it is a ValueError (or the message is empty), and a
-    final period.
+    ``path``, the loader's upgrade hint, repair advice and tampering suspicion
+    cut off, the type named unless it is a ValueError (or the message is
+    empty), and a final period.
     """
     message = _temp_named_as(str(err), partial, path)
     for tail in (
         ". Rewrite it once with",
+        " To repair the file",
+        " If you made this file",
+        " If you trust the file",
         "; the file is inconsistent or was tampered",
     ):
         message = message.split(tail)[0]
@@ -575,7 +584,11 @@ def _upgrade(
 ) -> tuple[str, list[str]]:
     """Write the upgraded file and return where, plus the notes to report."""
     if "embed_jit_save" not in checkpoint:
-        raise ValueError(f"'{path}' holds no TorchScript archive to upgrade from.")
+        raise ValueError(
+            f"'{path}' holds no TorchScript archive to upgrade from: files from EQUINE "
+            "0.1.8 and earlier, and format-2 files, store one in embed_jit_save, so "
+            "this file was not written by an EQUINE version the upgrade converts."
+        )
     current, notes = _current_layout(checkpoint)
     blocks = _comparison_blocks(current, check_inputs)
     if not blocks:

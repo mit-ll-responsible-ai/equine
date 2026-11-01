@@ -3,7 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 import copy
+import functools
 import math
+import pickle
+import threading
 from collections import OrderedDict
 
 import numpy as np
@@ -1033,13 +1036,13 @@ def test_an_ood_distance_of_the_wrong_type_is_refused_by_beartype() -> None:
 def _outlier_scores_per_sample(model, ood_dists, predictions):
     """
     The OOD score of each example from ``integrate_box_1d`` of its predicted
-    label's KDE, one example at a time.
+    label's KDE at its distance in float64, one example at a time.
     """
     label_order = model._label_order()
     ood_scores = torch.zeros_like(ood_dists)
     for i in range(len(predictions)):
         kde = model.outlier_score_kde[label_order[int(torch.argmax(predictions[i]))]]
-        p_value = kde.integrate_box_1d(ood_dists[i].cpu().numpy(), np.inf)
+        p_value = kde.integrate_box_1d(ood_dists[i].double().cpu().numpy(), np.inf)
         ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
     return ood_scores
 
@@ -1123,6 +1126,462 @@ def test_outlier_scores_refuse_a_kde_with_more_than_one_dimension() -> None:
         model._compute_outlier_scores(
             torch.tensor([0.5], dtype=torch.float64), predictions
         )
+
+
+def _direct_outlier_cdf(kde, dists: torch.Tensor) -> torch.Tensor:
+    """The CDF of a one-dimensional ``kde`` at ``dists``, summed over its points in
+    float64."""
+    points = torch.from_numpy(kde.dataset[0]).double()
+    weights = torch.from_numpy(kde.weights).double()
+    z = (dists.double()[:, None] - points) / float(np.sqrt(kde.covariance[0, 0]))
+    upper = 1.0 - torch.special.ndtr(z)
+    if bool((weights == weights[0]).all()):
+        return 1.0 - upper.mean(dim=1)
+    return 1.0 - (upper @ weights).clamp(0.0, 1.0)
+
+
+@functools.cache
+def _model_with_labels_0_2_5():
+    """A model trained on labels 0, 2 and 5 that has not predicted; tests that
+    change it take a copy."""
+    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    return model
+
+
+def _first_label_predictions(rows: int) -> torch.Tensor:
+    """Predictions of the first support label for ``rows`` examples."""
+    return torch.nn.functional.one_hot(torch.zeros(rows, dtype=torch.long), 3).double()
+
+
+KDE_KINDS = [
+    "halfnormal",
+    "lognormal",
+    "heavy_tail",
+    "two_clusters",
+    "ties",
+    "around_zero",
+    "far_from_zero",
+]
+
+
+def _kde_points(kind: str, n: int, gen: np.random.Generator) -> np.ndarray:
+    """``n`` points of one of the ``KDE_KINDS``."""
+    if kind == "halfnormal":
+        return np.abs(gen.standard_normal(n))
+    if kind == "lognormal":
+        return gen.lognormal(0.0, 1.5, n)
+    if kind == "heavy_tail":
+        points = np.abs(gen.standard_normal(n))
+        points[: max(1, n // 100)] *= 50.0
+        return points
+    if kind == "two_clusters":
+        near = gen.random(n) < 0.5
+        return np.where(near, gen.normal(1.0, 0.1, n), gen.normal(10.0, 0.3, n))
+    if kind == "ties":
+        return np.round(gen.lognormal(0.0, 1.0, n) * 3.0)
+    if kind == "around_zero":
+        return 5.0 * gen.standard_normal(n)
+    return 1000.0 + gen.random(n)
+
+
+def _assert_grid_matches_direct_sum(kde, extra=None):
+    """
+    Score ``kde`` with a model whose labels all have it, at its points, across
+    their range and 12 bandwidths beyond it, at minus and plus infinity and at
+    the float64 distances ``extra``. Assert that the scores come from a grid, are
+    within 1e-13 of the CDF summed over the KDE's points and lie in [0, 1].
+    Returns the grid.
+    """
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+    points = torch.from_numpy(kde.dataset[0]).double()
+    h = float(np.sqrt(kde.covariance[0, 0]))
+    lo, hi = float(points.min()) - 12 * h, float(points.max()) + 12 * h
+    parts = [
+        points,
+        torch.linspace(lo, hi, 4001, dtype=torch.float64),
+        torch.tensor([-math.inf, math.inf], dtype=torch.float64),
+    ]
+    if extra is not None:
+        parts.append(extra)
+    dists = torch.cat(parts)
+
+    scores = model._compute_outlier_scores(dists, _first_label_predictions(len(dists)))
+
+    assert list(model._outlier_grids) == [0]
+    expected = _direct_outlier_cdf(kde, dists)
+    torch.testing.assert_close(scores, expected, atol=1e-13, rtol=0)
+    assert bool(((scores >= 0.0) & (scores <= 1.0)).all())
+    return model._outlier_grids[0][1]
+
+
+@pytest.mark.parametrize("weighted", [False, True], ids=["uniform", "weighted"])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64], ids=["float32", "float64"])
+@pytest.mark.parametrize("n", [10, 1000])
+@pytest.mark.parametrize("kind", KDE_KINDS)
+def test_outlier_grid_scores_match_the_direct_sum(kind, n, dtype, weighted) -> None:
+    """
+    Scores read from the grid match the direct sum (see
+    ``_assert_grid_matches_direct_sum``). The ``far_from_zero`` KDE has points in
+    [1000, 1001] and a bandwidth factor of 0.05.
+    """
+    gen = np.random.default_rng(n)
+    weights = gen.dirichlet(np.ones(n)) if weighted else None
+    kde = gaussian_kde(_kde_points(kind, n, gen).astype(dtype), weights=weights)
+    if kind == "far_from_zero":
+        kde.set_bandwidth(0.05)
+    _assert_grid_matches_direct_sum(kde)
+
+
+def test_outlier_grid_built_in_several_chunks_matches_the_direct_sum() -> None:
+    """A grid of a 5,000-point KDE has more nodes than one chunk of the build
+    holds (2**22 (node, point) pairs) and matches the direct sum."""
+    points = np.abs(np.random.default_rng(5000).standard_normal(5000))
+    grid = _assert_grid_matches_direct_sum(gaussian_kde(points))
+    assert len(grid.table) > 2**22 // 5000
+
+
+def test_outlier_grid_with_a_dominant_cluster_matches_the_direct_sum() -> None:
+    """A KDE of one point at 0 and 1,999 points at 1000 (one of them 1e-9 higher)
+    gets a grid of more than 7,000 nodes that matches the direct sum, across
+    [990, 1010] and at 1002.9813258381799."""
+    kde = gaussian_kde(np.r_[0.0, 1000.0 + 1e-9, np.full(1998, 1000.0)])
+    extra = torch.cat(
+        [
+            torch.linspace(990.0, 1010.0, 4001, dtype=torch.float64),
+            torch.tensor([1002.9813258381799], dtype=torch.float64),
+        ]
+    )
+    grid = _assert_grid_matches_direct_sum(kde, extra)
+    assert len(grid.table) > 7000
+
+
+def test_outlier_grid_of_unnormalized_equal_weights_matches_the_direct_sum() -> None:
+    """A KDE whose weights are all 0.5 keeps its grid, which matches the direct
+    sum."""
+    kde = gaussian_kde(np.abs(np.random.default_rng(0).standard_normal(50)))
+    kde.weights[:] = 0.5
+    _assert_grid_matches_direct_sum(kde)
+
+
+def test_outlier_grid_scores_the_top_point_when_its_reach_rounds_away() -> None:
+    """A KDE of 3.0 and the next float64 above it, with a bandwidth below their
+    spacing, gets a grid that scores both points as the direct sum does."""
+    top = float(np.nextafter(3.0, np.inf))
+    kde = gaussian_kde(np.array([3.0, top]), bw_method=0.017)
+    _assert_grid_matches_direct_sum(kde)
+
+
+def test_outlier_grid_takes_unequal_weights_within_1e_14_of_summing_to_1() -> None:
+    """``build`` returns None for unequal weights whose sum is 2e-14 from 1 and a
+    grid for unequal weights whose sum is 5e-15 from 1."""
+    build = eq.equine_protonet._OutlierGrid.build
+    points = torch.tensor([0.0, 1.0], dtype=torch.float64)
+    off = torch.tensor([0.5, 0.5 + 2e-14], dtype=torch.float64)
+    near = torch.tensor([0.5, 0.5 + 5e-15], dtype=torch.float64)
+    assert build(points, off, 0.3) is None
+    assert build(points, near, 0.3) is not None
+
+
+def test_outlier_grid_is_0_below_1_above_nan_at_nan_and_clamped() -> None:
+    """Below its first node the grid gives 0, above its upper end 1, at NaN NaN,
+    and between nodes its interpolant clamped to [0, 1]."""
+    # Tables whose interpolant rises above 1 or falls below 0 between the nodes.
+    above = torch.tensor([[1.0, 0.5, 0.0], [1.0, 0.0, 0.0]], dtype=torch.float64)
+    below = torch.tensor([[0.0, -0.5, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float64)
+    dists = torch.tensor(
+        [-math.inf, -1.0, 0.5, 2.0, math.inf, math.nan], dtype=torch.float64
+    )
+    rises = eq.equine_protonet._OutlierGrid(0.0, 1.0, above, 1.0)(dists)
+    falls = eq.equine_protonet._OutlierGrid(0.0, 1.0, below, 1.0)(dists)
+    assert rises[:5].tolist() == [0.0, 0.0, 1.0, 1.0, 1.0]
+    assert falls[:5].tolist() == [0.0, 0.0, 0.0, 1.0, 1.0]
+    assert math.isnan(rises[5]) and math.isnan(falls[5])
+
+
+def _take_off_the_grid(kde, change: str) -> None:
+    """Change ``kde`` in place into one that ``_OutlierGrid.build`` does not
+    tabulate."""
+    if change == "nan_point":
+        kde.dataset[0, 0] = np.nan
+    elif change == "infinite_point":
+        kde.dataset[0, 0] = np.inf
+    elif change == "nan_weight":
+        kde.weights[0] = np.nan
+    elif change == "infinite_weights":
+        kde.weights[:] = np.inf
+    elif change == "negative_weight":
+        kde.weights[0] = -0.01
+        kde.weights[1] = 0.05
+    elif change == "weights_summing_below_1":
+        kde.weights[0] = 0.0
+    elif change == "weights_summing_above_1":
+        kde.weights[0] = 0.5
+    elif change == "tied_points_below_an_ulp":
+        kde.dataset[0, :] = 3.0
+        kde.covariance[0, 0] = 1e-34
+    elif change == "zero_bandwidth":
+        kde.covariance[0, 0] = 0.0
+    elif change == "nan_bandwidth":
+        kde.covariance[0, 0] = np.nan
+    else:
+        kde.covariance[0, 0] = np.inf
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "nan_point",
+        "infinite_point",
+        "nan_weight",
+        "infinite_weights",
+        "negative_weight",
+        "weights_summing_below_1",
+        "weights_summing_above_1",
+        "tied_points_below_an_ulp",
+        "zero_bandwidth",
+        "nan_bandwidth",
+        "infinite_bandwidth",
+    ],
+)
+def test_outlier_scores_of_a_kde_off_the_grid_are_summed_directly(change) -> None:
+    """A KDE that ``_OutlierGrid.build`` does not tabulate is scored by the
+    direct sum, and the grid kept for its label is dropped."""
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    kde = gaussian_kde(np.abs(np.random.default_rng(0).standard_normal(50)))
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+    dists = torch.linspace(-1.0, 4.0, 101, dtype=torch.float64)
+    predictions = _first_label_predictions(len(dists))
+    model._compute_outlier_scores(dists, predictions)
+    assert list(model._outlier_grids) == [0]
+    _take_off_the_grid(kde, change)
+
+    scores = model._compute_outlier_scores(dists, predictions)
+
+    assert model._outlier_grids == {}
+    expected = _direct_outlier_cdf(kde, dists)
+    torch.testing.assert_close(scores, expected, atol=0, rtol=0, equal_nan=True)
+
+
+def test_outlier_scores_of_a_kde_without_points_raise_zero_division() -> None:
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    kde = gaussian_kde(np.abs(np.random.default_rng(0).standard_normal(50)))
+    kde.dataset = np.empty((1, 0))
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+    with pytest.raises(ZeroDivisionError):
+        model._compute_outlier_scores(
+            torch.tensor([0.5], dtype=torch.float64), _first_label_predictions(1)
+        )
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("cap", ["MAX_NODES", "MAX_PAIRS"])
+def test_a_kde_over_a_cap_is_summed_directly(monkeypatch, cap, dtype) -> None:
+    """A KDE whose grid would need more than ``MAX_NODES`` nodes or more than
+    ``MAX_PAIRS`` (node, point) pairs is scored by the direct sum in float64; one
+    that needs exactly the cap gets a grid. The KDE's points and the distances
+    have ``dtype``."""
+    gen = torch.Generator().manual_seed(0)
+    kde = gaussian_kde(torch.randn(50, generator=gen).abs().to(dtype).numpy())
+    points = torch.from_numpy(kde.dataset[0]).double()
+    weights = torch.from_numpy(kde.weights).double()
+    bandwidth = float(np.sqrt(kde.covariance[0, 0]))
+    grid = eq.equine_protonet._OutlierGrid.build(points, weights, bandwidth)
+    assert grid is not None
+    nodes = len(grid.table)
+    limit = nodes if cap == "MAX_NODES" else nodes * len(points)
+    dists = torch.linspace(-1.0, 4.0, 2001, dtype=dtype)
+    predictions = _first_label_predictions(len(dists))
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+
+    monkeypatch.setattr(eq.equine_protonet._OutlierGrid, cap, limit - 1)
+    direct = model._compute_outlier_scores(dists.double(), predictions)
+    assert model._outlier_grids == {}
+    assert torch.equal(direct, _direct_outlier_cdf(kde, dists))
+    assert torch.equal(
+        model._compute_outlier_scores(dists, predictions), direct.to(dtype)
+    )
+
+    monkeypatch.setattr(eq.equine_protonet._OutlierGrid, cap, limit)
+    tabulated = model._compute_outlier_scores(dists.double(), predictions)
+    assert len(model._outlier_grids[0][1].table) == nodes
+    torch.testing.assert_close(tabulated, direct, atol=1e-13, rtol=0)
+
+
+def test_outlier_grid_is_not_built_with_a_zero_node_spacing() -> None:
+    """``build`` returns None when the spacing of the nodes rounds to 0."""
+    grid = eq.equine_protonet._OutlierGrid.build(
+        torch.tensor([0.0, 2e-322], dtype=torch.float64),
+        torch.full((2,), 0.5, dtype=torch.float64),
+        5e-324,
+    )
+    assert grid is None
+
+
+def _model_with_grids():
+    """A copy of ``_model_with_labels_0_2_5()``, its training rows and labels, and
+    the OOD scores of its first ``predict`` of the rows, which builds a grid for
+    each label."""
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    _, x, y = separable_dataset()
+    y = torch.tensor([0.0, 2.0, 5.0])[y]
+    scores = model.predict(x).ood_scores
+    assert sorted(model._outlier_grids) == [0, 2, 5]
+    return model, x, y, scores
+
+
+def _scores_from_new_grids(model, x) -> torch.Tensor:
+    """``predict``'s OOD scores of ``x`` with grids built from the model's KDEs as
+    they are now; the grids the model keeps are left as they were."""
+    kept = model._outlier_grids
+    model._outlier_grids = {}
+    try:
+        return model.predict(x).ood_scores
+    finally:
+        model._outlier_grids = kept
+
+
+def _change_kde_of_label_2(model, change: str) -> None:
+    kde = model.outlier_score_kde[2]
+    if change == "set_bandwidth":
+        kde.set_bandwidth(kde.factor * 3.0)
+    elif change == "dataset_in_place":
+        kde.dataset[0] += 0.5
+    elif change == "weights_in_place":
+        kde.weights[:] = np.random.default_rng(0).dirichlet(np.ones(kde.n))
+    elif change == "assign_entry":
+        model.outlier_score_kde[2] = gaussian_kde(kde.dataset[0] * 2.0)
+    else:
+        model.outlier_score_kde = OrderedDict(
+            (label, gaussian_kde(other.dataset[0] * 2.0))
+            for label, other in model.outlier_score_kde.items()
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "set_bandwidth",
+        "dataset_in_place",
+        "weights_in_place",
+        "assign_entry",
+        "assign_dict",
+    ],
+)
+def test_predict_rebuilds_the_grid_of_a_changed_kde(change) -> None:
+    model, x, _, before = _model_with_grids()
+    _change_kde_of_label_2(model, change)
+    expected = _scores_from_new_grids(model, x)
+    assert not torch.equal(expected, before)
+    assert torch.equal(model.predict(x).ood_scores, expected)
+
+
+def test_predict_keeps_the_grid_of_a_kde_replaced_by_an_equal_one() -> None:
+    model, x, _, before = _model_with_grids()
+    grid = model._outlier_grids[2][1]
+    model.outlier_score_kde[2] = copy.deepcopy(model.outlier_score_kde[2])
+    assert torch.equal(model.predict(x).ood_scores, before)
+    assert model._outlier_grids[2][1] is grid
+
+
+def test_update_support_and_train_model_drop_the_grids() -> None:
+    model, x, y, before = _model_with_grids()
+    model.update_support(x, y, calib_frac=0.5)
+    assert model._outlier_grids == {}
+    expected = _scores_from_new_grids(model, x)
+    assert not torch.equal(expected, before)
+    assert torch.equal(model.predict(x).ood_scores, expected)
+    assert sorted(model._outlier_grids) == [0, 2, 5]
+    before = expected
+    model.train_model(
+        torch.utils.data.TensorDataset(x, y),
+        num_episodes=2,
+        calib_frac=0.3,
+        support_size=10,
+        way=3,
+        episode_size=30,
+    )
+    assert model._outlier_grids == {}
+    expected = _scores_from_new_grids(model, x)
+    assert not torch.equal(expected, before)
+    assert torch.equal(model.predict(x).ood_scores, expected)
+
+
+def test_a_failed_update_support_keeps_the_grids(monkeypatch) -> None:
+    """``update_support`` that fails after refitting the KDEs restores the KDEs and
+    the grids built from them."""
+    model, x, y, before = _model_with_grids()
+    grids = model._outlier_grids
+    kept = dict(grids)
+    fit = model._fit_outlier_scores
+
+    def fit_then_fail(ood_dists, calib_y):
+        fit(ood_dists, calib_y)
+        raise ValueError("a later step failed")
+
+    monkeypatch.setattr(model, "_fit_outlier_scores", fit_then_fail)
+    with pytest.raises(ValueError, match="a later step failed"):
+        model.update_support(x, y, calib_frac=0.5)
+    assert model._outlier_grids is grids
+    assert grids == kept
+    assert torch.equal(model.predict(x).ood_scores, before)
+    assert all(grids[label][1] is kept[label][1] for label in kept)
+
+
+def test_load_unpickling_and_deepcopy_start_without_grids(tmp_path) -> None:
+    model, x, _, before = _model_with_grids()
+    assert "_outlier_grids" not in model.__getstate__()
+    assert sorted(model._outlier_grids) == [0, 2, 5]
+    path = str(tmp_path / "protonet.eq")
+    model.save(path)
+    for other in (
+        eq.load_equine_model(path),
+        pickle.loads(pickle.dumps(model)),
+        copy.deepcopy(model),
+    ):
+        assert other._outlier_grids == {}
+        assert torch.equal(other.predict(x).ood_scores, before)
+        assert sorted(other._outlier_grids) == [0, 2, 5]
+    assert sorted(model._outlier_grids) == [0, 2, 5]
+
+
+def test_two_threads_predicting_at_once_get_the_scores_of_one(monkeypatch) -> None:
+    """Two threads that build the grids of a model at the same time both get the
+    scores of a single-threaded ``predict``, and the model keeps a grid per
+    label."""
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    _, x, _ = separable_dataset()
+    expected = _scores_from_new_grids(model, x)
+    build = eq.equine_protonet._OutlierGrid.build
+    together = threading.Barrier(2, timeout=30)
+
+    def build_together(points, weights, bandwidth):
+        together.wait()
+        return build(points, weights, bandwidth)
+
+    monkeypatch.setattr(
+        eq.equine_protonet._OutlierGrid, "build", staticmethod(build_together)
+    )
+    results: list = [None, None]
+
+    def predict(i: int) -> None:
+        try:
+            results[i] = model.predict(x).ood_scores
+        except Exception as err:
+            results[i] = err
+
+    threads = [threading.Thread(target=predict, args=(i,)) for i in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    for result in results:
+        assert isinstance(result, torch.Tensor), result
+        assert torch.equal(result, expected)
+    assert sorted(model._outlier_grids) == [0, 2, 5]
+    monkeypatch.undo()
+    assert torch.equal(model.predict(x).ood_scores, expected)
 
 
 @pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])

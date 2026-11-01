@@ -464,3 +464,15 @@
   `predict` cannot invert. When the precision holds NaN or infinite values, as
   after training that diverged, `predict` raises an error that says so, where
   the inversion could return a NaN or wrong inverse without an error (#297).
+- `EquineGP.predict` computed each OOD score in the probabilities' dtype and
+  divided it by the entropy of a uniform distribution built in the default
+  dtype, and built the jitter added before the precision matrix is inverted in
+  the default dtype. A float16 or bfloat16 model's scores were therefore
+  computed in half precision, and a float16 or bfloat16 default rounded the
+  normalizing entropy to half precision; either could push scores above 1, and
+  `predict` then raised an error (under `python -O` it returned them), or
+  shift them slightly. Under a float64 default a float32 model's precision was
+  inverted in float64 on the CPU, and `predict` raised on MPS. The scores are
+  now computed in float32 or wider, clamped to [0, 1] and returned in the
+  probabilities' dtype, and the jitter is float32, or the precision's dtype if
+  wider, so `predict` gives the same results under every default (#296).

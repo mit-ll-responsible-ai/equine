@@ -756,8 +756,11 @@ class EquineGP(Equine):
         Returns
         -------
         dict[str, Any]
-            ``{"train_summary": ...}`` (the dict ``generate_train_summary``
-            builds, also stored on ``self.train_summary``) plus, when a
+            ``{"train_summary": ..., "train_loss": ...}``: the dict
+            ``generate_train_summary`` builds, also stored on
+            ``self.train_summary``, and a list of floats holding, for each
+            epoch, the mean of that epoch's batch losses, summed on the loss's
+            device in float32 or wider. Plus, when a
             ``validation_dataset`` was given, ``"val_metrics"``: one list per
             metric in ``val_metrics`` holding what its ``compute()`` returned
             after each epoch, usually a tensor (``None`` when ``val_metrics``
@@ -798,10 +801,12 @@ class EquineGP(Equine):
                 metric.to(self.device)
             val_metrics_outputs = [[] for _ in val_metrics]
 
+        train_loss: list[float] = []
         for _ in tqdm(range(num_epochs)):
             self.train()  # wrapper and inner module together
             self.model.reset_precision_matrix()
-            epoch_loss = 0.0
+            epoch_loss = torch.zeros((), dtype=torch.float32, device=self.device)
+            num_batches = 0
             for i, (xs, labels) in enumerate(train_loader):
                 opt.zero_grad()
                 xs = self._input_to_model(xs)
@@ -810,7 +815,12 @@ class EquineGP(Equine):
                 loss = loss_fn(yhats, labels.to(torch.long))
                 loss.backward()
                 opt.step()
-                epoch_loss += loss.item()
+                value = loss.detach().reshape(())
+                if value.dtype != torch.float64:
+                    value = value.float()
+                epoch_loss = epoch_loss.to(value.device) + value
+                num_batches += 1
+            train_loss.append(epoch_loss.item() / num_batches)
             if scheduler is not None:
                 scheduler.step()
             self.eval()
@@ -842,6 +852,7 @@ class EquineGP(Equine):
 
         return_dict: dict[str, Any] = dict()
         return_dict["train_summary"] = self.train_summary
+        return_dict["train_loss"] = train_loss
         if validation_dataset is not None:
             return_dict["val_metrics"] = val_metrics_outputs
 

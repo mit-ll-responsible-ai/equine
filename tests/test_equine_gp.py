@@ -17,7 +17,7 @@ from conftest import (
     use_basic_embedding_model,
     use_save_load_model_tests,
 )
-from golden_data import CLASSES, FEATURES, separable_dataset
+from golden_data import CLASSES, FEATURES, ROWS, separable_dataset
 from hypothesis import given, settings
 
 import equine as eq
@@ -682,6 +682,159 @@ def test_nearly_equal_logits_keep_ood_scores_at_most_one() -> None:
     model.temperature.fill_(1e9)
     scores = model.predict(x.double()).ood_scores
     assert bool(((scores >= 0) & (scores <= 1)).all())
+
+
+def _recording_loss(losses: list[torch.Tensor]):
+    """Cross-entropy that appends each batch's loss tensor to ``losses``."""
+
+    def loss_fn(yhats, labels):
+        loss = torch.nn.functional.cross_entropy(yhats, labels)
+        losses.append(loss)
+        return loss
+
+    return loss_fn
+
+
+def test_train_model_returns_the_mean_batch_loss_of_each_epoch() -> None:
+    """``train_loss`` holds, per epoch, the mean of that epoch's batch losses."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    losses: list[torch.Tensor] = []
+    result = model.train_model(
+        dataset,
+        _recording_loss(losses),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=3,
+        batch_size=32,
+    )
+    batches = -(-ROWS // 32)
+    assert len(losses) == 3 * batches
+    values = [float(loss.detach().double()) for loss in losses]
+    expected = [
+        sum(values[e * batches : (e + 1) * batches]) / batches for e in range(3)
+    ]
+    assert all(type(value) is float for value in result["train_loss"])
+    assert result["train_loss"] == pytest.approx(expected, rel=1e-6)
+
+
+def test_train_model_reads_no_batch_loss_on_the_host(monkeypatch) -> None:
+    """No batch loss, or a view of one, is read with ``item()``, ``float()`` or
+    ``tolist()`` during training, and nothing read that way requires grad."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    read: list[torch.Tensor] = []
+    for name in ("item", "__float__", "tolist"):
+        original = getattr(torch.Tensor, name)
+
+        def recording(self, *args, _original=original, **kwargs):
+            read.append(self)
+            return _original(self, *args, **kwargs)
+
+        monkeypatch.setattr(torch.Tensor, name, recording)
+    losses: list[torch.Tensor] = []
+    model.train_model(
+        dataset,
+        _recording_loss(losses),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=2,
+        batch_size=32,
+    )
+    monkeypatch.undo()
+    assert losses
+    storages = {loss.untyped_storage().data_ptr() for loss in losses}
+    assert read
+    assert storages.isdisjoint(t.untyped_storage().data_ptr() for t in read)
+    assert not any(t.requires_grad for t in read)
+
+
+def test_a_float8_loss_is_summed_in_float32() -> None:
+    """A loss_fn returning a float8 loss trains, and train_loss is the mean of its
+    batch losses."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    losses: list[torch.Tensor] = []
+    record = _recording_loss(losses)
+    result = model.train_model(
+        dataset,
+        lambda yhats, labels: record(yhats, labels).to(torch.float8_e4m3fn),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    values = [float(loss.detach().to(torch.float8_e4m3fn).double()) for loss in losses]
+    assert result["train_loss"] == pytest.approx([sum(values) / len(values)], rel=1e-6)
+
+
+def _host_reads(monkeypatch, batch_size: int) -> int:
+    """The number of ``item()``, ``float()`` and ``tolist()`` calls during a
+    two-epoch ``train_model`` with ``batch_size``."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    calls = [0]
+    for name in ("item", "__float__", "tolist"):
+        original = getattr(torch.Tensor, name)
+
+        def counting(self, *args, _original=original, **kwargs):
+            calls[0] += 1
+            return _original(self, *args, **kwargs)
+
+        monkeypatch.setattr(torch.Tensor, name, counting)
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=2,
+        batch_size=batch_size,
+    )
+    monkeypatch.undo()
+    return calls[0]
+
+
+def test_train_model_reads_from_the_host_as_often_for_any_number_of_batches(
+    monkeypatch,
+) -> None:
+    """Training with one batch per epoch and with 15 batches per epoch reads tensors
+    on the host the same number of times."""
+    assert _host_reads(monkeypatch, ROWS) == _host_reads(monkeypatch, 8)
+
+
+@pytest.mark.parametrize("shape", [(), (1,)])
+def test_a_bfloat16_gp_sums_its_epoch_loss_in_float32(shape) -> None:
+    """The epoch loss of a bfloat16 GP is summed in float32, for a 0-d loss and a
+    one-element loss."""
+    torch.manual_seed(0)
+    gen = torch.Generator().manual_seed(0)
+    x = torch.cat([torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(3)])
+    y = torch.arange(3).repeat_interleave(200).float()
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
+    )
+    model = eq.EquineGP(embedding, 8, 3).to(torch.bfloat16)
+    losses: list[torch.Tensor] = []
+    record = _recording_loss(losses)
+    result = model.train_model(
+        torch.utils.data.TensorDataset(x.bfloat16(), y),
+        lambda yhats, labels: record(yhats, labels).reshape(shape),
+        torch.optim.SGD(model.parameters(), lr=1e-2),
+        num_epochs=1,
+        batch_size=8,
+    )
+    assert len(losses) == 75
+    assert all(loss.dtype == torch.bfloat16 for loss in losses)
+    expected = sum(float(loss.detach().double()) for loss in losses) / 75
+    assert result["train_loss"] == pytest.approx([expected], rel=1e-6)
 
 
 def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:

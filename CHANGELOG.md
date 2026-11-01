@@ -239,6 +239,25 @@
   batch's update can change by rounding, and inverting the precision matrix in
   `predict` can enlarge the change in the covariance, probabilities and OOD
   scores (#285).
+- `EquineProtonet.predict` reads each OOD score from a float64 table of the CDF
+  of the predicted class's outlier-score KDE, kept on the model, instead of
+  summing a normal CDF over every KDE point. The first `predict` that predicts
+  a class builds that class's table, which can make that call slower than
+  before. Later calls that score many examples of a class with a table are
+  faster; a call that scores a few examples of a class with a small KDE can
+  take slightly longer than before. A table is rebuilt after its KDE's points,
+  weights or bandwidth change, pickling and `copy.deepcopy` leave the tables
+  out, and they are never saved. A KDE is summed over its points as before when
+  its table would need more than 8,192 nodes or more than 2**27 node-point
+  pairs, or when it has a NaN or infinite point or weight, a negative weight,
+  unequal weights whose sum differs from 1 by more than 1e-14, a bandwidth that
+  is not a positive finite number, or all points equal with a bandwidth too
+  small to separate two nodes. The table is within 1e-13 of the float64 sum.
+  The difference between the OOD distance and each KDE point is now taken in
+  float64; when the distances and the points were both float32 or narrower, as
+  in float32 models, it was taken in the wider of their two dtypes, so a
+  float32 model's scores can change (by at most 6e-8 in the cases measured)
+  (#286).
 - `EquineGP.train_model` returns the mean of each epoch's batch losses as
   `"train_loss"`, a list of floats. It sums the losses on their device and
   reads the sum once per epoch, where it read every batch's loss from the

@@ -402,6 +402,38 @@ def test_gp_inverse_helper_stays_on_the_device(device):
 
 
 @pytest.mark.parametrize("device", devices())
+def test_gp_train_loss_accepts_a_float64_loss_on_the_cpu(device):
+    """A loss_fn that returns a one-element float64 CPU tensor trains a GP on
+    ``device`` and its train_loss is the mean of the batch losses."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        CLASSES,
+        num_random_features=16,
+        device=device,
+    )
+    values: list[float] = []
+
+    def loss_fn(yhats, labels):
+        loss = torch.nn.functional.cross_entropy(
+            yhats.cpu().double(), labels.cpu()
+        ).reshape(1)
+        values.append(float(loss.detach().double()))
+        return loss
+
+    result = model.train_model(
+        dataset,
+        loss_fn,
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    assert result["train_loss"] == pytest.approx([sum(values) / len(values)], rel=1e-12)
+
+
+@pytest.mark.parametrize("device", devices())
 def test_gp_trained_under_autocast_keeps_a_positive_definite_precision(device):
     """Training a float32 GP under bfloat16 autocast leaves a precision matrix that
     predict inverts."""

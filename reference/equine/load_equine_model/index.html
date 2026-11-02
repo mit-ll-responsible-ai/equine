@@ -14,14 +14,14 @@
         <link rel="prev" href="../equine_protonet/">
       
       
-        <link rel="next" href="../upgrade/">
+        <link rel="next" href="../registry/">
       
       
         
       
       
       <link rel="icon" href="../../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -29,10 +29,10 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -781,6 +781,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../architectures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    architectures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equine/" class="md-nav__link">
         
   
@@ -974,6 +1002,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../registry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    registry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1262,7 +1318,7 @@
 
 
 <h2 id="equine.load_equine_model.load_equine_model" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load_equine_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">load_equine_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trust_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#equine.load_equine_model.load_equine_model" class="headerlink" title="Permanent link">¤</a></h2>
 
@@ -1297,6 +1353,42 @@
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>trust_executable</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keyword-only. Permit running the TorchScript module embedded in a file
+saved with <code>allow_executable=True</code>; keeping that module as the
+embedding emits a <code>FutureWarning</code>. Defaults to False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="torch.nn.Module">Module</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keyword-only. Use this module as the embedding architecture instead of
+rebuilding it from the file's recipe; the file's weights are loaded
+into it, and its floating-point tensors take their stored dtypes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -1341,9 +1433,11 @@
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the model type is unknown, or if the file is not in the current
-EQUINE format (files from earlier releases must first be rewritten with
-<code>python -m equine.upgrade</code>).</p>
+                <p>If the model type is missing or unknown, the file is not in the
+current EQUINE format (files from earlier releases must first be
+rewritten with <code>python -m equine.upgrade</code>), its recipe names an
+unregistered architecture, or it contains executable content without
+<code>trust_executable</code>.</p>
               </div>
             </td>
           </tr>
@@ -1351,15 +1445,18 @@ EQUINE format (files from earlier releases must first be rewritten with
     </table>
 
 
+<details class="note" open>
+  <summary>Notes</summary>
+  <p>The file is read with restricted unpickling (see <code>utils.load_checkpoint</code>).
+A recipe file (the default <code>save()</code> output) contains no executable
+content: its embedding model is rebuilt through the architecture registry.
+Files saved with <code>allow_executable=True</code> embed a TorchScript module, which
+is executable code, and need <code>trust_executable=True</code>.</p>
+</details>
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/load_equine_model.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">11</span>
-<span class="normal">12</span>
-<span class="normal">13</span>
-<span class="normal">14</span>
-<span class="normal">15</span>
-<span class="normal">16</span>
-<span class="normal">17</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">17</span>
 <span class="normal">18</span>
 <span class="normal">19</span>
 <span class="normal">20</span>
@@ -1383,7 +1480,52 @@ EQUINE format (files from earlier releases must first be rewritten with
 <span class="normal">38</span>
 <span class="normal">39</span>
 <span class="normal">40</span>
-<span class="normal">41</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span>
+    <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Attempt to load an EQUINE model from a file</span>
 
@@ -1391,6 +1533,14 @@ EQUINE format (files from earlier releases must first be rewritten with
 <span class="sd">    ----------</span>
 <span class="sd">    model_path : str</span>
 <span class="sd">        The path to the model file</span>
+<span class="sd">    trust_executable : bool, optional</span>
+<span class="sd">        Keyword-only. Permit running the TorchScript module embedded in a file</span>
+<span class="sd">        saved with ``allow_executable=True``; keeping that module as the</span>
+<span class="sd">        embedding emits a ``FutureWarning``. Defaults to False.</span>
+<span class="sd">    embedding_model : Optional[torch.nn.Module]</span>
+<span class="sd">        Keyword-only. Use this module as the embedding architecture instead of</span>
+<span class="sd">        rebuilding it from the file's recipe; the file's weights are loaded</span>
+<span class="sd">        into it, and its floating-point tensors take their stored dtypes.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1400,20 +1550,41 @@ EQUINE format (files from earlier releases must first be rewritten with
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the model type is unknown, or if the file is not in the current</span>
-<span class="sd">        EQUINE format (files from earlier releases must first be rewritten with</span>
-<span class="sd">        ``python -m equine.upgrade``).</span>
+<span class="sd">        If the model type is missing or unknown, the file is not in the</span>
+<span class="sd">        current EQUINE format (files from earlier releases must first be</span>
+<span class="sd">        rewritten with ``python -m equine.upgrade``), its recipe names an</span>
+<span class="sd">        unregistered architecture, or it contains executable content without</span>
+<span class="sd">        ``trust_executable``.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The file is read with restricted unpickling (see ``utils.load_checkpoint``).</span>
+<span class="sd">    A recipe file (the default ``save()`` output) contains no executable</span>
+<span class="sd">    content: its embedding model is rebuilt through the architecture registry.</span>
+<span class="sd">    Files saved with ``allow_executable=True`` embed a TorchScript module, which</span>
+<span class="sd">    is executable code, and need ``trust_executable=True``.</span>
 <span class="sd">    """</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
-    <span class="n">model_type</span> <span class="o">=</span> <span class="n">model_save</span><span class="p">[</span><span class="s2">"train_summary"</span><span class="p">][</span><span class="s2">"modelType"</span><span class="p">]</span>
-
-    <span class="k">if</span> <span class="n">model_type</span> <span class="o">==</span> <span class="s2">"EquineProtonet"</span><span class="p">:</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">EquineProtonet</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">model_type</span> <span class="o">==</span> <span class="s2">"EquineGP"</span><span class="p">:</span>
-        <span class="n">model</span> <span class="o">=</span> <span class="n">EquineGP</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown model type '</span><span class="si">{</span><span class="n">model_type</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">model</span>
+    <span class="n">summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
+    <span class="n">model_type</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"modelType"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Model file has a malformed train_summary (expected a dictionary with a "</span>
+            <span class="s2">"string 'modelType')."</span>
+        <span class="p">)</span>
+    <span class="n">classes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">EquineProtonet</span><span class="p">]</span> <span class="o">|</span> <span class="nb">type</span><span class="p">[</span><span class="n">EquineGP</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"EquineProtonet"</span><span class="p">:</span> <span class="n">EquineProtonet</span><span class="p">,</span>
+        <span class="s2">"EquineGP"</span><span class="p">:</span> <span class="n">EquineGP</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">model_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">classes</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown model type </span><span class="si">{</span><span class="n">_truncate</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">model_type</span><span class="p">),</span><span class="w"> </span><span class="mi">80</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">classes</span><span class="p">[</span><span class="n">model_type</span><span class="p">]</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
+        <span class="n">model_save</span><span class="p">,</span>
+        <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
+        <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
+        <span class="c1"># _from_checkpoint, behind a beartype wrapper (none under -O).</span>
+        <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">1</span><span class="p">),</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1480,13 +1651,120 @@ EQUINE format (files from earlier releases must first be rewritten with
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       
     
-  </body>
+  <script data-mkdocs-jupyter-mathjax="{&quot;url&quot;: &quot;https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.js&quot;, &quot;version&quot;: 4}">
+/* Shared by full pages and Material's instant navigation. */
+(() => {
+  const config = JSON.parse(document.currentScript.dataset.mkdocsJupyterMathjax);
+  if (window.mkdocsJupyterMathJax) return;
+
+  let loading;
+  let queue = Promise.resolve();
+  let previous = [];
+
+  const ready = async () => {
+    if (!loading) {
+      loading = (async () => {
+        let math = window.MathJax;
+        if (!math?.typesetPromise) {
+          const url = new URL(config.url, document.baseURI).href;
+          const existing = Array.from(document.scripts).find(script =>
+            script.src && (script.src === url || script.id === 'MathJax-script' ||
+              (/mathjax/i.test(script.src) &&
+               /\/(?:MathJax|latest|(?:tex|mml)(?:-mml)?-(?:chtml|svg))\.js(?:[?#]|$)/i.test(script.src))));
+          if (existing) {
+            if (!math?.startup?.promise) {
+              await new Promise((resolve, reject) => {
+                existing.addEventListener('load', resolve, { once: true });
+                existing.addEventListener('error', reject, { once: true });
+              });
+            }
+          } else {
+            // Keep site macros, delimiters and startup hooks when supplied.
+            const options = math || {};
+            window.MathJax = {
+              ...options,
+              loader: {
+                ...options.loader,
+                load: Array.from(new Set(['ui/safe', ...(options.loader?.load || [])]))
+              },
+              startup: { typeset: false, ...options.startup },
+              tex: {
+                tags: 'ams',
+                useLabelIds: true,
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true,
+                ...options.tex
+              }
+            };
+            await new Promise((resolve, reject) => {
+              const script = document.createElement('script');
+              script.src = config.url;
+              script.id = 'MathJax-script';
+              script.async = true;
+              script.onload = resolve;
+              script.onerror = reject;
+              document.head.appendChild(script);
+            });
+          }
+        }
+        math = window.MathJax;
+        await math.startup.promise;
+        return math;
+      })();
+    }
+    const math = await loading;
+    // A site owner can extend the v3 queue again on each navigation.
+    await math.startup.promise;
+    return math;
+  };
+
+  const unrendered = node => {
+    if (node.matches('mjx-container')) return [];
+    if (!node.querySelector('mjx-container')) return [node];
+    // In v3, scanning generated assistive MathML again produces nested output.
+    return Array.from(node.children).flatMap(unrendered);
+  };
+
+  const refresh = () => {
+    // A separate chain also serializes v3, without changing v4's startup promise.
+    queue = queue.then(async () => {
+      const notebooks = Array.from(document.querySelectorAll('.jupyter-wrapper'));
+      if (!notebooks.length && !previous.length) return;
+      if (notebooks.length === previous.length &&
+          notebooks.every((node, index) => node === previous[index])) return;
+      const math = await ready();
+      if (previous.length) {
+        math.typesetClear(previous);
+        math.texReset();
+      }
+      previous = notebooks.filter(node => node.isConnected);
+      const pending = previous.flatMap(unrendered);
+      if (pending.length) await math.typesetPromise(pending);
+    }).catch(error => console.error('mkdocs-jupyter: MathJax rendering failed', error));
+    return queue;
+  };
+
+  window.mkdocsJupyterMathJax = { refresh };
+  const start = () => {
+    if (typeof document$ !== 'undefined') document$.subscribe(refresh);
+    else refresh();
+  };
+  // Theme bundles and user-provided MathJax scripts can follow notebook content.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else start();
+})();
+
+</script>
+</body>
 </html>

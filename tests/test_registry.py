@@ -4,7 +4,9 @@
 """Registry of embedding architectures: recipes recorded at construction, rebuilt by name."""
 
 import collections
+import copy
 import enum
+import pickle
 import re
 import sys
 import threading
@@ -140,7 +142,7 @@ def test_public_names_are_declared() -> None:
         "register_embedding_architecture",
         "registered_architectures",
     ]
-    assert architectures.__all__ == ["MLP"]
+    assert architectures.__all__ == ["MLP", "SpectralResidualMLP"]
     assert all(
         getattr(eq, name) is getattr(registry, name) for name in registry.__all__
     )
@@ -939,6 +941,8 @@ def test_public_api_exports() -> None:
     ):
         assert getattr(eq, name) is getattr(registry, name)
     assert eq.MLP is architectures.MLP
+    assert "SpectralResidualMLP" in eq.__all__
+    assert eq.SpectralResidualMLP is architectures.SpectralResidualMLP
 
 
 def test_mlp_state_dict_layout_is_pinned() -> None:
@@ -997,6 +1001,253 @@ def test_mlp_accepts_tuple_hidden_sizes_and_records_a_tuple_recipe() -> None:
     assert recipe["kwargs"]["hidden_sizes"] == (16, 8)
     assert isinstance(recipe["kwargs"]["hidden_sizes"], tuple)
     assert mlp(torch.rand(2, 6)).shape == (2, 3)
+
+
+# --------------------------------------------------------------------------- #
+# Shipped equine.spectral_residual_mlp
+# --------------------------------------------------------------------------- #
+
+
+def test_spectral_residual_mlp_is_registered_and_records_recipe() -> None:
+    sn = eq.SpectralResidualMLP(6, 16, 3)
+    assert eq.embedding_recipe(sn) == {
+        "builder": "equine.spectral_residual_mlp",
+        "kwargs": {
+            "in_features": 6,
+            "hidden_size": 16,
+            "out_features": 3,
+            "num_blocks": 1,
+            "coefficient": 0.95,
+        },
+    }
+    assert "equine.spectral_residual_mlp" in eq.registered_architectures()
+    assert sn(torch.rand(4, 6)).shape == (4, 3)
+
+
+def test_spectral_residual_mlp_state_dict_layout_is_pinned() -> None:
+    sn = eq.SpectralResidualMLP(6, 16, 3, num_blocks=2)
+    branch = [
+        "parametrizations.weight.original",
+        "parametrizations.weight.0._u",
+        "parametrizations.weight.0._v",
+    ]
+    assert list(sn.state_dict()) == [
+        "inp.weight",
+        "inp.bias",
+        *[f"blocks.{i}.{k}" for i in range(2) for k in ["bias", *branch]],
+        "out.bias",
+        *[f"out.{k}" for k in branch],
+    ]
+
+
+def test_spectral_residual_mlp_recipe_round_trips_through_build_from_recipe() -> None:
+    sn = eq.SpectralResidualMLP(6, 16, 3, num_blocks=2, coefficient=0.5)
+    sn.train()
+    for _ in range(3):  # move the power-iteration vectors off their initial values
+        sn(torch.rand(8, 6))
+    rebuilt = registry.build_from_recipe(eq.embedding_recipe(sn))
+    rebuilt.load_state_dict(sn.state_dict())
+    sn.eval()
+    rebuilt.eval()
+    batch = torch.rand(5, 6)
+    assert torch.allclose(sn(batch), rebuilt(batch))
+
+
+def test_spectral_residual_mlp_bounds_each_residual_branch() -> None:
+    torch.manual_seed(0)
+    sn = eq.SpectralResidualMLP(6, 16, 3, coefficient=0.9)
+    with torch.no_grad():  # a weight far from norm 1 before normalization
+        sn.blocks[0].parametrizations.weight.original.mul_(25.0)
+    sn.train()
+    for _ in range(50):  # power iteration converges on the largest singular value
+        sn(torch.rand(32, 6))
+    sn.eval()
+    weight = sn.blocks[0].weight.detach()
+    assert torch.linalg.matrix_norm(weight, ord=2) <= 1.0 + 1e-3
+    h1, h2 = torch.rand(64, 16), torch.rand(64, 16)
+    block = sn.blocks[0]
+    gap = (0.9 * torch.relu(block(h1)) - 0.9 * torch.relu(block(h2))).norm(dim=1)
+    assert torch.all(gap <= 0.9 * (h1 - h2).norm(dim=1) * (1 + 1e-3))
+
+
+def test_spectral_residual_mlp_forward_is_the_residual_computation() -> None:
+    torch.manual_seed(0)
+    sn = eq.SpectralResidualMLP(6, 16, 3, num_blocks=2, coefficient=0.5)
+    sn.eval()
+    x = torch.randn(8, 6)
+    h = torch.relu(sn.inp(x))
+    for block in sn.blocks:
+        h = h + 0.5 * torch.relu(block(h))
+    assert torch.allclose(sn(x), sn.out(h))
+
+
+def test_spectral_residual_mlp_block_keeps_distances_within_its_bounds() -> None:
+    """Through ``forward``, with the input projection and output weight set to the
+    identity and inputs >= 0, one block changes the distance between two inputs by a
+    factor between 1 - coefficient and 1 + coefficient, once the power iteration has
+    converged."""
+    torch.manual_seed(0)
+    c = 0.9
+    sn = eq.SpectralResidualMLP(16, 16, 16, coefficient=c)
+    with torch.no_grad():
+        sn.inp.weight.copy_(torch.eye(16))
+        sn.inp.bias.zero_()
+        sn.out.parametrizations.weight.original.copy_(torch.eye(16))
+        sn.out.bias.zero_()
+        sn.blocks[0].parametrizations.weight.original.mul_(25.0)
+    sn.train()
+    for _ in range(50):
+        sn(torch.rand(32, 16))
+    sn.eval()
+    x1, x2 = torch.rand(256, 16), torch.rand(256, 16)
+    ratio = (sn(x1) - sn(x2)).norm(dim=1) / (x1 - x2).norm(dim=1)
+    assert torch.all(ratio >= 1 - c * (1 + 1e-3))
+    assert torch.all(ratio <= 1 + c * (1 + 1e-3))
+
+
+@pytest.mark.parametrize(
+    "in_features, hidden_size, out_features, num_blocks",
+    [(6, 16, 3, 1), (5, 7, 11, 3), (1, 2, 9, 2)],
+)
+def test_spectral_residual_mlp_parameter_count_matches_the_module(
+    in_features: int, hidden_size: int, out_features: int, num_blocks: int
+) -> None:
+    sn = eq.SpectralResidualMLP(
+        in_features, hidden_size, out_features, num_blocks=num_blocks
+    )
+    assert architectures._spectral_residual_mlp_parameter_count(
+        in_features, hidden_size, out_features, num_blocks
+    ) == sum(p.numel() for p in sn.parameters())
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {
+            "in_features": architectures.MAX_PARAMETERS // 2,
+            "hidden_size": 2,
+            "out_features": 1,
+        },
+        {
+            "in_features": 1,
+            "hidden_size": 2,
+            "out_features": architectures.MAX_PARAMETERS // 2,
+        },
+    ],
+    ids=["in_features", "out_features"],
+)
+def test_spectral_residual_mlp_counts_each_projection_before_building_it(
+    monkeypatch, kwargs: dict
+) -> None:
+    def no_layer(*args, **kwargs):
+        pytest.fail("a layer was built before the parameter count was checked")
+
+    monkeypatch.setattr(torch.nn, "Linear", no_layer)
+    with pytest.raises(ValueError, match="MAX_PARAMETERS"):
+        eq.SpectralResidualMLP(**kwargs)
+
+
+def test_spectral_residual_mlp_accepts_a_count_at_the_parameter_cap(
+    monkeypatch,
+) -> None:
+    count = architectures._spectral_residual_mlp_parameter_count(2, 2, 2, 1)
+    monkeypatch.setattr(architectures, "MAX_PARAMETERS", count)
+    eq.SpectralResidualMLP(2, 2, 2)
+    monkeypatch.setattr(architectures, "MAX_PARAMETERS", count - 1)
+    with pytest.raises(ValueError, match="MAX_PARAMETERS"):
+        eq.SpectralResidualMLP(2, 2, 2)
+
+
+def test_spectral_residual_mlp_accepts_the_block_cap() -> None:
+    sn = eq.SpectralResidualMLP(2, 2, 2, num_blocks=architectures.MAX_HIDDEN_LAYERS)
+    assert len(sn.blocks) == architectures.MAX_HIDDEN_LAYERS
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"in_features": 0, "hidden_size": 16, "out_features": 3}, "in_features"),
+        ({"in_features": 6, "hidden_size": 0, "out_features": 3}, "hidden_size"),
+        ({"in_features": 6, "hidden_size": 16, "out_features": True}, "out_features"),
+        (
+            {"in_features": 6, "hidden_size": 16, "out_features": 3, "num_blocks": 0},
+            "num_blocks",
+        ),
+        (
+            {"in_features": 6, "hidden_size": 16, "out_features": 3, "num_blocks": 65},
+            "MAX_HIDDEN_LAYERS",
+        ),
+        (
+            {
+                "in_features": 6,
+                "hidden_size": 16,
+                "out_features": 3,
+                "coefficient": 1.0,
+            },
+            "coefficient",
+        ),
+        (
+            {
+                "in_features": 6,
+                "hidden_size": 16,
+                "out_features": 3,
+                "coefficient": 0.0,
+            },
+            "coefficient",
+        ),
+        (
+            {"in_features": 6, "hidden_size": 16, "out_features": 3, "coefficient": 1},
+            "coefficient",
+        ),
+        (
+            {
+                "in_features": 6,
+                "hidden_size": 16,
+                "out_features": 3,
+                "coefficient": "0.5",
+            },
+            "coefficient",
+        ),
+        (
+            {
+                "in_features": 6,
+                "hidden_size": 16,
+                "out_features": 3,
+                "coefficient": None,
+            },
+            "coefficient",
+        ),
+        (
+            {
+                "in_features": 1,
+                "hidden_size": 40_000,
+                "out_features": 1,
+                "num_blocks": 1,
+            },
+            "MAX_PARAMETERS",
+        ),
+    ],
+    ids=[
+        "zero-in_features",
+        "zero-hidden_size",
+        "bool-out_features",
+        "zero-blocks",
+        "too-many-blocks",
+        "coefficient-one",
+        "coefficient-zero",
+        "int-coefficient",
+        "str-coefficient",
+        "none-coefficient",
+        "too-many-parameters",
+    ],
+)
+def test_build_from_recipe_rejects_invalid_spectral_residual_mlp_kwargs(
+    kwargs: dict, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        registry.build_from_recipe(
+            {"builder": "equine.spectral_residual_mlp", "kwargs": kwargs}
+        )
 
 
 @pytest.mark.parametrize(
@@ -1224,3 +1475,14 @@ def test_a_constructor_error_without_a_message_is_named_by_its_type() -> None:
         registry.build_from_recipe(
             {"builder": "equine.tests.asserting", "kwargs": {"n": 0}}
         )
+
+
+def test_spectral_residual_mlp_saves_through_state_dict_not_pickle(tmp_path) -> None:
+    """torch refuses to pickle parametrized modules; deepcopy and the recipe work."""
+    sn = eq.SpectralResidualMLP(6, 16, 3)
+    with pytest.raises(RuntimeError, match="state_dict"):
+        pickle.dumps(sn)
+    x = torch.rand(4, 6)
+    sn.eval()
+    copied = copy.deepcopy(sn)
+    assert torch.equal(copied(x), sn(x))

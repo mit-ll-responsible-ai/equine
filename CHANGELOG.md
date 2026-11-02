@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+- **`SpectralResidualMLP`, SNGP's embedding** (registered as
+  `equine.spectral_residual_mlp`). A linear projection and `num_blocks`
+  residual blocks `h + coefficient * relu(W h + b)` whose weights are
+  spectrally normalized, then a spectrally normalized projection. Once torch's
+  power-iteration estimate of each weight's largest singular value has
+  converged, each block changes the distance between two hidden states by a
+  factor between `1 - coefficient` and `1 + coefficient` (default 0.95). The
+  input and output projections have no such lower bound, and `EquineGP`'s
+  variance is not guaranteed to grow with an input's distance from the training
+  data. Its arguments are validated like `MLP`'s (`MAX_HIDDEN_LAYERS` caps
+  `num_blocks`, `MAX_PARAMETERS` the size), and it saves as a recipe like any
+  registered architecture. A model using it cannot be pickled: torch serializes
+  parametrized modules only through `state_dict()`, which `save()` uses;
+  `copy.deepcopy` works.
+
 ### Changed
 - **Python 3.11–3.15.** EQUINE requires Python 3.11 or later and supports
   Python 3.15 (EQUINE 0.1.8 supported 3.9 and later; 3.9 and 3.10 are end of

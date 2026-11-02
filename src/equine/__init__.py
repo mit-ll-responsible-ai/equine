@@ -4,7 +4,10 @@
 
 from typing import TYPE_CHECKING
 
-from .architectures import MLP  # importing this registers "equine.*" architectures
+from .architectures import (  # importing this registers "equine.*" architectures
+    MLP,
+    SpectralResidualMLP,
+)
 from .equine import Equine, EquineOutput
 from .equine_gp import EquineGP
 from .equine_protonet import CovType, EquineProtonet
@@ -45,6 +48,7 @@ __all__ = [
     "EquineProtonet",
     "CovType",
     "MLP",
+    "SpectralResidualMLP",
     "embedding_architecture",
     "embedding_recipe",
     "register_embedding_architecture",

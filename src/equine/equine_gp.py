@@ -598,7 +598,12 @@ class EquineGP(Equine):
     -----
     Although this model build upon the approach in SNGP, it does not enforce the spectral normalization
     and ResNet architecture required for SNGP. Instead, it is a simple wrapper around
-    any pytorch embedding neural network. Your mileage may vary.
+    any pytorch embedding neural network. Your mileage may vary. ``SpectralResidualMLP``
+    provides SNGP's residual blocks under spectral normalization. Once torch's
+    power-iteration estimate has converged, each block keeps the distance between two
+    hidden states within bounds. Its input projection and output map have no lower
+    bound, and the GP's variance is not guaranteed to track how far an input is from
+    the training data.
     """
 
     def __init__(

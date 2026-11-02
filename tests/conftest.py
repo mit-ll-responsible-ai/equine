@@ -119,19 +119,18 @@ def _restore_torch_rng_state():
 
 @pytest.fixture(scope="session", autouse=True)
 def _no_stray_model_files_in_cwd():
-    """The test session must not leave ``*.eq`` files in cwd.
+    """The test session must not leave ``*.eq`` files in the directory it started in.
 
     Snapshots the ``*.eq`` files in the working directory when the session
-    starts and, at session teardown, fails if any new ones appeared. Under
-    xdist this runs on every worker at that worker's end and covers every
-    writer, wherever it was collected.
+    starts and, at session teardown, fails if any new ones appeared in that
+    directory. Under xdist this runs on every worker at that worker's end and
+    covers every writer, wherever it was collected.
     """
-    before = sorted(glob.glob("*.eq"))
+    directory = os.getcwd()
+    before = set(glob.glob("*.eq", root_dir=directory))
     yield
-    new_files = sorted(set(glob.glob("*.eq")) - set(before))
-    assert new_files == [], (
-        f"tests wrote model files into the working directory: {new_files}"
-    )
+    new_files = sorted(set(glob.glob("*.eq", root_dir=directory)) - before)
+    assert new_files == [], f"tests wrote model files into {directory}: {new_files}"
 
 
 @eq.embedding_architecture("equine.tests.basic")
@@ -305,14 +304,14 @@ def assert_on_device(model: eq.Equine, device: str) -> None:
     assert wrong == {}, f"tensors not on {device}: {wrong}"
 
 
-def use_save_load_model_tests(model, X, tmp_filename: str = "tmp.eq"):
+def use_save_load_model_tests(model, X):
     """Save, reload through load_equine_model, and assert predictions are unchanged.
 
     Writes into a temporary directory that is removed on return.
     """
     old_output = model.predict(X[1:10])
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, tmp_filename)
+        path = os.path.join(tmp_dir, "model.eq")
         model.save(path)
         new_model = eq.load_equine_model(path)
     new_output = new_model.predict(X[1:10])

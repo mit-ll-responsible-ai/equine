@@ -55,6 +55,7 @@ coverage.xml
 .pytest_cache/
 # EQUINE model files
 *.eq
+!tests/fixtures/*.eq
 
 # Translations
 *.mo

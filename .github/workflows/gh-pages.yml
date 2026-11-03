@@ -47,9 +47,10 @@ jobs:
           JUPYTER_PLATFORM_DIRS: 1
 
       - name: Write the coverage badge
+        # keep 97 in sync with --cov-fail-under in pyproject.toml [testenv:coverage]
         run: |
           total=$(python -m coverage report --format=total)
-          if [ "$total" -ge 97 ]; then color=brightgreen; else color=orange; fi
+          if [ "${total%%.*}" -ge 97 ]; then color=brightgreen; else color=orange; fi
           printf '{"schemaVersion": 1, "label": "coverage", "message": "%s%%", "color": "%s"}\n' "$total" "$color" > docs/coverage/badge.json
 
       - name: Run mkdocs

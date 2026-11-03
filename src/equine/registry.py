@@ -19,8 +19,10 @@ thread-safe.
 from __future__ import annotations
 
 import copy
+import enum
 import functools
 import inspect
+import os
 import reprlib
 import threading
 import warnings
@@ -28,6 +30,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping
 from typing import Any, TypeVar
 
+import numpy as np
 import torch
 
 __all__ = [
@@ -47,6 +50,28 @@ _REGISTERED_AS_ATTR = "_equine_registered_as"
 _PLAIN_SCALAR_TYPES = (int, float, str, bool, type(None))
 _PLAIN_CONTAINER_TYPES = (list, tuple)
 _PLAIN_KEY_TYPES = (str, int)
+# Plain types an instance of a subclass converts back to, in the order tried.
+_PLAIN_BASES = (int, float, str, list, tuple, dict)
+# numpy dtype kinds whose tolist() gives bool, int, float or str values, and the
+# dtype char of longdouble, a kind-f dtype whose tolist() gives numpy.longdouble.
+_PLAIN_NUMPY_KINDS = "biufU"
+_NUMPY_LONGDOUBLE_CHAR = "g"
+# Type names shown with their module when the type is not the plain one.
+_PLAIN_TYPE_NAMES = frozenset(
+    {
+        "int",
+        "float",
+        "str",
+        "bool",
+        "NoneType",
+        "list",
+        "tuple",
+        "dict",
+        "OrderedDict",
+        "Tensor",
+        "Size",
+    }
+)
 # Deepest nesting of lists, tuples and dicts accepted in a plain value.
 _MAX_PLAIN_DEPTH = 100
 
@@ -98,6 +123,81 @@ def _shown_key(key: Any) -> str:
         return f"<{type(key).__name__}>"
 
 
+def _shown_type_name(item_type: type) -> str:
+    """``item_type``'s name, qualified with its module when the name is that of a
+    plain type and the type is not the plain one."""
+    name = item_type.__name__
+    if name in _PLAIN_TYPE_NAMES and item_type.__module__ != "builtins":
+        return f"{item_type.__module__}.{name}"
+    return name
+
+
+def _plain_hint(item: Any, allow_tensors: bool, for_constructor: bool) -> str:
+    """
+    The repair named in the message that refuses ``item``. With ``for_constructor``
+    the repair may change the registered class's ``__init__``; otherwise it replaces
+    the stored value.
+    """
+    if type(item) in (set, frozenset):
+        return "use a sorted list, e.g. sorted(x)"
+    if isinstance(item, torch.Tensor):
+        exact = type(item) in (torch.Tensor, torch.nn.Parameter)
+        if not allow_tensors:
+            in_init = "create it inside __init__ as a parameter or buffer"
+            if exact and item.is_quantized:
+                return f"a tensor; pass x.dequantize().tolist(), or {in_init}"
+            if (
+                exact
+                and item.layout == torch.strided
+                and not item.is_meta
+                and not item.is_complex()
+            ):
+                return f"a tensor; pass x.tolist(), or {in_init}"
+            return f"a tensor; {in_init}"
+        if exact and item.is_quantized:
+            return "a quantized tensor; store x.dequantize()"
+        if exact:
+            return "a tensor with Python attributes; store x.detach().clone()"
+        if not item.is_quantized:
+            return "a tensor subclass; store x.as_subclass(torch.Tensor)"
+        return "store plain values that describe it instead"
+    if isinstance(item, enum.Enum):
+        field = "value" if type(item.value) in _PLAIN_SCALAR_TYPES else "name"
+        if for_constructor:
+            return f"an enum member; pass x.{field} and convert it back inside __init__"
+        return f"an enum member; store x.{field}"
+    for base in _PLAIN_BASES:
+        if isinstance(item, base):
+            return f"convert with {base.__name__}(x)"
+    if isinstance(item, (torch.dtype, torch.device, os.PathLike)):
+        if for_constructor:
+            return "pass str(x) and convert it back inside __init__"
+        return "store str(x)"
+    if isinstance(item, torch.nn.Module):
+        if for_constructor:
+            return (
+                "a module; build it inside __init__ from plain arguments such as "
+                "layer sizes"
+            )
+        return "a module; store plain values that describe it instead"
+    if (
+        isinstance(item, (np.ndarray, np.generic))
+        and item.dtype.kind in _PLAIN_NUMPY_KINDS
+        and item.dtype.char != _NUMPY_LONGDOUBLE_CHAR
+    ):
+        return "convert with x.tolist()"
+    if callable(item):
+        if for_constructor:
+            return (
+                "a class or function; pass a plain value such as its name and look "
+                "it up inside __init__"
+            )
+        return "a class or function; store a plain value such as its name instead"
+    if for_constructor:
+        return "build it inside __init__ from plain arguments"
+    return "store plain values that describe it instead"
+
+
 def _check_plain(
     values: Mapping[str, Any],
     *,
@@ -105,6 +205,7 @@ def _check_plain(
     what: str = "Constructor argument",
     owner: str = "a registered embedding architecture",
     key_types: tuple[type, ...] = _PLAIN_KEY_TYPES,
+    for_constructor: bool = True,
 ) -> None:
     """
     Require each of ``values`` to be built only from exact plain types, with
@@ -115,7 +216,9 @@ def _check_plain(
     ``torch.Size`` and ``OrderedDict`` are accepted too: the safe loader reads all
     three. ``what`` and ``owner`` name the kind of value and what it belongs to in the
     error message, which locates an offending value starting from its key in
-    ``values``. Dict keys must be exactly one of ``key_types``.
+    ``values``. Dict keys must be exactly one of ``key_types``. The message names a
+    repair for the refused value; ``for_constructor`` selects repairs that change the
+    registered class's ``__init__`` (see ``_plain_hint``).
 
     Values read from a model file can share one container between many places, within
     one value or across several, or contain themselves. The walk is iterative and checks
@@ -156,19 +259,12 @@ def _check_plain(
             else "int, float, str, bool, None, list, tuple, or dict (with "
             f"{'/'.join(key_names)} keys)"
         )
-        if item_type in (set, frozenset):
-            hint = "use a sorted list, e.g. sorted(x)"
-        elif isinstance(item, torch.Tensor) and item.is_quantized:
-            hint = "a quantized tensor; store x.dequantize()"
-        elif isinstance(item, torch.Tensor):
-            hint = "a tensor with Python attributes; store x.detach().clone()"
-        else:
-            hint = "e.g. convert with float(x) or int(x)"
         raise TypeError(
             f"{what} {where()!r} of {owner} must be a "
             f"plain value of exactly one of these types: {allowed}, or a nested "
             "combination of those, so it can be stored in a model file; got "
-            f"{item_type.__name__} ({hint})."
+            f"{_shown_type_name(item_type)} "
+            f"({_plain_hint(item, allow_tensors, for_constructor)})."
         )
 
     def too_deep() -> TypeError:

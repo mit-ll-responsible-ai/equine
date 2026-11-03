@@ -6,6 +6,7 @@
 import collections
 import copy
 import enum
+import pathlib
 import pickle
 import re
 import sys
@@ -1486,3 +1487,268 @@ def test_spectral_residual_mlp_saves_through_state_dict_not_pickle(tmp_path) -> 
     sn.eval()
     copied = copy.deepcopy(sn)
     assert torch.equal(copied(x), sn(x))
+
+
+# --------------------------------------------------------------------------- #
+# The repair named when a constructor argument is refused
+# --------------------------------------------------------------------------- #
+
+
+class _Color(enum.Enum):
+    RED = "red"
+
+
+class _Marker(enum.Enum):
+    START = (object(),)
+
+
+class _TensorSubclass(torch.Tensor):
+    pass
+
+
+def _quantized() -> torch.Tensor:
+    return torch.quantize_per_tensor(torch.ones(2), 0.1, 0, torch.quint8)
+
+
+_IN_INIT = "create it inside __init__ as a parameter or buffer"
+_STR_IN_INIT = "pass str(x) and convert it back inside __init__"
+_GENERIC = "build it inside __init__ from plain arguments"
+
+
+@pytest.mark.parametrize(
+    "make, hint, repair",
+    [
+        pytest.param(
+            lambda: _Color.RED,
+            "an enum member; pass x.value and convert it back inside __init__",
+            lambda x: x.value,
+            id="enum",
+        ),
+        pytest.param(
+            lambda: _Marker.START,
+            "an enum member; pass x.name and convert it back inside __init__",
+            lambda x: x.name,
+            id="enum-with-a-non-plain-value",
+        ),
+        pytest.param(
+            lambda: eq.CovType.FULL,
+            "an enum member; pass x.value and convert it back inside __init__",
+            lambda x: x.value,
+            id="cov-type",
+        ),
+        pytest.param(
+            lambda: numpy.float64(0.5),
+            "convert with float(x)",
+            float,
+            id="numpy-float64",
+        ),
+        pytest.param(
+            lambda: numpy.str_("a"), "convert with str(x)", str, id="numpy-str"
+        ),
+        pytest.param(
+            lambda: torch.Size([2, 3]), "convert with tuple(x)", tuple, id="torch-size"
+        ),
+        pytest.param(
+            lambda: collections.OrderedDict(a=1),
+            "convert with dict(x)",
+            dict,
+            id="ordered-dict",
+        ),
+        pytest.param(lambda: torch.float32, _STR_IN_INIT, str, id="dtype"),
+        pytest.param(lambda: torch.device("cpu"), _STR_IN_INIT, str, id="device"),
+        pytest.param(lambda: pathlib.Path("w.pt"), _STR_IN_INIT, str, id="path"),
+        pytest.param(
+            lambda: numpy.zeros((2, 2)),
+            "convert with x.tolist()",
+            lambda x: x.tolist(),
+            id="numpy-array",
+        ),
+        pytest.param(
+            lambda: numpy.int64(3),
+            "convert with x.tolist()",
+            lambda x: x.tolist(),
+            id="numpy-int64",
+        ),
+        pytest.param(
+            lambda: numpy.bool_(True),
+            "convert with x.tolist()",
+            lambda x: x.tolist(),
+            id="numpy-bool",
+        ),
+        pytest.param(
+            lambda: numpy.float32(0.5),
+            "convert with x.tolist()",
+            lambda x: x.tolist(),
+            id="numpy-float32",
+        ),
+        pytest.param(
+            lambda: numpy.complex128(1 + 2j),
+            _GENERIC,
+            lambda x: [x.real.item(), x.imag.item()],
+            id="numpy-complex",
+        ),
+        pytest.param(
+            lambda: numpy.datetime64("2020-01-01"),
+            _GENERIC,
+            str,
+            id="numpy-datetime",
+        ),
+        pytest.param(
+            lambda: numpy.array([object()], dtype=object),
+            _GENERIC,
+            lambda x: len(x),
+            id="numpy-object-array",
+        ),
+        pytest.param(
+            lambda: numpy.longdouble(1),
+            _GENERIC,
+            float,
+            id="numpy-longdouble",
+        ),
+        pytest.param(
+            lambda: numpy.zeros(2, dtype=numpy.longdouble),
+            _GENERIC,
+            lambda x: [float(v) for v in x],
+            id="numpy-longdouble-array",
+        ),
+        pytest.param(
+            lambda: torch.ones(2),
+            f"a tensor; pass x.tolist(), or {_IN_INIT}",
+            lambda x: x.tolist(),
+            id="tensor",
+        ),
+        pytest.param(
+            _quantized,
+            f"a tensor; pass x.dequantize().tolist(), or {_IN_INIT}",
+            lambda x: x.dequantize().tolist(),
+            id="quantized-tensor",
+        ),
+        pytest.param(
+            lambda: torch.ones(2, dtype=torch.complex64),
+            f"a tensor; {_IN_INIT}",
+            lambda x: list(x.shape),
+            id="complex-tensor",
+        ),
+        pytest.param(
+            lambda: torch.ones(2).to_sparse(),
+            f"a tensor; {_IN_INIT}",
+            lambda x: list(x.shape),
+            id="sparse-tensor",
+        ),
+        pytest.param(
+            lambda: torch.empty(2, device="meta"),
+            f"a tensor; {_IN_INIT}",
+            lambda x: list(x.shape),
+            id="meta-tensor",
+        ),
+        pytest.param(
+            lambda: torch.ones(2).as_subclass(_TensorSubclass),
+            f"a tensor; {_IN_INIT}",
+            lambda x: list(x.shape),
+            id="tensor-subclass",
+        ),
+    ],
+)
+def test_refused_constructor_argument_hint_names_a_working_repair(
+    request, make, hint, repair
+) -> None:
+    Net = _architecture_taking(f"hint.{request.node.callspec.id}")
+    value = make()
+    with pytest.raises(TypeError) as err:
+        Net(value)
+    message = str(err.value)
+    assert f"({hint})." in message
+    assert "float(x) or int(x)" not in message
+    Net(repair(value))
+
+
+def test_module_argument_hint_and_its_repair() -> None:
+    @registry.embedding_architecture(_fresh_name("hint.module"))
+    class Wrapped(torch.nn.Module):
+        def __init__(self, backbone: torch.nn.Module) -> None:
+            super().__init__()
+            self.backbone = backbone
+
+    with pytest.raises(TypeError) as err:
+        Wrapped(torch.nn.Linear(6, 4))
+    assert (
+        "got Linear (a module; build it inside __init__ from plain arguments such as "
+        "layer sizes)." in str(err.value)
+    )
+
+    @registry.embedding_architecture(_fresh_name("hint.module_repaired"))
+    class Built(torch.nn.Module):
+        def __init__(self, hidden: int) -> None:
+            super().__init__()
+            self.backbone = torch.nn.Linear(6, hidden)
+
+    built = Built(4)
+    rebuilt = registry.build_from_recipe(registry.embedding_recipe(built))
+    assert {k: v.shape for k, v in rebuilt.state_dict().items()} == {
+        k: v.shape for k, v in built.state_dict().items()
+    }
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        lambda: torch.nn.ReLU,
+        lambda: torch.relu,
+        lambda: lambda t: t,
+        lambda: numpy.ndarray,
+    ],
+    ids=["class", "builtin-function", "lambda", "numpy-class"],
+)
+def test_class_or_function_argument_hint_and_its_repair(request, make) -> None:
+    suffix = f"hint.callable_{request.node.callspec.id}"
+    Net = _architecture_taking(suffix)
+    with pytest.raises(TypeError) as err:
+        Net(make())
+    assert (
+        "(a class or function; pass a plain value such as its name and look it up "
+        "inside __init__)." in str(err.value)
+    )
+
+    @registry.embedding_architecture(_fresh_name(f"{suffix}_repaired"))
+    class Activated(torch.nn.Module):
+        def __init__(self, activation: str = "ReLU") -> None:
+            super().__init__()
+            self.activation = getattr(torch.nn, activation)()
+
+    assert isinstance(Activated("ReLU").activation, torch.nn.ReLU)
+
+
+def test_other_object_argument_hint_and_its_repair() -> None:
+    class Settings:
+        threshold = 0.5
+
+    Net = _architecture_taking("hint.other")
+    with pytest.raises(TypeError) as err:
+        Net(Settings())
+    assert "got Settings (build it inside __init__ from plain arguments)." in str(
+        err.value
+    )
+    Net({"threshold": Settings.threshold})
+
+
+def test_shown_type_is_qualified_when_its_name_is_a_plain_type() -> None:
+    Net = _architecture_taking("hint.qualified")
+    with pytest.raises(TypeError) as err:
+        Net(numpy.bool_(True))
+    assert "got bool (" not in str(err.value)
+    assert "got numpy.bool (" in str(err.value)
+
+
+def test_build_from_recipe_carries_the_hint() -> None:
+    _architecture_taking("hint.recipe")
+    with pytest.raises(ValueError, match="recorded recipe") as err:
+        registry.build_from_recipe(
+            {
+                "builder": _fresh_name("hint.recipe"),
+                "kwargs": {"options": torch.ones(2)},
+            }
+        )
+    assert (
+        "got torch.Tensor (a tensor; pass x.tolist(), or create it inside __init__ "
+        "as a parameter or buffer)." in str(err.value)
+    )

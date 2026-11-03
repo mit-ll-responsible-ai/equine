@@ -344,6 +344,7 @@ def _plain_train_summary(summary: Any) -> Any:
             what="Training summary entry",
             owner="the model",
             key_types=(str, int, float, bool, type(None)),
+            for_constructor=False,
         )
     except TypeError as err:
         raise ValueError(f"Cannot save: {err}") from err
@@ -1402,7 +1403,9 @@ def _require_rebuildable(
     """
     extra_state = {k: v for k, v in state_dict.items() if _is_extra_state_key(k)}
     try:
-        _check_plain(extra_state, allow_tensors=True, what="Extra state")
+        _check_plain(
+            extra_state, allow_tensors=True, what="Extra state", for_constructor=False
+        )
     except TypeError as err:
         raise ValueError(
             f"Cannot save the embedding model ({type(embedding).__name__}): {err}"

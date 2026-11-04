@@ -365,7 +365,8 @@ class Protonet(torch.nn.Module):
         Parameters
         ----------
         cov_type : CovType
-            Type of covariance to use. Options are ['unit', 'diag', 'full'].
+            Type of covariance to use: ``CovType.UNIT``, ``CovType.DIAGONAL`` or
+            ``CovType.FULL``.
         embedding : torch.Tensor
             Embedding tensor to use when generating the covariance matrix.
 
@@ -379,6 +380,9 @@ class Protonet(torch.nn.Module):
         ValueError
             If ``cov_type`` is ``FULL`` or ``DIAGONAL`` and ``embedding`` has
             fewer than 2 rows.
+        ValueError
+            If ``cov_type`` is not a ``CovType`` member; beartype refuses it
+            first unless Python runs with ``-O``.
         """
         if cov_type in (CovType.FULL, CovType.DIAGONAL) and embedding.shape[0] < 2:
             raise ValueError(
@@ -391,8 +395,13 @@ class Protonet(torch.nn.Module):
             class_covariance = torch.var(embedding, dim=0)
         elif cov_type == CovType.UNIT:
             class_covariance = torch.ones(self.emb_out_dim, device=self.device)
-        else:
-            raise ValueError
+        else:  # pragma: no cover
+            members = ", ".join(f"CovType.{member.name}" for member in CovType)
+            values = ", ".join(repr(member.value) for member in CovType)
+            raise ValueError(
+                f"cov_type must be one of {members}; got {_shown(cov_type)}. "
+                f"CovType(value) converts one of {values}."
+            )
 
         return class_covariance
 

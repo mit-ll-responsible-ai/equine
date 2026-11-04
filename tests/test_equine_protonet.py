@@ -1727,3 +1727,32 @@ def test_two_classes_train_and_update_support() -> None:
     assert list(model.get_support()) == [0, 1]
     model.update_support(x[keep], y[keep].float(), calib_frac=0.2)
     assert list(model.get_support()) == [0, 1]
+
+
+@pytest.mark.skipif(
+    __debug__, reason="runs only under python -O, where beartype is off"
+)
+def test_cov_type_that_is_not_a_member_is_refused_with_its_conversion_under_python_O() -> (
+    None
+):
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, cov_type="full"
+    )
+    message = (
+        "cov_type must be one of CovType.UNIT, CovType.DIAGONAL, CovType.FULL; "
+        "got 'full'. CovType(value) converts one of 'unit', 'diag', 'full'."
+    )
+    with pytest.raises(ValueError) as err:
+        model.train_model(
+            dataset, num_episodes=2, support_size=10, way=3, episode_size=30
+        )
+    assert str(err.value) == message
+
+    repaired = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, cov_type=eq.CovType("full")
+    )
+    repaired.train_model(
+        dataset, num_episodes=2, support_size=10, way=3, episode_size=30
+    )
+    assert repaired.cov_type is eq.CovType.FULL

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Coverage for /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/equine/architectures.py: 100%</title>
+    <title>Coverage for /opt/hostedtoolcache/Python/3.12.16/x64/lib/python3.12/site-packages/equine/architectures.py: 100%</title>
     <link rel="icon" sizes="32x32" href="favicon_32_cb_c827f16f.png">
     <link rel="stylesheet" href="style_cb_4667309f.css" type="text/css">
     <script src="coverage_html_cb_54cfdca1.js" defer></script>
@@ -11,7 +11,7 @@
 <header>
     <div class="content">
         <h1>
-            <span class="text">Coverage for </span><b><span class="sep">/</span>opt<span class="sep">/</span>hostedtoolcache<span class="sep">/</span>Python<span class="sep">/</span>3.12.15<span class="sep">/</span>x64<span class="sep">/</span>lib<span class="sep">/</span>python3.12<span class="sep">/</span>site-packages<span class="sep">/</span>equine<span class="sep">/</span>architectures.py</b>:
+            <span class="text">Coverage for </span><b><span class="sep">/</span>opt<span class="sep">/</span>hostedtoolcache<span class="sep">/</span>Python<span class="sep">/</span>3.12.16<span class="sep">/</span>x64<span class="sep">/</span>lib<span class="sep">/</span>python3.12<span class="sep">/</span>site-packages<span class="sep">/</span>equine<span class="sep">/</span>architectures.py</b>:
             <span class="pc_cov">100%</span>
         </h1>
         <aside id="help_panel_wrapper">
@@ -55,19 +55,19 @@
             </div>
         </aside>
         <h2>
-            <span class="text">40 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">40<span class="text"> run</span></button>
+            <span class="text">45 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">45<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">0<span class="text"> missing</span></button>
-            <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">5<span class="text"> excluded</span></button>
+            <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
             <button type="button" class="par run show_par button_toggle_par" value="par" data-shortcut="p" title="Toggle lines partially run">0<span class="text"> partial</span></button>
         </h2>
         <p class="text">
-            <a id="prevFileLink" class="nav" href="z_3e5526efc10b6a40__version_py.html">&#xab; prev</a> &nbsp; &nbsp;
+            <a id="prevFileLink" class="nav" href="z_7a4224ea7c2b38e0__version_py.html">&#xab; prev</a> &nbsp; &nbsp;
             <a id="indexLink" class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
-            <a id="nextFileLink" class="nav" href="z_3e5526efc10b6a40_equine_py.html">&#xbb; next</a>
+            <a id="nextFileLink" class="nav" href="z_7a4224ea7c2b38e0_equine_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.0">coverage.py v7.17.0</a>,
-            created at 2026-11-03 12:05 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.1">coverage.py v7.17.1</a>,
+            created at 2026-11-04 10:49 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -187,35 +187,35 @@
     <p class="run"><span class="n"><a id="t103" href="#t103">103</a></span><span class="t">        <span class="nam">_positive_int</span><span class="op">(</span><span class="nam">out_features</span><span class="op">,</span> <span class="str">&quot;out_features&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t104" href="#t104">104</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t105" href="#t105">105</a></span><span class="t">        <span class="key">if</span> <span class="nam">type</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span> <span class="key">not</span> <span class="key">in</span> <span class="op">(</span><span class="nam">list</span><span class="op">,</span> <span class="nam">tuple</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t106" href="#t106">106</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t107" href="#t107">107</a></span><span class="t">                <span class="str">&quot;hidden_sizes must be a list or tuple (not &quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t108" href="#t108">108</a></span><span class="t">                <span class="fst">f&quot;</span><span class="op">{</span><span class="nam">type</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">.</span><span class="nam">__name__</span><span class="op">}</span><span class="fst">); got </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t109" href="#t109">109</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t106" href="#t106">106</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t107" href="#t107">107</a></span><span class="t">                <span class="str">&quot;hidden_sizes must be a list or tuple (not &quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t108" href="#t108">108</a></span><span class="t">                <span class="fst">f&quot;</span><span class="op">{</span><span class="nam">type</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">.</span><span class="nam">__name__</span><span class="op">}</span><span class="fst">); got </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t109" href="#t109">109</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t110" href="#t110">110</a></span><span class="t">        <span class="key">for</span> <span class="nam">index</span><span class="op">,</span> <span class="nam">hidden</span> <span class="key">in</span> <span class="nam">enumerate</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t111" href="#t111">111</a></span><span class="t">            <span class="nam">_positive_int</span><span class="op">(</span><span class="nam">hidden</span><span class="op">,</span> <span class="fst">f&quot;</span><span class="fst">hidden_sizes[</span><span class="op">{</span><span class="nam">index</span><span class="op">}</span><span class="fst">]</span><span class="fst">&quot;</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t112" href="#t112">112</a></span><span class="t">        <span class="key">if</span> <span class="nam">len</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span> <span class="op">&gt;</span> <span class="nam">MAX_HIDDEN_LAYERS</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t113" href="#t113">113</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t114" href="#t114">114</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">hidden_sizes has </span><span class="op">{</span><span class="nam">len</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">}</span><span class="fst"> entries, exceeding the </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t115" href="#t115">115</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">MAX_HIDDEN_LAYERS cap of </span><span class="op">{</span><span class="nam">MAX_HIDDEN_LAYERS</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t116" href="#t116">116</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t113" href="#t113">113</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t114" href="#t114">114</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">hidden_sizes has </span><span class="op">{</span><span class="nam">len</span><span class="op">(</span><span class="nam">hidden_sizes</span><span class="op">)</span><span class="op">}</span><span class="fst"> entries, exceeding the </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t115" href="#t115">115</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">MAX_HIDDEN_LAYERS cap of </span><span class="op">{</span><span class="nam">MAX_HIDDEN_LAYERS</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t116" href="#t116">116</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t117" href="#t117">117</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t118" href="#t118">118</a></span><span class="t">        <span class="key">if</span> <span class="nam">type</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span> <span class="key">is</span> <span class="key">not</span> <span class="nam">str</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t119" href="#t119">119</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t120" href="#t120">120</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">activation must be a str (not </span><span class="op">{</span><span class="nam">type</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">.</span><span class="nam">__name__</span><span class="op">}</span><span class="fst">); </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t121" href="#t121">121</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">got </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t122" href="#t122">122</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t119" href="#t119">119</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t120" href="#t120">120</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">activation must be a str (not </span><span class="op">{</span><span class="nam">type</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">.</span><span class="nam">__name__</span><span class="op">}</span><span class="fst">); </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t121" href="#t121">121</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">got </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t122" href="#t122">122</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t123" href="#t123">123</a></span><span class="t">        <span class="key">if</span> <span class="nam">activation</span> <span class="key">not</span> <span class="key">in</span> <span class="nam">_ACTIVATIONS</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t124" href="#t124">124</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t125" href="#t125">125</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">Unknown activation </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">}</span><span class="fst">; choose from </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t126" href="#t126">126</a></span><span class="t">                <span class="fst">f&quot;</span><span class="op">{</span><span class="nam">sorted</span><span class="op">(</span><span class="nam">_ACTIVATIONS</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t127" href="#t127">127</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t124" href="#t124">124</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t125" href="#t125">125</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">Unknown activation </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">activation</span><span class="op">)</span><span class="op">}</span><span class="fst">; choose from </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t126" href="#t126">126</a></span><span class="t">                <span class="fst">f&quot;</span><span class="op">{</span><span class="nam">sorted</span><span class="op">(</span><span class="nam">_ACTIVATIONS</span><span class="op">)</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t127" href="#t127">127</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t128" href="#t128">128</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t129" href="#t129">129</a></span><span class="t">        <span class="nam">parameter_count</span> <span class="op">=</span> <span class="nam">_mlp_parameter_count</span><span class="op">(</span><span class="nam">in_features</span><span class="op">,</span> <span class="nam">hidden_sizes</span><span class="op">,</span> <span class="nam">out_features</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t130" href="#t130">130</a></span><span class="t">        <span class="key">if</span> <span class="nam">parameter_count</span> <span class="op">&gt;</span> <span class="nam">MAX_PARAMETERS</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc show_exc"><span class="n"><a id="t131" href="#t131">131</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t132" href="#t132">132</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">This MLP would have </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">parameter_count</span><span class="op">)</span><span class="op">}</span><span class="fst"> parameters, </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t133" href="#t133">133</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">exceeding the MAX_PARAMETERS cap of </span><span class="op">{</span><span class="nam">MAX_PARAMETERS</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
-    <p class="exc exc2 show_exc"><span class="n"><a id="t134" href="#t134">134</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t131" href="#t131">131</a></span><span class="t">            <span class="key">raise</span> <span class="nam">ValueError</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t132" href="#t132">132</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">This MLP would have </span><span class="op">{</span><span class="nam">reprlib</span><span class="op">.</span><span class="nam">repr</span><span class="op">(</span><span class="nam">parameter_count</span><span class="op">)</span><span class="op">}</span><span class="fst"> parameters, </span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t133" href="#t133">133</a></span><span class="t">                <span class="fst">f&quot;</span><span class="fst">exceeding the MAX_PARAMETERS cap of </span><span class="op">{</span><span class="nam">MAX_PARAMETERS</span><span class="op">}</span><span class="fst">.</span><span class="fst">&quot;</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run run2"><span class="n"><a id="t134" href="#t134">134</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t135" href="#t135">135</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t136" href="#t136">136</a></span><span class="t">        <span class="nam">layers</span><span class="op">:</span> <span class="nam">list</span><span class="op">[</span><span class="nam">torch</span><span class="op">.</span><span class="nam">nn</span><span class="op">.</span><span class="nam">Module</span><span class="op">]</span> <span class="op">=</span> <span class="op">[</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t137" href="#t137">137</a></span><span class="t">        <span class="nam">width</span> <span class="op">=</span> <span class="nam">in_features</span>&nbsp;</span><span class="r"></span></p>
@@ -232,12 +232,12 @@
 <footer>
     <div class="content">
         <p>
-            <a class="nav" href="z_3e5526efc10b6a40__version_py.html">&#xab; prev</a> &nbsp; &nbsp;
+            <a class="nav" href="z_7a4224ea7c2b38e0__version_py.html">&#xab; prev</a> &nbsp; &nbsp;
             <a class="nav" href="index.html">&Hat; index</a> &nbsp; &nbsp;
-            <a class="nav" href="z_3e5526efc10b6a40_equine_py.html">&#xbb; next</a>
+            <a class="nav" href="z_7a4224ea7c2b38e0_equine_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
-            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.0">coverage.py v7.17.0</a>,
-            created at 2026-11-03 12:05 +0000
+            <a class="nav" href="https://coverage.readthedocs.io/en/7.17.1">coverage.py v7.17.1</a>,
+            created at 2026-11-04 10:49 +0000
         </p>
     </div>
 </footer>

@@ -835,6 +835,11 @@ def test_build_from_recipe_rejects_non_string_kwargs_keys() -> None:
         registry.build_from_recipe({"builder": "equine.mlp", "kwargs": {1: 6}})
 
 
+def test_build_from_recipe_rejects_non_dict_kwargs() -> None:
+    with pytest.raises(ValueError, match="'kwargs' must be a dict; got list"):
+        registry.build_from_recipe({"builder": "equine.tests.basic", "kwargs": [1]})
+
+
 def test_build_from_recipe_missing_kwargs_defaults_to_empty() -> None:
     @registry.embedding_architecture(_fresh_name("missingkwargs"))
     class Net(torch.nn.Module):

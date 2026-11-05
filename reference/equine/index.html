@@ -2369,10 +2369,7 @@ EquineOutput object that contains both the class probabilities
 <span class="normal">341</span>
 <span class="normal">342</span>
 <span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
-<span class="normal">346</span>
-<span class="normal">347</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Equine</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="normal">344</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Equine</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""EQUINE Abstract Base Class (ABC):</span>
 <span class="sd">    EQUINE is set up to extend torch's nn.Module to enrich it with</span>
 <span class="sd">    a method that enables uncertainty quantification and visualization. Most</span>
@@ -2526,7 +2523,7 @@ EquineOutput object that contains both the class probabilities
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Upon implementation, save the model to the given file path.</span>
 
@@ -2534,9 +2531,6 @@ EquineOutput object that contains both the class probabilities
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            File path to save the model to.</span>
-<span class="sd">        allow_executable : bool, optional</span>
-<span class="sd">            Keyword-only. Permit embedding executable TorchScript when the embedding</span>
-<span class="sd">            model has no recipe. Defaults to False.</span>
 <span class="sd">        """</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
@@ -2785,7 +2779,10 @@ of torch.nn.Module.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">304</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
 <span class="normal">305</span>
 <span class="normal">306</span>
 <span class="normal">307</span>
@@ -2793,10 +2790,7 @@ of torch.nn.Module.</p>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Retrieve the feature names used in the model.</span>
 
@@ -2853,7 +2847,10 @@ of torch.nn.Module.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">291</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
 <span class="normal">292</span>
 <span class="normal">293</span>
 <span class="normal">294</span>
@@ -2861,10 +2858,7 @@ of torch.nn.Module.</p>
 <span class="normal">296</span>
 <span class="normal">297</span>
 <span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="normal">299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Retrieve the label names used in the model.</span>
 
@@ -3026,7 +3020,10 @@ of torch.nn.Module.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">274</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
 <span class="normal">275</span>
 <span class="normal">276</span>
 <span class="normal">277</span>
@@ -3038,10 +3035,7 @@ of torch.nn.Module.</p>
 <span class="normal">283</span>
 <span class="normal">284</span>
 <span class="normal">285</span>
-<span class="normal">286</span>
-<span class="normal">287</span>
-<span class="normal">288</span>
-<span class="normal">289</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>  <span class="c1"># type: ignore</span>
+<span class="normal">286</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>  <span class="c1"># type: ignore</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="n">AnyEquine</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AnyEquine</span><span class="p">:</span>  <span class="c1"># noqa: F821 # type: ignore</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, load the model from the given file path.</span>
@@ -3186,7 +3180,7 @@ given input data.</p>
 
 
 <h3 id="equine.Equine.save" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
@@ -3227,23 +3221,6 @@ given input data.</p>
                 <em>required</em>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>allow_executable</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword-only. Permit embedding executable TorchScript when the embedding
-model has no recipe. Defaults to False.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -3260,11 +3237,8 @@ model has no recipe. Defaults to False.</p>
 <span class="normal">266</span>
 <span class="normal">267</span>
 <span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">269</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Upon implementation, save the model to the given file path.</span>
 
@@ -3272,9 +3246,6 @@ model has no recipe. Defaults to False.</p>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        File path to save the model to.</span>
-<span class="sd">    allow_executable : bool, optional</span>
-<span class="sd">        Keyword-only. Permit embedding executable TorchScript when the embedding</span>
-<span class="sd">        model has no recipe. Defaults to False.</span>
 <span class="sd">    """</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
@@ -3508,7 +3479,10 @@ if the length of <code>label_names</code> does not match <code>num_classes</code
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">317</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
 <span class="normal">318</span>
 <span class="normal">319</span>
 <span class="normal">320</span>
@@ -3535,10 +3509,7 @@ if the length of <code>label_names</code> does not match <code>num_classes</code
 <span class="normal">341</span>
 <span class="normal">342</span>
 <span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
-<span class="normal">346</span>
-<span class="normal">347</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">344</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">num_features</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="n">num_features</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">num_classes</span> <span class="o">&gt;</span> <span class="mi">0</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_feature_label_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_features</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -3620,8 +3591,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 491</span>
-<span class="normal"> 492</span>
+                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 492</span>
 <span class="normal"> 493</span>
 <span class="normal"> 494</span>
 <span class="normal"> 495</span>
@@ -4311,48 +4281,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="normal">1179</span>
 <span class="normal">1180</span>
 <span class="normal">1181</span>
-<span class="normal">1182</span>
-<span class="normal">1183</span>
-<span class="normal">1184</span>
-<span class="normal">1185</span>
-<span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span>
-<span class="normal">1189</span>
-<span class="normal">1190</span>
-<span class="normal">1191</span>
-<span class="normal">1192</span>
-<span class="normal">1193</span>
-<span class="normal">1194</span>
-<span class="normal">1195</span>
-<span class="normal">1196</span>
-<span class="normal">1197</span>
-<span class="normal">1198</span>
-<span class="normal">1199</span>
-<span class="normal">1200</span>
-<span class="normal">1201</span>
-<span class="normal">1202</span>
-<span class="normal">1203</span>
-<span class="normal">1204</span>
-<span class="normal">1205</span>
-<span class="normal">1206</span>
-<span class="normal">1207</span>
-<span class="normal">1208</span>
-<span class="normal">1209</span>
-<span class="normal">1210</span>
-<span class="normal">1211</span>
-<span class="normal">1212</span>
-<span class="normal">1213</span>
-<span class="normal">1214</span>
-<span class="normal">1215</span>
-<span class="normal">1216</span>
-<span class="normal">1217</span>
-<span class="normal">1218</span>
-<span class="normal">1219</span>
-<span class="normal">1220</span>
-<span class="normal">1221</span>
-<span class="normal">1222</span>
-<span class="normal">1223</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">1182</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineGP</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    An example of an EQUINE model that builds upon the approach in "Spectral Norm</span>
@@ -4828,41 +4757,27 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 
         <span class="k">return</span> <span class="n">eq_out</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Save all model parameters to a file.</span>
 
-<span class="sd">        The embedding model (the feature extractor) is stored as a *recipe* (registered</span>
-<span class="sd">        architecture name plus constructor arguments) and a ``state_dict``. The file</span>
-<span class="sd">        holds only data. If the embedding model is not a registered architecture (for</span>
-<span class="sd">        example a ``torch.jit.ScriptModule``), pass ``allow_executable=True`` to embed a</span>
-<span class="sd">        TorchScript copy instead; such a file is flagged and can only be opened with</span>
-<span class="sd">        ``load(..., trust_executable=True)``.</span>
+<span class="sd">        The embedding model (the feature extractor) is stored as a *recipe*</span>
+<span class="sd">        (registered architecture name plus constructor arguments) and a</span>
+<span class="sd">        ``state_dict``, so the file holds only data.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            Filename to write the model.</span>
-<span class="sd">        allow_executable : bool, optional</span>
-<span class="sd">            Keyword-only. Permit embedding executable TorchScript when no recipe</span>
-<span class="sd">            is available; emits a ``FutureWarning``.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the embedding model has no recipe and ``allow_executable`` is False.</span>
+<span class="sd">            If the embedding model is not a registered architecture.</span>
 <span class="sd">        """</span>
-        <span class="n">checkpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(</span>
-            <span class="n">allow_executable</span><span class="p">,</span>
-            <span class="c1"># _embedding_checkpoint, then _to_checkpoint and save, each behind a</span>
-            <span class="c1"># beartype wrapper (none under -O), then the caller.</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">4</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(),</span> <span class="n">path</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_to_checkpoint</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">_stacklevel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_to_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""</span>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">"emb_out_dim"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_deep_features</span><span class="p">,</span>
@@ -4880,9 +4795,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="c1"># Plain values only, so load_checkpoint can read it with weights_only=True.</span>
         <span class="n">save_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">"equine_format_version"</span><span class="p">:</span> <span class="n">EQUINE_FORMAT_VERSION</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">_embedding_checkpoint</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">,</span> <span class="n">_stacklevel</span>
-            <span class="p">),</span>
+            <span class="o">**</span><span class="n">_embedding_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">),</span>
             <span class="s2">"feature_names"</span><span class="p">:</span> <span class="n">_plain_names</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">),</span>
             <span class="s2">"label_names"</span><span class="p">:</span> <span class="n">_plain_names</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">),</span>
             <span class="s2">"laplace_model_save"</span><span class="p">:</span> <span class="n">laplace_sd</span><span class="p">,</span>
@@ -4903,13 +4816,12 @@ any pytorch embedding neural network. Your mileage may vary.</p>
         <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Load a previously saved EquineGP model.</span>
 
-<span class="sd">        A default file contains nothing executable: it is read with</span>
+<span class="sd">        Loading runs no code from the file: it is read with</span>
 <span class="sd">        ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its</span>
 <span class="sd">        recipe through the architecture registry.</span>
 
@@ -4920,18 +4832,11 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        device : Optional[str]</span>
 <span class="sd">            The device to load the model onto. Overrides the device recorded</span>
 <span class="sd">            in the file; by default the model lands on the saved device.</span>
-<span class="sd">        trust_executable : bool, optional</span>
-<span class="sd">            Keyword-only. Permit running the TorchScript module embedded in a</span>
-<span class="sd">            file saved with ``allow_executable=True`` or rewritten by</span>
-<span class="sd">            ``equine.upgrade``; keeping that module as the embedding emits a</span>
-<span class="sd">            ``FutureWarning``. Defaults to False.</span>
 <span class="sd">        embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">            Keyword-only. Use this module as the embedding architecture instead</span>
 <span class="sd">            of rebuilding it from the file's recipe; the file's weights are</span>
 <span class="sd">            loaded into it, and its floating-point tensors take their stored</span>
-<span class="sd">            dtypes. With an executable file (and trust), the archive's</span>
-<span class="sd">            weights are copied into it, which migrates the file to the recipe</span>
-<span class="sd">            format on the next ``save``.</span>
+<span class="sd">            dtypes.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -4941,31 +4846,23 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the file is not in the current EQUINE format (files from earlier</span>
-<span class="sd">            releases must first be rewritten with ``python -m equine.upgrade``),</span>
-<span class="sd">            names an unregistered architecture, or contains executable content</span>
-<span class="sd">            without trust. If ``device`` is unavailable here, names an index at</span>
+<span class="sd">            If the file is not in the current EQUINE format or stores its</span>
+<span class="sd">            embedding model as TorchScript (both are rewritten once with</span>
+<span class="sd">            ``python -m equine.upgrade``), or names an unregistered</span>
+<span class="sd">            architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">            or above its device count, or lacks a dtype the file holds (float64</span>
 <span class="sd">            on MPS: load such a file with ``device="cpu"``).</span>
 <span class="sd">        """</span>
         <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">,</span>
-            <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
-            <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
-            <span class="c1"># Two methods, each behind a beartype wrapper (none under -O).</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_from_checkpoint</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">model_save</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">_stacklevel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Rebuild an EquineGP from an already-loaded checkpoint dictionary.</span>
@@ -4976,14 +4873,10 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">            The dictionary returned by ``utils.load_checkpoint``.</span>
 <span class="sd">        device : Optional[str]</span>
 <span class="sd">            Device override for the reconstituted model.</span>
-<span class="sd">        trust_executable : bool, optional</span>
-<span class="sd">            Permit running an embedded TorchScript module. Defaults to False.</span>
 <span class="sd">        embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">            Use this module as the embedding architecture instead of the file's</span>
-<span class="sd">            recipe or archive; the file's weights are loaded into it, and its</span>
+<span class="sd">            recipe; the file's weights are loaded into it, and its</span>
 <span class="sd">            floating-point tensors take their stored dtypes.</span>
-<span class="sd">        _stacklevel : int, optional</span>
-<span class="sd">            Stack depth, counted from this method, at which its warnings are reported.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -4991,13 +4884,7 @@ any pytorch embedding neural network. Your mileage may vary.</p>
 <span class="sd">            The reconstituted EquineGP object.</span>
 <span class="sd">        """</span>
         <span class="c1"># The embedding is rebuilt first.</span>
-        <span class="n">embedding</span> <span class="o">=</span> <span class="n">_rebuild_embedding</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">,</span>
-            <span class="n">trust_executable</span><span class="p">,</span>
-            <span class="n">embedding_model</span><span class="p">,</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="n">_stacklevel</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">_rebuild_embedding</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">embedding_model</span><span class="p">)</span>
         <span class="n">_require_entries</span><span class="p">(</span>
             <span class="n">model_save</span><span class="p">,</span>
             <span class="p">(</span>
@@ -5284,8 +5171,7 @@ defaults to cpu).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">505</span>
-<span class="normal">506</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">506</span>
 <span class="normal">507</span>
 <span class="normal">508</span>
 <span class="normal">509</span>
@@ -5348,7 +5234,8 @@ defaults to cpu).</p>
 <span class="normal">566</span>
 <span class="normal">567</span>
 <span class="normal">568</span>
-<span class="normal">569</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">569</span>
+<span class="normal">570</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
     <span class="n">emb_out_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
@@ -5498,8 +5385,7 @@ defaults to cpu).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">840</span>
-<span class="normal">841</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">841</span>
 <span class="normal">842</span>
 <span class="normal">843</span>
 <span class="normal">844</span>
@@ -5541,7 +5427,8 @@ defaults to cpu).</p>
 <span class="normal">880</span>
 <span class="normal">881</span>
 <span class="normal">882</span>
-<span class="normal">883</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">num_calibration_epochs</span><span class="p">)</span>
+<span class="normal">883</span>
+<span class="normal">884</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">num_calibration_epochs</span><span class="p">:</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">num_calibration_epochs</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calibration_lr</span><span class="p">:</span> <span class="n">calibration_lr</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">calibrate_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
@@ -5661,8 +5548,7 @@ defaults to cpu).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">763</span>
-<span class="normal">764</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">764</span>
 <span class="normal">765</span>
 <span class="normal">766</span>
 <span class="normal">767</span>
@@ -5681,7 +5567,8 @@ defaults to cpu).</p>
 <span class="normal">780</span>
 <span class="normal">781</span>
 <span class="normal">782</span>
-<span class="normal">783</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="normal">783</span>
+<span class="normal">784</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">compute_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for computing deep embeddings for given input tensor.</span>
 
@@ -5752,8 +5639,7 @@ as they are.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">785</span>
-<span class="normal">786</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">786</span>
 <span class="normal">787</span>
 <span class="normal">788</span>
 <span class="normal">789</span>
@@ -5769,7 +5655,8 @@ as they are.</p>
 <span class="normal">799</span>
 <span class="normal">800</span>
 <span class="normal">801</span>
-<span class="normal">802</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">802</span>
+<span class="normal">803</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">compute_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for computing class prototypes based on given support examples.</span>
@@ -5864,8 +5751,7 @@ and cast to the embedding model's parameter dtype.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">897</span>
-<span class="normal">898</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">898</span>
 <span class="normal">899</span>
 <span class="normal">900</span>
 <span class="normal">901</span>
@@ -5880,7 +5766,8 @@ and cast to the embedding model's parameter dtype.</p>
 <span class="normal">910</span>
 <span class="normal">911</span>
 <span class="normal">912</span>
-<span class="normal">913</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="normal">913</span>
+<span class="normal">914</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    EquineGP forward function, generates logits for classification.</span>
 
@@ -5942,8 +5829,7 @@ and cast to the embedding model's parameter dtype.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">828</span>
-<span class="normal">829</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">829</span>
 <span class="normal">830</span>
 <span class="normal">831</span>
 <span class="normal">832</span>
@@ -5952,7 +5838,8 @@ and cast to the embedding model's parameter dtype.</p>
 <span class="normal">835</span>
 <span class="normal">836</span>
 <span class="normal">837</span>
-<span class="normal">838</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">838</span>
+<span class="normal">839</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for returning class prototypes.</span>
@@ -6008,8 +5895,7 @@ and cast to the embedding model's parameter dtype.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">816</span>
-<span class="normal">817</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">817</span>
 <span class="normal">818</span>
 <span class="normal">819</span>
 <span class="normal">820</span>
@@ -6018,7 +5904,8 @@ and cast to the embedding model's parameter dtype.</p>
 <span class="normal">823</span>
 <span class="normal">824</span>
 <span class="normal">825</span>
-<span class="normal">826</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">826</span>
+<span class="normal">827</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Method for returning support examples used in training.</span>
@@ -6039,7 +5926,7 @@ and cast to the embedding model's parameter dtype.</p>
 
 
 <h3 id="equine.EquineGP.load" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trust_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -6051,7 +5938,7 @@ and cast to the embedding model's parameter dtype.</p>
     <div class="doc doc-contents ">
 
         <p>Load a previously saved EquineGP model.</p>
-<p>A default file contains nothing executable: it is read with
+<p>Loading runs no code from the file: it is read with
 <code>torch.load(weights_only=True)</code> and the embedding model is rebuilt from its
 recipe through the architecture registry.</p>
 
@@ -6102,25 +5989,6 @@ in the file; by default the model lands on the saved device.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>trust_executable</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword-only. Permit running the TorchScript module embedded in a
-file saved with <code>allow_executable=True</code> or rewritten by
-<code>equine.upgrade</code>; keeping that module as the embedding emits a
-<code>FutureWarning</code>. Defaults to False.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
                 <code>embedding_model</code>
             </td>
             <td>
@@ -6131,9 +5999,7 @@ file saved with <code>allow_executable=True</code> or rewritten by
                 <p>Keyword-only. Use this module as the embedding architecture instead
 of rebuilding it from the file's recipe; the file's weights are
 loaded into it, and its floating-point tensors take their stored
-dtypes. With an executable file (and trust), the archive's
-weights are copied into it, which migrates the file to the recipe
-format on the next <code>save</code>.</p>
+dtypes.</p>
               </div>
             </td>
             <td>
@@ -6182,10 +6048,10 @@ format on the next <code>save</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the file is not in the current EQUINE format (files from earlier
-releases must first be rewritten with <code>python -m equine.upgrade</code>),
-names an unregistered architecture, or contains executable content
-without trust. If <code>device</code> is unavailable here, names an index at
+                <p>If the file is not in the current EQUINE format or stores its
+embedding model as TorchScript (both are rewritten once with
+<code>python -m equine.upgrade</code>), or names an unregistered
+architecture. If <code>device</code> is unavailable here, names an index at
 or above its device count, or lacks a dtype the file holds (float64
 on MPS: load such a file with <code>device="cpu"</code>).</p>
               </div>
@@ -6197,7 +6063,22 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1036</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
 <span class="normal">1037</span>
 <span class="normal">1038</span>
 <span class="normal">1039</span>
@@ -6227,48 +6108,18 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="normal">1063</span>
 <span class="normal">1064</span>
 <span class="normal">1065</span>
-<span class="normal">1066</span>
-<span class="normal">1067</span>
-<span class="normal">1068</span>
-<span class="normal">1069</span>
-<span class="normal">1070</span>
-<span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
-<span class="normal">1077</span>
-<span class="normal">1078</span>
-<span class="normal">1079</span>
-<span class="normal">1080</span>
-<span class="normal">1081</span>
-<span class="normal">1082</span>
-<span class="normal">1083</span>
-<span class="normal">1084</span>
-<span class="normal">1085</span>
-<span class="normal">1086</span>
-<span class="normal">1087</span>
-<span class="normal">1088</span>
-<span class="normal">1089</span>
-<span class="normal">1090</span>
-<span class="normal">1091</span>
-<span class="normal">1092</span>
-<span class="normal">1093</span>
-<span class="normal">1094</span>
-<span class="normal">1095</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1066</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a previously saved EquineGP model.</span>
 
-<span class="sd">    A default file contains nothing executable: it is read with</span>
+<span class="sd">    Loading runs no code from the file: it is read with</span>
 <span class="sd">    ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its</span>
 <span class="sd">    recipe through the architecture registry.</span>
 
@@ -6279,18 +6130,11 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="sd">    device : Optional[str]</span>
 <span class="sd">        The device to load the model onto. Overrides the device recorded</span>
 <span class="sd">        in the file; by default the model lands on the saved device.</span>
-<span class="sd">    trust_executable : bool, optional</span>
-<span class="sd">        Keyword-only. Permit running the TorchScript module embedded in a</span>
-<span class="sd">        file saved with ``allow_executable=True`` or rewritten by</span>
-<span class="sd">        ``equine.upgrade``; keeping that module as the embedding emits a</span>
-<span class="sd">        ``FutureWarning``. Defaults to False.</span>
 <span class="sd">    embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">        Keyword-only. Use this module as the embedding architecture instead</span>
 <span class="sd">        of rebuilding it from the file's recipe; the file's weights are</span>
 <span class="sd">        loaded into it, and its floating-point tensors take their stored</span>
-<span class="sd">        dtypes. With an executable file (and trust), the archive's</span>
-<span class="sd">        weights are copied into it, which migrates the file to the recipe</span>
-<span class="sd">        format on the next ``save``.</span>
+<span class="sd">        dtypes.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -6300,22 +6144,16 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the file is not in the current EQUINE format (files from earlier</span>
-<span class="sd">        releases must first be rewritten with ``python -m equine.upgrade``),</span>
-<span class="sd">        names an unregistered architecture, or contains executable content</span>
-<span class="sd">        without trust. If ``device`` is unavailable here, names an index at</span>
+<span class="sd">        If the file is not in the current EQUINE format or stores its</span>
+<span class="sd">        embedding model as TorchScript (both are rewritten once with</span>
+<span class="sd">        ``python -m equine.upgrade``), or names an unregistered</span>
+<span class="sd">        architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">        or above its device count, or lacks a dtype the file holds (float64</span>
 <span class="sd">        on MPS: load such a file with ``device="cpu"``).</span>
 <span class="sd">    """</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
-    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
-        <span class="n">model_save</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
-        <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
-        <span class="c1"># Two methods, each behind a beartype wrapper (none under -O).</span>
-        <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-    <span class="p">)</span>
+    <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -6404,8 +6242,7 @@ tensors), which a caller can use in autograd.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">925</span>
-<span class="normal">926</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">926</span>
 <span class="normal">927</span>
 <span class="normal">928</span>
 <span class="normal">929</span>
@@ -6444,7 +6281,8 @@ tensors), which a caller can use in autograd.</p>
 <span class="normal">962</span>
 <span class="normal">963</span>
 <span class="normal">964</span>
-<span class="normal">965</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
+<span class="normal">965</span>
+<span class="normal">966</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">((</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ood_scores</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
@@ -6495,7 +6333,7 @@ tensors), which a caller can use in autograd.</p>
 
 
 <h3 id="equine.EquineGP.save" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
 
 <a href="#equine.EquineGP.save" class="headerlink" title="Permanent link">¤</a></h3>
 
@@ -6503,12 +6341,9 @@ tensors), which a caller can use in autograd.</p>
     <div class="doc doc-contents ">
 
         <p>Save all model parameters to a file.</p>
-<p>The embedding model (the feature extractor) is stored as a <em>recipe</em> (registered
-architecture name plus constructor arguments) and a <code>state_dict</code>. The file
-holds only data. If the embedding model is not a registered architecture (for
-example a <code>torch.jit.ScriptModule</code>), pass <code>allow_executable=True</code> to embed a
-TorchScript copy instead; such a file is flagged and can only be opened with
-<code>load(..., trust_executable=True)</code>.</p>
+<p>The embedding model (the feature extractor) is stored as a <em>recipe</em>
+(registered architecture name plus constructor arguments) and a
+<code>state_dict</code>, so the file holds only data.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -6538,23 +6373,6 @@ TorchScript copy instead; such a file is flagged and can only be opened with
                 <em>required</em>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>allow_executable</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword-only. Permit embedding executable TorchScript when no recipe
-is available; emits a <code>FutureWarning</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -6574,7 +6392,7 @@ is available; emits a <code>FutureWarning</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the embedding model has no recipe and <code>allow_executable</code> is False.</p>
+                <p>If the embedding model is not a registered architecture.</p>
               </div>
             </td>
           </tr>
@@ -6584,8 +6402,7 @@ is available; emits a <code>FutureWarning</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">967</span>
-<span class="normal">968</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">968</span>
 <span class="normal">969</span>
 <span class="normal">970</span>
 <span class="normal">971</span>
@@ -6603,48 +6420,25 @@ is available; emits a <code>FutureWarning</code>.</p>
 <span class="normal">983</span>
 <span class="normal">984</span>
 <span class="normal">985</span>
-<span class="normal">986</span>
-<span class="normal">987</span>
-<span class="normal">988</span>
-<span class="normal">989</span>
-<span class="normal">990</span>
-<span class="normal">991</span>
-<span class="normal">992</span>
-<span class="normal">993</span>
-<span class="normal">994</span>
-<span class="normal">995</span>
-<span class="normal">996</span>
-<span class="normal">997</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">986</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
-<span class="sd">    The embedding model (the feature extractor) is stored as a *recipe* (registered</span>
-<span class="sd">    architecture name plus constructor arguments) and a ``state_dict``. The file</span>
-<span class="sd">    holds only data. If the embedding model is not a registered architecture (for</span>
-<span class="sd">    example a ``torch.jit.ScriptModule``), pass ``allow_executable=True`` to embed a</span>
-<span class="sd">    TorchScript copy instead; such a file is flagged and can only be opened with</span>
-<span class="sd">    ``load(..., trust_executable=True)``.</span>
+<span class="sd">    The embedding model (the feature extractor) is stored as a *recipe*</span>
+<span class="sd">    (registered architecture name plus constructor arguments) and a</span>
+<span class="sd">    ``state_dict``, so the file holds only data.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        Filename to write the model.</span>
-<span class="sd">    allow_executable : bool, optional</span>
-<span class="sd">        Keyword-only. Permit embedding executable TorchScript when no recipe</span>
-<span class="sd">        is available; emits a ``FutureWarning``.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the embedding model has no recipe and ``allow_executable`` is False.</span>
+<span class="sd">        If the embedding model is not a registered architecture.</span>
 <span class="sd">    """</span>
-    <span class="n">checkpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(</span>
-        <span class="n">allow_executable</span><span class="p">,</span>
-        <span class="c1"># _embedding_checkpoint, then _to_checkpoint and save, each behind a</span>
-        <span class="c1"># beartype wrapper (none under -O), then the caller.</span>
-        <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">4</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(),</span> <span class="n">path</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -6829,8 +6623,7 @@ inner module. The model is left in eval mode afterwards, ready to predict.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">597</span>
-<span class="normal">598</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">598</span>
 <span class="normal">599</span>
 <span class="normal">600</span>
 <span class="normal">601</span>
@@ -6945,7 +6738,8 @@ inner module. The model is left in eval mode afterwards, ready to predict.</p>
 <span class="normal">710</span>
 <span class="normal">711</span>
 <span class="normal">712</span>
-<span class="normal">713</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
+<span class="normal">713</span>
+<span class="normal">714</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="n">Dataset</span><span class="p">,</span>
     <span class="n">loss_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
@@ -7172,8 +6966,7 @@ inner module. The model is left in eval mode afterwards, ready to predict.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_gp.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">715</span>
-<span class="normal">716</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">716</span>
 <span class="normal">717</span>
 <span class="normal">718</span>
 <span class="normal">719</span>
@@ -7218,7 +7011,8 @@ inner module. The model is left in eval mode afterwards, ready to predict.</p>
 <span class="normal">758</span>
 <span class="normal">759</span>
 <span class="normal">760</span>
-<span class="normal">761</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
+<span class="normal">761</span>
+<span class="normal">762</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">support_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">support_size</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Function to update protonet support examples with given examples.</span>
@@ -8117,49 +7911,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">1201</span>
 <span class="normal">1202</span>
 <span class="normal">1203</span>
-<span class="normal">1204</span>
-<span class="normal">1205</span>
-<span class="normal">1206</span>
-<span class="normal">1207</span>
-<span class="normal">1208</span>
-<span class="normal">1209</span>
-<span class="normal">1210</span>
-<span class="normal">1211</span>
-<span class="normal">1212</span>
-<span class="normal">1213</span>
-<span class="normal">1214</span>
-<span class="normal">1215</span>
-<span class="normal">1216</span>
-<span class="normal">1217</span>
-<span class="normal">1218</span>
-<span class="normal">1219</span>
-<span class="normal">1220</span>
-<span class="normal">1221</span>
-<span class="normal">1222</span>
-<span class="normal">1223</span>
-<span class="normal">1224</span>
-<span class="normal">1225</span>
-<span class="normal">1226</span>
-<span class="normal">1227</span>
-<span class="normal">1228</span>
-<span class="normal">1229</span>
-<span class="normal">1230</span>
-<span class="normal">1231</span>
-<span class="normal">1232</span>
-<span class="normal">1233</span>
-<span class="normal">1234</span>
-<span class="normal">1235</span>
-<span class="normal">1236</span>
-<span class="normal">1237</span>
-<span class="normal">1238</span>
-<span class="normal">1239</span>
-<span class="normal">1240</span>
-<span class="normal">1241</span>
-<span class="normal">1242</span>
-<span class="normal">1243</span>
-<span class="normal">1244</span>
-<span class="normal">1245</span>
-<span class="normal">1246</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">1204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
@@ -8618,41 +8370,27 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Save all model parameters to a file.</span>
 
-<span class="sd">        The embedding model is stored as a *recipe* (registered architecture name plus</span>
-<span class="sd">        constructor arguments) and a ``state_dict``. The file holds only data. If the</span>
-<span class="sd">        embedding model is not a registered architecture (for example a</span>
-<span class="sd">        ``torch.jit.ScriptModule``), pass ``allow_executable=True`` to embed a</span>
-<span class="sd">        TorchScript copy instead; such a file is flagged and can only be opened with</span>
-<span class="sd">        ``load(..., trust_executable=True)``.</span>
+<span class="sd">        The embedding model is stored as a *recipe* (registered architecture</span>
+<span class="sd">        name plus constructor arguments) and a ``state_dict``, so the file holds</span>
+<span class="sd">        only data.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            Filename to write the model.</span>
-<span class="sd">        allow_executable : bool, optional</span>
-<span class="sd">            Keyword-only. Permit embedding executable TorchScript when no recipe</span>
-<span class="sd">            is available; emits a ``FutureWarning``.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the embedding model has no recipe and ``allow_executable`` is False.</span>
+<span class="sd">            If the embedding model is not a registered architecture.</span>
 <span class="sd">        """</span>
-        <span class="n">checkpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(</span>
-            <span class="n">allow_executable</span><span class="p">,</span>
-            <span class="c1"># _embedding_checkpoint, then _to_checkpoint and save, each behind a</span>
-            <span class="c1"># beartype wrapper (none under -O), then the caller.</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">4</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-        <span class="p">)</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(),</span> <span class="n">path</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">_to_checkpoint</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">_stacklevel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_to_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">"""Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""</span>
         <span class="n">model_settings</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">"cov_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
@@ -8665,9 +8403,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="c1"># Plain values only, so load_checkpoint can read it with weights_only=True.</span>
         <span class="n">save_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">"equine_format_version"</span><span class="p">:</span> <span class="n">EQUINE_FORMAT_VERSION</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">_embedding_checkpoint</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">,</span> <span class="n">_stacklevel</span>
-            <span class="p">),</span>
+            <span class="o">**</span><span class="n">_embedding_checkpoint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">),</span>
             <span class="s2">"feature_names"</span><span class="p">:</span> <span class="n">_plain_names</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names</span><span class="p">),</span>
             <span class="s2">"label_names"</span><span class="p">:</span> <span class="n">_plain_names</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">label_names</span><span class="p">),</span>
             <span class="s2">"model_head_save"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">model_head</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span>
@@ -8691,13 +8427,12 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Load a previously saved EquineProtonet model.</span>
 
-<span class="sd">        A default file contains nothing executable: it is read with</span>
+<span class="sd">        Loading runs no code from the file: it is read with</span>
 <span class="sd">        ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its</span>
 <span class="sd">        recipe through the architecture registry.</span>
 
@@ -8708,18 +8443,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        device : Optional[str]</span>
 <span class="sd">            The device to load the model onto. Overrides the device recorded</span>
 <span class="sd">            in the file; by default the model lands on the saved device.</span>
-<span class="sd">        trust_executable : bool, optional</span>
-<span class="sd">            Keyword-only. Permit running the TorchScript module embedded in a</span>
-<span class="sd">            file saved with ``allow_executable=True`` or rewritten by</span>
-<span class="sd">            ``equine.upgrade``; keeping that module as the embedding emits a</span>
-<span class="sd">            ``FutureWarning``. Defaults to False.</span>
 <span class="sd">        embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">            Keyword-only. Use this module as the embedding architecture instead</span>
 <span class="sd">            of rebuilding it from the file's recipe; the file's weights are</span>
 <span class="sd">            loaded into it, and its floating-point tensors take their stored</span>
-<span class="sd">            dtypes. With an executable file (and trust), the archive's</span>
-<span class="sd">            weights are copied into it, which migrates the file to the recipe</span>
-<span class="sd">            format on the next ``save``.</span>
+<span class="sd">            dtypes.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -8729,31 +8457,23 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the file is not in the current EQUINE format (files from earlier</span>
-<span class="sd">            releases must first be rewritten with ``python -m equine.upgrade``),</span>
-<span class="sd">            names an unregistered architecture, or contains executable content</span>
-<span class="sd">            without trust. If ``device`` is unavailable here, names an index at</span>
+<span class="sd">            If the file is not in the current EQUINE format or stores its</span>
+<span class="sd">            embedding model as TorchScript (both are rewritten once with</span>
+<span class="sd">            ``python -m equine.upgrade``), or names an unregistered</span>
+<span class="sd">            architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">            or above its device count, or lacks a dtype the file holds (float64</span>
 <span class="sd">            on MPS: load such a file with ``device="cpu"``).</span>
 <span class="sd">        """</span>
         <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">,</span>
-            <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
-            <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
-            <span class="c1"># Two methods, each behind a beartype wrapper (none under -O).</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-        <span class="p">)</span>
+        <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_from_checkpoint</span><span class="p">(</span>
         <span class="bp">cls</span><span class="p">,</span>
         <span class="n">model_save</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">_stacklevel</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.</span>
@@ -8764,14 +8484,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            The dictionary returned by ``utils.load_checkpoint``.</span>
 <span class="sd">        device : Optional[str]</span>
 <span class="sd">            Device override for the reconstituted model.</span>
-<span class="sd">        trust_executable : bool, optional</span>
-<span class="sd">            Permit running an embedded TorchScript module. Defaults to False.</span>
 <span class="sd">        embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">            Use this module as the embedding architecture instead of the file's</span>
-<span class="sd">            recipe or archive; the file's weights are loaded into it, and its</span>
+<span class="sd">            recipe; the file's weights are loaded into it, and its</span>
 <span class="sd">            floating-point tensors take their stored dtypes.</span>
-<span class="sd">        _stacklevel : int, optional</span>
-<span class="sd">            Stack depth, counted from this method, at which its warnings are reported.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -8779,13 +8495,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            The reconstituted EquineProtonet object.</span>
 <span class="sd">        """</span>
         <span class="c1"># The embedding is rebuilt first.</span>
-        <span class="n">embedding</span> <span class="o">=</span> <span class="n">_rebuild_embedding</span><span class="p">(</span>
-            <span class="n">model_save</span><span class="p">,</span>
-            <span class="n">device</span><span class="p">,</span>
-            <span class="n">trust_executable</span><span class="p">,</span>
-            <span class="n">embedding_model</span><span class="p">,</span>
-            <span class="n">_stacklevel</span><span class="o">=</span><span class="n">_stacklevel</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">embedding</span> <span class="o">=</span> <span class="n">_rebuild_embedding</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">embedding_model</span><span class="p">)</span>
         <span class="n">_require_entries</span><span class="p">(</span>
             <span class="n">model_save</span><span class="p">,</span>
             <span class="p">(</span><span class="s2">"settings"</span><span class="p">,</span> <span class="s2">"support"</span><span class="p">,</span> <span class="s2">"train_summary"</span><span class="p">,</span> <span class="s2">"outlier_kde"</span><span class="p">,</span> <span class="s2">"model_head_save"</span><span class="p">),</span>
@@ -9642,7 +9352,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
 
 <h3 id="equine.EquineProtonet.load" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trust_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -9654,7 +9364,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
     <div class="doc doc-contents ">
 
         <p>Load a previously saved EquineProtonet model.</p>
-<p>A default file contains nothing executable: it is read with
+<p>Loading runs no code from the file: it is read with
 <code>torch.load(weights_only=True)</code> and the embedding model is rebuilt from its
 recipe through the architecture registry.</p>
 
@@ -9705,25 +9415,6 @@ in the file; by default the model lands on the saved device.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>trust_executable</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword-only. Permit running the TorchScript module embedded in a
-file saved with <code>allow_executable=True</code> or rewritten by
-<code>equine.upgrade</code>; keeping that module as the embedding emits a
-<code>FutureWarning</code>. Defaults to False.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
                 <code>embedding_model</code>
             </td>
             <td>
@@ -9734,9 +9425,7 @@ file saved with <code>allow_executable=True</code> or rewritten by
                 <p>Keyword-only. Use this module as the embedding architecture instead
 of rebuilding it from the file's recipe; the file's weights are
 loaded into it, and its floating-point tensors take their stored
-dtypes. With an executable file (and trust), the archive's
-weights are copied into it, which migrates the file to the recipe
-format on the next <code>save</code>.</p>
+dtypes.</p>
               </div>
             </td>
             <td>
@@ -9785,10 +9474,10 @@ format on the next <code>save</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the file is not in the current EQUINE format (files from earlier
-releases must first be rewritten with <code>python -m equine.upgrade</code>),
-names an unregistered architecture, or contains executable content
-without trust. If <code>device</code> is unavailable here, names an index at
+                <p>If the file is not in the current EQUINE format or stores its
+embedding model as TorchScript (both are rewritten once with
+<code>python -m equine.upgrade</code>), or names an unregistered
+architecture. If <code>device</code> is unavailable here, names an index at
 or above its device count, or lacks a dtype the file holds (float64
 on MPS: load such a file with <code>device="cpu"</code>).</p>
               </div>
@@ -9800,7 +9489,23 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1058</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
 <span class="normal">1059</span>
 <span class="normal">1060</span>
 <span class="normal">1061</span>
@@ -9829,49 +9534,18 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="normal">1084</span>
 <span class="normal">1085</span>
 <span class="normal">1086</span>
-<span class="normal">1087</span>
-<span class="normal">1088</span>
-<span class="normal">1089</span>
-<span class="normal">1090</span>
-<span class="normal">1091</span>
-<span class="normal">1092</span>
-<span class="normal">1093</span>
-<span class="normal">1094</span>
-<span class="normal">1095</span>
-<span class="normal">1096</span>
-<span class="normal">1097</span>
-<span class="normal">1098</span>
-<span class="normal">1099</span>
-<span class="normal">1100</span>
-<span class="normal">1101</span>
-<span class="normal">1102</span>
-<span class="normal">1103</span>
-<span class="normal">1104</span>
-<span class="normal">1105</span>
-<span class="normal">1106</span>
-<span class="normal">1107</span>
-<span class="normal">1108</span>
-<span class="normal">1109</span>
-<span class="normal">1110</span>
-<span class="normal">1111</span>
-<span class="normal">1112</span>
-<span class="normal">1113</span>
-<span class="normal">1114</span>
-<span class="normal">1115</span>
-<span class="normal">1116</span>
-<span class="normal">1117</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1087</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a previously saved EquineProtonet model.</span>
 
-<span class="sd">    A default file contains nothing executable: it is read with</span>
+<span class="sd">    Loading runs no code from the file: it is read with</span>
 <span class="sd">    ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its</span>
 <span class="sd">    recipe through the architecture registry.</span>
 
@@ -9882,18 +9556,11 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="sd">    device : Optional[str]</span>
 <span class="sd">        The device to load the model onto. Overrides the device recorded</span>
 <span class="sd">        in the file; by default the model lands on the saved device.</span>
-<span class="sd">    trust_executable : bool, optional</span>
-<span class="sd">        Keyword-only. Permit running the TorchScript module embedded in a</span>
-<span class="sd">        file saved with ``allow_executable=True`` or rewritten by</span>
-<span class="sd">        ``equine.upgrade``; keeping that module as the embedding emits a</span>
-<span class="sd">        ``FutureWarning``. Defaults to False.</span>
 <span class="sd">    embedding_model : Optional[torch.nn.Module]</span>
 <span class="sd">        Keyword-only. Use this module as the embedding architecture instead</span>
 <span class="sd">        of rebuilding it from the file's recipe; the file's weights are</span>
 <span class="sd">        loaded into it, and its floating-point tensors take their stored</span>
-<span class="sd">        dtypes. With an executable file (and trust), the archive's</span>
-<span class="sd">        weights are copied into it, which migrates the file to the recipe</span>
-<span class="sd">        format on the next ``save``.</span>
+<span class="sd">        dtypes.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -9903,22 +9570,16 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the file is not in the current EQUINE format (files from earlier</span>
-<span class="sd">        releases must first be rewritten with ``python -m equine.upgrade``),</span>
-<span class="sd">        names an unregistered architecture, or contains executable content</span>
-<span class="sd">        without trust. If ``device`` is unavailable here, names an index at</span>
+<span class="sd">        If the file is not in the current EQUINE format or stores its</span>
+<span class="sd">        embedding model as TorchScript (both are rewritten once with</span>
+<span class="sd">        ``python -m equine.upgrade``), or names an unregistered</span>
+<span class="sd">        architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">        or above its device count, or lacks a dtype the file holds (float64</span>
 <span class="sd">        on MPS: load such a file with ``device="cpu"``).</span>
 <span class="sd">    """</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
-    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
-        <span class="n">model_save</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">,</span>
-        <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
-        <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
-        <span class="c1"># Two methods, each behind a beartype wrapper (none under -O).</span>
-        <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">3</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-    <span class="p">)</span>
+    <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -10085,7 +9746,7 @@ tensors), which a caller can use in autograd.</p>
 
 
 <h3 id="equine.EquineProtonet.save" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
 
 <a href="#equine.EquineProtonet.save" class="headerlink" title="Permanent link">¤</a></h3>
 
@@ -10093,12 +9754,9 @@ tensors), which a caller can use in autograd.</p>
     <div class="doc doc-contents ">
 
         <p>Save all model parameters to a file.</p>
-<p>The embedding model is stored as a <em>recipe</em> (registered architecture name plus
-constructor arguments) and a <code>state_dict</code>. The file holds only data. If the
-embedding model is not a registered architecture (for example a
-<code>torch.jit.ScriptModule</code>), pass <code>allow_executable=True</code> to embed a
-TorchScript copy instead; such a file is flagged and can only be opened with
-<code>load(..., trust_executable=True)</code>.</p>
+<p>The embedding model is stored as a <em>recipe</em> (registered architecture
+name plus constructor arguments) and a <code>state_dict</code>, so the file holds
+only data.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10128,23 +9786,6 @@ TorchScript copy instead; such a file is flagged and can only be opened with
                 <em>required</em>
             </td>
           </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>allow_executable</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword-only. Permit embedding executable TorchScript when no recipe
-is available; emits a <code>FutureWarning</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
       </tbody>
     </table>
 
@@ -10164,7 +9805,7 @@ is available; emits a <code>FutureWarning</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the embedding model has no recipe and <code>allow_executable</code> is False.</p>
+                <p>If the embedding model is not a registered architecture.</p>
               </div>
             </td>
           </tr>
@@ -10192,49 +9833,25 @@ is available; emits a <code>FutureWarning</code>.</p>
 <span class="normal">1006</span>
 <span class="normal">1007</span>
 <span class="normal">1008</span>
-<span class="normal">1009</span>
-<span class="normal">1010</span>
-<span class="normal">1011</span>
-<span class="normal">1012</span>
-<span class="normal">1013</span>
-<span class="normal">1014</span>
-<span class="normal">1015</span>
-<span class="normal">1016</span>
-<span class="normal">1017</span>
-<span class="normal">1018</span>
-<span class="normal">1019</span>
-<span class="normal">1020</span>
-<span class="normal">1021</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1009</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
-<span class="sd">    The embedding model is stored as a *recipe* (registered architecture name plus</span>
-<span class="sd">    constructor arguments) and a ``state_dict``. The file holds only data. If the</span>
-<span class="sd">    embedding model is not a registered architecture (for example a</span>
-<span class="sd">    ``torch.jit.ScriptModule``), pass ``allow_executable=True`` to embed a</span>
-<span class="sd">    TorchScript copy instead; such a file is flagged and can only be opened with</span>
-<span class="sd">    ``load(..., trust_executable=True)``.</span>
+<span class="sd">    The embedding model is stored as a *recipe* (registered architecture</span>
+<span class="sd">    name plus constructor arguments) and a ``state_dict``, so the file holds</span>
+<span class="sd">    only data.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
 <span class="sd">        Filename to write the model.</span>
-<span class="sd">    allow_executable : bool, optional</span>
-<span class="sd">        Keyword-only. Permit embedding executable TorchScript when no recipe</span>
-<span class="sd">        is available; emits a ``FutureWarning``.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the embedding model has no recipe and ``allow_executable`` is False.</span>
+<span class="sd">        If the embedding model is not a registered architecture.</span>
 <span class="sd">    """</span>
-    <span class="n">checkpoint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(</span>
-        <span class="n">allow_executable</span><span class="p">,</span>
-        <span class="c1"># _embedding_checkpoint, then _to_checkpoint and save, each behind a</span>
-        <span class="c1"># beartype wrapper (none under -O), then the caller.</span>
-        <span class="n">_stacklevel</span><span class="o">=</span><span class="mi">4</span> <span class="o">+</span> <span class="p">(</span><span class="mi">0</span> <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">flags</span><span class="o">.</span><span class="n">optimize</span> <span class="k">else</span> <span class="mi">2</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_checkpoint</span><span class="p">(),</span> <span class="n">path</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -11430,34 +11047,34 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1513</span>
-<span class="normal">1514</span>
-<span class="normal">1515</span>
-<span class="normal">1516</span>
-<span class="normal">1517</span>
-<span class="normal">1518</span>
-<span class="normal">1519</span>
-<span class="normal">1520</span>
-<span class="normal">1521</span>
-<span class="normal">1522</span>
-<span class="normal">1523</span>
-<span class="normal">1524</span>
-<span class="normal">1525</span>
-<span class="normal">1526</span>
-<span class="normal">1527</span>
-<span class="normal">1528</span>
-<span class="normal">1529</span>
-<span class="normal">1530</span>
-<span class="normal">1531</span>
-<span class="normal">1532</span>
-<span class="normal">1533</span>
-<span class="normal">1534</span>
-<span class="normal">1535</span>
-<span class="normal">1536</span>
-<span class="normal">1537</span>
-<span class="normal">1538</span>
-<span class="normal">1539</span>
-<span class="normal">1540</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1398</span>
+<span class="normal">1399</span>
+<span class="normal">1400</span>
+<span class="normal">1401</span>
+<span class="normal">1402</span>
+<span class="normal">1403</span>
+<span class="normal">1404</span>
+<span class="normal">1405</span>
+<span class="normal">1406</span>
+<span class="normal">1407</span>
+<span class="normal">1408</span>
+<span class="normal">1409</span>
+<span class="normal">1410</span>
+<span class="normal">1411</span>
+<span class="normal">1412</span>
+<span class="normal">1413</span>
+<span class="normal">1414</span>
+<span class="normal">1415</span>
+<span class="normal">1416</span>
+<span class="normal">1417</span>
+<span class="normal">1418</span>
+<span class="normal">1419</span>
+<span class="normal">1420</span>
+<span class="normal">1421</span>
+<span class="normal">1422</span>
+<span class="normal">1423</span>
+<span class="normal">1424</span>
+<span class="normal">1425</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">brier_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -11577,31 +11194,31 @@ and <span class="arithmatex"><span class="MathJax_Preview">o_{ij}</span><script 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1543</span>
-<span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
-<span class="normal">1550</span>
-<span class="normal">1551</span>
-<span class="normal">1552</span>
-<span class="normal">1553</span>
-<span class="normal">1554</span>
-<span class="normal">1555</span>
-<span class="normal">1556</span>
-<span class="normal">1557</span>
-<span class="normal">1558</span>
-<span class="normal">1559</span>
-<span class="normal">1560</span>
-<span class="normal">1561</span>
-<span class="normal">1562</span>
-<span class="normal">1563</span>
-<span class="normal">1564</span>
-<span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1428</span>
+<span class="normal">1429</span>
+<span class="normal">1430</span>
+<span class="normal">1431</span>
+<span class="normal">1432</span>
+<span class="normal">1433</span>
+<span class="normal">1434</span>
+<span class="normal">1435</span>
+<span class="normal">1436</span>
+<span class="normal">1437</span>
+<span class="normal">1438</span>
+<span class="normal">1439</span>
+<span class="normal">1440</span>
+<span class="normal">1441</span>
+<span class="normal">1442</span>
+<span class="normal">1443</span>
+<span class="normal">1444</span>
+<span class="normal">1445</span>
+<span class="normal">1446</span>
+<span class="normal">1447</span>
+<span class="normal">1448</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">brier_skill_score</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -12133,29 +11750,29 @@ built by a registered architecture.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1570</span>
-<span class="normal">1571</span>
-<span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
-<span class="normal">1581</span>
-<span class="normal">1582</span>
-<span class="normal">1583</span>
-<span class="normal">1584</span>
-<span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span>
-<span class="normal">1588</span>
-<span class="normal">1589</span>
-<span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span>
+<span class="normal">1461</span>
+<span class="normal">1462</span>
+<span class="normal">1463</span>
+<span class="normal">1464</span>
+<span class="normal">1465</span>
+<span class="normal">1466</span>
+<span class="normal">1467</span>
+<span class="normal">1468</span>
+<span class="normal">1469</span>
+<span class="normal">1470</span>
+<span class="normal">1471</span>
+<span class="normal">1472</span>
+<span class="normal">1473</span>
+<span class="normal">1474</span>
+<span class="normal">1475</span>
+<span class="normal">1476</span>
+<span class="normal">1477</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">y_hat</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_test</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">result</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">expected_calibration_error</span><span class="p">(</span><span class="n">y_hat</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">y_test</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -12318,99 +11935,99 @@ built by a registered architecture.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1705</span>
-<span class="normal">1706</span>
-<span class="normal">1707</span>
-<span class="normal">1708</span>
-<span class="normal">1709</span>
-<span class="normal">1710</span>
-<span class="normal">1711</span>
-<span class="normal">1712</span>
-<span class="normal">1713</span>
-<span class="normal">1714</span>
-<span class="normal">1715</span>
-<span class="normal">1716</span>
-<span class="normal">1717</span>
-<span class="normal">1718</span>
-<span class="normal">1719</span>
-<span class="normal">1720</span>
-<span class="normal">1721</span>
-<span class="normal">1722</span>
-<span class="normal">1723</span>
-<span class="normal">1724</span>
-<span class="normal">1725</span>
-<span class="normal">1726</span>
-<span class="normal">1727</span>
-<span class="normal">1728</span>
-<span class="normal">1729</span>
-<span class="normal">1730</span>
-<span class="normal">1731</span>
-<span class="normal">1732</span>
-<span class="normal">1733</span>
-<span class="normal">1734</span>
-<span class="normal">1735</span>
-<span class="normal">1736</span>
-<span class="normal">1737</span>
-<span class="normal">1738</span>
-<span class="normal">1739</span>
-<span class="normal">1740</span>
-<span class="normal">1741</span>
-<span class="normal">1742</span>
-<span class="normal">1743</span>
-<span class="normal">1744</span>
-<span class="normal">1745</span>
-<span class="normal">1746</span>
-<span class="normal">1747</span>
-<span class="normal">1748</span>
-<span class="normal">1749</span>
-<span class="normal">1750</span>
-<span class="normal">1751</span>
-<span class="normal">1752</span>
-<span class="normal">1753</span>
-<span class="normal">1754</span>
-<span class="normal">1755</span>
-<span class="normal">1756</span>
-<span class="normal">1757</span>
-<span class="normal">1758</span>
-<span class="normal">1759</span>
-<span class="normal">1760</span>
-<span class="normal">1761</span>
-<span class="normal">1762</span>
-<span class="normal">1763</span>
-<span class="normal">1764</span>
-<span class="normal">1765</span>
-<span class="normal">1766</span>
-<span class="normal">1767</span>
-<span class="normal">1768</span>
-<span class="normal">1769</span>
-<span class="normal">1770</span>
-<span class="normal">1771</span>
-<span class="normal">1772</span>
-<span class="normal">1773</span>
-<span class="normal">1774</span>
-<span class="normal">1775</span>
-<span class="normal">1776</span>
-<span class="normal">1777</span>
-<span class="normal">1778</span>
-<span class="normal">1779</span>
-<span class="normal">1780</span>
-<span class="normal">1781</span>
-<span class="normal">1782</span>
-<span class="normal">1783</span>
-<span class="normal">1784</span>
-<span class="normal">1785</span>
-<span class="normal">1786</span>
-<span class="normal">1787</span>
-<span class="normal">1788</span>
-<span class="normal">1789</span>
-<span class="normal">1790</span>
-<span class="normal">1791</span>
-<span class="normal">1792</span>
-<span class="normal">1793</span>
-<span class="normal">1794</span>
-<span class="normal">1795</span>
-<span class="normal">1796</span>
-<span class="normal">1797</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1590</span>
+<span class="normal">1591</span>
+<span class="normal">1592</span>
+<span class="normal">1593</span>
+<span class="normal">1594</span>
+<span class="normal">1595</span>
+<span class="normal">1596</span>
+<span class="normal">1597</span>
+<span class="normal">1598</span>
+<span class="normal">1599</span>
+<span class="normal">1600</span>
+<span class="normal">1601</span>
+<span class="normal">1602</span>
+<span class="normal">1603</span>
+<span class="normal">1604</span>
+<span class="normal">1605</span>
+<span class="normal">1606</span>
+<span class="normal">1607</span>
+<span class="normal">1608</span>
+<span class="normal">1609</span>
+<span class="normal">1610</span>
+<span class="normal">1611</span>
+<span class="normal">1612</span>
+<span class="normal">1613</span>
+<span class="normal">1614</span>
+<span class="normal">1615</span>
+<span class="normal">1616</span>
+<span class="normal">1617</span>
+<span class="normal">1618</span>
+<span class="normal">1619</span>
+<span class="normal">1620</span>
+<span class="normal">1621</span>
+<span class="normal">1622</span>
+<span class="normal">1623</span>
+<span class="normal">1624</span>
+<span class="normal">1625</span>
+<span class="normal">1626</span>
+<span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span>
+<span class="normal">1630</span>
+<span class="normal">1631</span>
+<span class="normal">1632</span>
+<span class="normal">1633</span>
+<span class="normal">1634</span>
+<span class="normal">1635</span>
+<span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span>
+<span class="normal">1639</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span>
+<span class="normal">1642</span>
+<span class="normal">1643</span>
+<span class="normal">1644</span>
+<span class="normal">1645</span>
+<span class="normal">1646</span>
+<span class="normal">1647</span>
+<span class="normal">1648</span>
+<span class="normal">1649</span>
+<span class="normal">1650</span>
+<span class="normal">1651</span>
+<span class="normal">1652</span>
+<span class="normal">1653</span>
+<span class="normal">1654</span>
+<span class="normal">1655</span>
+<span class="normal">1656</span>
+<span class="normal">1657</span>
+<span class="normal">1658</span>
+<span class="normal">1659</span>
+<span class="normal">1660</span>
+<span class="normal">1661</span>
+<span class="normal">1662</span>
+<span class="normal">1663</span>
+<span class="normal">1664</span>
+<span class="normal">1665</span>
+<span class="normal">1666</span>
+<span class="normal">1667</span>
+<span class="normal">1668</span>
+<span class="normal">1669</span>
+<span class="normal">1670</span>
+<span class="normal">1671</span>
+<span class="normal">1672</span>
+<span class="normal">1673</span>
+<span class="normal">1674</span>
+<span class="normal">1675</span>
+<span class="normal">1676</span>
+<span class="normal">1677</span>
+<span class="normal">1678</span>
+<span class="normal">1679</span>
+<span class="normal">1680</span>
+<span class="normal">1681</span>
+<span class="normal">1682</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">support_size</span><span class="p">:</span> <span class="n">support_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">way</span><span class="p">:</span> <span class="n">way</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
@@ -12601,50 +12218,50 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1800</span>
-<span class="normal">1801</span>
-<span class="normal">1802</span>
-<span class="normal">1803</span>
-<span class="normal">1804</span>
-<span class="normal">1805</span>
-<span class="normal">1806</span>
-<span class="normal">1807</span>
-<span class="normal">1808</span>
-<span class="normal">1809</span>
-<span class="normal">1810</span>
-<span class="normal">1811</span>
-<span class="normal">1812</span>
-<span class="normal">1813</span>
-<span class="normal">1814</span>
-<span class="normal">1815</span>
-<span class="normal">1816</span>
-<span class="normal">1817</span>
-<span class="normal">1818</span>
-<span class="normal">1819</span>
-<span class="normal">1820</span>
-<span class="normal">1821</span>
-<span class="normal">1822</span>
-<span class="normal">1823</span>
-<span class="normal">1824</span>
-<span class="normal">1825</span>
-<span class="normal">1826</span>
-<span class="normal">1827</span>
-<span class="normal">1828</span>
-<span class="normal">1829</span>
-<span class="normal">1830</span>
-<span class="normal">1831</span>
-<span class="normal">1832</span>
-<span class="normal">1833</span>
-<span class="normal">1834</span>
-<span class="normal">1835</span>
-<span class="normal">1836</span>
-<span class="normal">1837</span>
-<span class="normal">1838</span>
-<span class="normal">1839</span>
-<span class="normal">1840</span>
-<span class="normal">1841</span>
-<span class="normal">1842</span>
-<span class="normal">1843</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1685</span>
+<span class="normal">1686</span>
+<span class="normal">1687</span>
+<span class="normal">1688</span>
+<span class="normal">1689</span>
+<span class="normal">1690</span>
+<span class="normal">1691</span>
+<span class="normal">1692</span>
+<span class="normal">1693</span>
+<span class="normal">1694</span>
+<span class="normal">1695</span>
+<span class="normal">1696</span>
+<span class="normal">1697</span>
+<span class="normal">1698</span>
+<span class="normal">1699</span>
+<span class="normal">1700</span>
+<span class="normal">1701</span>
+<span class="normal">1702</span>
+<span class="normal">1703</span>
+<span class="normal">1704</span>
+<span class="normal">1705</span>
+<span class="normal">1706</span>
+<span class="normal">1707</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span>
+<span class="normal">1714</span>
+<span class="normal">1715</span>
+<span class="normal">1716</span>
+<span class="normal">1717</span>
+<span class="normal">1718</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">true_y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -12801,37 +12418,37 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1907</span>
-<span class="normal">1908</span>
-<span class="normal">1909</span>
-<span class="normal">1910</span>
-<span class="normal">1911</span>
-<span class="normal">1912</span>
-<span class="normal">1913</span>
-<span class="normal">1914</span>
-<span class="normal">1915</span>
-<span class="normal">1916</span>
-<span class="normal">1917</span>
-<span class="normal">1918</span>
-<span class="normal">1919</span>
-<span class="normal">1920</span>
-<span class="normal">1921</span>
-<span class="normal">1922</span>
-<span class="normal">1923</span>
-<span class="normal">1924</span>
-<span class="normal">1925</span>
-<span class="normal">1926</span>
-<span class="normal">1927</span>
-<span class="normal">1928</span>
-<span class="normal">1929</span>
-<span class="normal">1930</span>
-<span class="normal">1931</span>
-<span class="normal">1932</span>
-<span class="normal">1933</span>
-<span class="normal">1934</span>
-<span class="normal">1935</span>
-<span class="normal">1936</span>
-<span class="normal">1937</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1792</span>
+<span class="normal">1793</span>
+<span class="normal">1794</span>
+<span class="normal">1795</span>
+<span class="normal">1796</span>
+<span class="normal">1797</span>
+<span class="normal">1798</span>
+<span class="normal">1799</span>
+<span class="normal">1800</span>
+<span class="normal">1801</span>
+<span class="normal">1802</span>
+<span class="normal">1803</span>
+<span class="normal">1804</span>
+<span class="normal">1805</span>
+<span class="normal">1806</span>
+<span class="normal">1807</span>
+<span class="normal">1808</span>
+<span class="normal">1809</span>
+<span class="normal">1810</span>
+<span class="normal">1811</span>
+<span class="normal">1812</span>
+<span class="normal">1813</span>
+<span class="normal">1814</span>
+<span class="normal">1815</span>
+<span class="normal">1816</span>
+<span class="normal">1817</span>
+<span class="normal">1818</span>
+<span class="normal">1819</span>
+<span class="normal">1820</span>
+<span class="normal">1821</span>
+<span class="normal">1822</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">:</span> <span class="n">test_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -13003,80 +12620,80 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1629</span>
-<span class="normal">1630</span>
-<span class="normal">1631</span>
-<span class="normal">1632</span>
-<span class="normal">1633</span>
-<span class="normal">1634</span>
-<span class="normal">1635</span>
-<span class="normal">1636</span>
-<span class="normal">1637</span>
-<span class="normal">1638</span>
-<span class="normal">1639</span>
-<span class="normal">1640</span>
-<span class="normal">1641</span>
-<span class="normal">1642</span>
-<span class="normal">1643</span>
-<span class="normal">1644</span>
-<span class="normal">1645</span>
-<span class="normal">1646</span>
-<span class="normal">1647</span>
-<span class="normal">1648</span>
-<span class="normal">1649</span>
-<span class="normal">1650</span>
-<span class="normal">1651</span>
-<span class="normal">1652</span>
-<span class="normal">1653</span>
-<span class="normal">1654</span>
-<span class="normal">1655</span>
-<span class="normal">1656</span>
-<span class="normal">1657</span>
-<span class="normal">1658</span>
-<span class="normal">1659</span>
-<span class="normal">1660</span>
-<span class="normal">1661</span>
-<span class="normal">1662</span>
-<span class="normal">1663</span>
-<span class="normal">1664</span>
-<span class="normal">1665</span>
-<span class="normal">1666</span>
-<span class="normal">1667</span>
-<span class="normal">1668</span>
-<span class="normal">1669</span>
-<span class="normal">1670</span>
-<span class="normal">1671</span>
-<span class="normal">1672</span>
-<span class="normal">1673</span>
-<span class="normal">1674</span>
-<span class="normal">1675</span>
-<span class="normal">1676</span>
-<span class="normal">1677</span>
-<span class="normal">1678</span>
-<span class="normal">1679</span>
-<span class="normal">1680</span>
-<span class="normal">1681</span>
-<span class="normal">1682</span>
-<span class="normal">1683</span>
-<span class="normal">1684</span>
-<span class="normal">1685</span>
-<span class="normal">1686</span>
-<span class="normal">1687</span>
-<span class="normal">1688</span>
-<span class="normal">1689</span>
-<span class="normal">1690</span>
-<span class="normal">1691</span>
-<span class="normal">1692</span>
-<span class="normal">1693</span>
-<span class="normal">1694</span>
-<span class="normal">1695</span>
-<span class="normal">1696</span>
-<span class="normal">1697</span>
-<span class="normal">1698</span>
-<span class="normal">1699</span>
-<span class="normal">1700</span>
-<span class="normal">1701</span>
-<span class="normal">1702</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1514</span>
+<span class="normal">1515</span>
+<span class="normal">1516</span>
+<span class="normal">1517</span>
+<span class="normal">1518</span>
+<span class="normal">1519</span>
+<span class="normal">1520</span>
+<span class="normal">1521</span>
+<span class="normal">1522</span>
+<span class="normal">1523</span>
+<span class="normal">1524</span>
+<span class="normal">1525</span>
+<span class="normal">1526</span>
+<span class="normal">1527</span>
+<span class="normal">1528</span>
+<span class="normal">1529</span>
+<span class="normal">1530</span>
+<span class="normal">1531</span>
+<span class="normal">1532</span>
+<span class="normal">1533</span>
+<span class="normal">1534</span>
+<span class="normal">1535</span>
+<span class="normal">1536</span>
+<span class="normal">1537</span>
+<span class="normal">1538</span>
+<span class="normal">1539</span>
+<span class="normal">1540</span>
+<span class="normal">1541</span>
+<span class="normal">1542</span>
+<span class="normal">1543</span>
+<span class="normal">1544</span>
+<span class="normal">1545</span>
+<span class="normal">1546</span>
+<span class="normal">1547</span>
+<span class="normal">1548</span>
+<span class="normal">1549</span>
+<span class="normal">1550</span>
+<span class="normal">1551</span>
+<span class="normal">1552</span>
+<span class="normal">1553</span>
+<span class="normal">1554</span>
+<span class="normal">1555</span>
+<span class="normal">1556</span>
+<span class="normal">1557</span>
+<span class="normal">1558</span>
+<span class="normal">1559</span>
+<span class="normal">1560</span>
+<span class="normal">1561</span>
+<span class="normal">1562</span>
+<span class="normal">1563</span>
+<span class="normal">1564</span>
+<span class="normal">1565</span>
+<span class="normal">1566</span>
+<span class="normal">1567</span>
+<span class="normal">1568</span>
+<span class="normal">1569</span>
+<span class="normal">1570</span>
+<span class="normal">1571</span>
+<span class="normal">1572</span>
+<span class="normal">1573</span>
+<span class="normal">1574</span>
+<span class="normal">1575</span>
+<span class="normal">1576</span>
+<span class="normal">1577</span>
+<span class="normal">1578</span>
+<span class="normal">1579</span>
+<span class="normal">1580</span>
+<span class="normal">1581</span>
+<span class="normal">1582</span>
+<span class="normal">1583</span>
+<span class="normal">1584</span>
+<span class="normal">1585</span>
+<span class="normal">1586</span>
+<span class="normal">1587</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">train_x</span><span class="p">:</span> <span class="p">(</span>
         <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">))</span>
@@ -13258,34 +12875,34 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1877</span>
-<span class="normal">1878</span>
-<span class="normal">1879</span>
-<span class="normal">1880</span>
-<span class="normal">1881</span>
-<span class="normal">1882</span>
-<span class="normal">1883</span>
-<span class="normal">1884</span>
-<span class="normal">1885</span>
-<span class="normal">1886</span>
-<span class="normal">1887</span>
-<span class="normal">1888</span>
-<span class="normal">1889</span>
-<span class="normal">1890</span>
-<span class="normal">1891</span>
-<span class="normal">1892</span>
-<span class="normal">1893</span>
-<span class="normal">1894</span>
-<span class="normal">1895</span>
-<span class="normal">1896</span>
-<span class="normal">1897</span>
-<span class="normal">1898</span>
-<span class="normal">1899</span>
-<span class="normal">1900</span>
-<span class="normal">1901</span>
-<span class="normal">1902</span>
-<span class="normal">1903</span>
-<span class="normal">1904</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1762</span>
+<span class="normal">1763</span>
+<span class="normal">1764</span>
+<span class="normal">1765</span>
+<span class="normal">1766</span>
+<span class="normal">1767</span>
+<span class="normal">1768</span>
+<span class="normal">1769</span>
+<span class="normal">1770</span>
+<span class="normal">1771</span>
+<span class="normal">1772</span>
+<span class="normal">1773</span>
+<span class="normal">1774</span>
+<span class="normal">1775</span>
+<span class="normal">1776</span>
+<span class="normal">1777</span>
+<span class="normal">1778</span>
+<span class="normal">1779</span>
+<span class="normal">1780</span>
+<span class="normal">1781</span>
+<span class="normal">1782</span>
+<span class="normal">1783</span>
+<span class="normal">1784</span>
+<span class="normal">1785</span>
+<span class="normal">1786</span>
+<span class="normal">1787</span>
+<span class="normal">1788</span>
+<span class="normal">1789</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
@@ -13382,25 +12999,25 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1940</span>
-<span class="normal">1941</span>
-<span class="normal">1942</span>
-<span class="normal">1943</span>
-<span class="normal">1944</span>
-<span class="normal">1945</span>
-<span class="normal">1946</span>
-<span class="normal">1947</span>
-<span class="normal">1948</span>
-<span class="normal">1949</span>
-<span class="normal">1950</span>
-<span class="normal">1951</span>
-<span class="normal">1952</span>
-<span class="normal">1953</span>
-<span class="normal">1954</span>
-<span class="normal">1955</span>
-<span class="normal">1956</span>
-<span class="normal">1957</span>
-<span class="normal">1958</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1825</span>
+<span class="normal">1826</span>
+<span class="normal">1827</span>
+<span class="normal">1828</span>
+<span class="normal">1829</span>
+<span class="normal">1830</span>
+<span class="normal">1831</span>
+<span class="normal">1832</span>
+<span class="normal">1833</span>
+<span class="normal">1834</span>
+<span class="normal">1835</span>
+<span class="normal">1836</span>
+<span class="normal">1837</span>
+<span class="normal">1838</span>
+<span class="normal">1839</span>
+<span class="normal">1840</span>
+<span class="normal">1841</span>
+<span class="normal">1842</span>
+<span class="normal">1843</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">mahalanobis_distance_nosq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Compute Mahalanobis distance $x^T C x$ (without square root), assume cov is symmetric positive definite</span>

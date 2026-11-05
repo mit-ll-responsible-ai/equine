@@ -1294,21 +1294,27 @@
 <a id="equine.upgrade"></a>
     <div class="doc doc-contents first">
 
-        <p>Rewrite model files from earlier EQUINE releases in the current format.</p>
-<div class="language-text highlight"><pre><span></span><code>python -m equine.upgrade MODEL.eq [-o OUT.eq]
+        <p>Rewrite model files whose embedding model is stored as TorchScript.</p>
+<div class="language-text highlight"><pre><span></span><code>python -m equine.upgrade MODEL.eq [-o OUT.eq] --recipe JSON [--import MODULE]
+                         [--check-inputs FILE | --no-check]
 </code></pre></div>
-<p>Earlier releases saved pickled Python objects (an <code>io.BytesIO</code> holding the
-TorchScript archive, <code>CovType</code> members, scipy KDE objects, numpy strings),
-which <code>torch.load(weights_only=True)</code> refuses, so EQUINE no longer opens
-those files. The upgrade reads the file with unrestricted unpickling, which
-runs any code embedded in it, so only upgrade files you trust. It then writes
-the same model in the current layout and checks that the safe loader reads it.</p>
-<p>The embedding model in such a file is TorchScript. The upgraded file is flagged
-<code>contains_executable</code> and loads with <code>trust_executable=True</code>. To make it data-only,
-load it with <code>trust_executable=True</code> and <code>embedding_model=&lt;an instance of your
-registered architecture&gt;</code>, then call <code>save()</code>.</p>
-<p>Reading the old layout is deprecated: this module is removed in a later
-release, and files not upgraded by then cannot be opened.</p>
+<p>Files saved by earlier EQUINE releases hold pickled Python objects, which
+<code>torch.load(weights_only=True)</code> refuses, and store the embedding model as
+TorchScript, which EQUINE does not load. The upgrade reads such a file with
+unrestricted unpickling and loads its TorchScript archive; both run code
+embedded in the file, so only upgrade files you trust. Every file is first
+read with the safe loader: a current-format file that holds a TorchScript
+archive is upgraded from that read, and a file from an earlier release is
+unpickled only after every argument that does not need the file has been
+checked.</p>
+<p>The caller supplies the embedding architecture: an instance of a registered architecture
+(<code>@equine.embedding_architecture</code>), or on the command line its recipe. The archive's
+weights are copied into it and the model is written as a data-only file. Before anything
+replaces the original, the written file is loaded back and its embedding must reproduce
+the archive's outputs on the file's support rows and on <code>check_inputs</code>
+(<code>--check-inputs</code>). A file with neither is refused before its archive is loaded,
+unless the comparison is waived with <code>allow_unchecked=True</code> (<code>--no-check</code>).</p>
+<p>Reading these files is deprecated.</p>
 
 
 
@@ -1334,15 +1340,15 @@ release, and files not upgraded by then cannot be opened.</p>
 
 
 <h2 id="equine.upgrade.upgrade_model_file" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">upgrade_model_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">out_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">upgrade_model_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">embedding_model</span><span class="p">,</span> <span class="n">out_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">check_inputs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_unchecked</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#equine.upgrade.upgrade_model_file" class="headerlink" title="Permanent link">¤</a></h2>
 
 
     <div class="doc doc-contents ">
 
-        <p>Rewrite a trusted model file from an earlier EQUINE release in the current
-format.</p>
+        <p>Rewrite a trusted model file whose embedding model is TorchScript as a
+data-only file.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1365,7 +1371,28 @@ format.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The file to upgrade. It is read with unrestricted unpickling.</p>
+                <p>The file to upgrade: a file saved by an earlier EQUINE release, or a
+current-format file holding a TorchScript archive. It is first read
+with the safe loader; a file from an earlier release is then read with
+unrestricted unpickling, once the other arguments have been checked.
+Its archive is loaded.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>embedding_model</code>
+            </td>
+            <td>
+                  <code><span title="torch.nn.Module">Module</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An instance of the registered architecture the file's embedding was
+built from. The archive's weights are copied into it.</p>
               </div>
             </td>
             <td>
@@ -1381,16 +1408,55 @@ format.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Where to write the result; defaults to replacing <code>path</code>. The result
-is written next to it and moved into place only after the safe loader
-has read it, so a failed upgrade leaves the original as it was. A
-symbolic link is followed, so its target is replaced, and the
-replaced file keeps its permission bits where the filesystem allows
-it (a <code>UserWarning</code> is issued otherwise).</p>
+                <p>Where to write the result; defaults to replacing <code>path</code>. Its directory must
+exist and allow creating a file. The result is written to a new file with a
+random name next to it, created with the permission bits of the file it replaces
+plus owner read and write, and moved into place only after it has been loaded
+back and checked. A failed upgrade leaves the original as it was. A symbolic
+link is followed and its target is replaced; the replaced file keeps its
+permission bits where the filesystem allows it. A link that cannot be followed,
+such as one that loops, is refused; a link to a missing file creates that file.</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>check_inputs</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="torch.Tensor">Tensor</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keyword-only. Inputs, one per row, on which the new embedding must
+reproduce the archive's outputs, in addition to the file's support
+rows. A file that stores no support rows (most <code>EquineGP</code> files)
+needs them unless <code>allow_unchecked</code> is True.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allow_unchecked</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keyword-only. Upgrade a file that stores no support rows without
+<code>check_inputs</code>; the new embedding is then not compared with the
+archive's. By default such a file is refused and nothing is written.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -1412,8 +1478,8 @@ it (a <code>UserWarning</code> is issued otherwise).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The path of the written file, or None if <code>path</code> is already in the
-current format and nothing was written.</p>
+                <p>The path of the written file, or None if <code>path</code> is already a
+data-only current-format file and nothing was written.</p>
               </div>
             </td>
           </tr>
@@ -1437,8 +1503,15 @@ current format and nothing was written.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the file is not an EQUINE model file, if the safe loader refuses it
-for a reason other than its age (for example a format version newer
-than this EQUINE knows), or if the upgraded file is still refused.</p>
+for a reason other than its age, if <code>out_path</code> names a directory,
+is a symbolic link that cannot be followed, or its directory does not
+exist or no file can be created in it, if
+<code>embedding_model</code> is not a registered architecture or does not match
+the archive's weights, if <code>check_inputs</code> is not a tensor with at
+least one row, if the file stores no support rows and neither
+<code>check_inputs</code> nor <code>allow_unchecked</code> is given, if the rewritten
+file does not load, or if its embedding does not reproduce the
+archive's outputs.</p>
               </div>
             </td>
           </tr>
@@ -1448,7 +1521,42 @@ than this EQUINE knows), or if the upgraded file is still refused.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the result cannot be written next to <code>out_path</code>.</p>
+                <p>If writing the result or moving it into place fails.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Warns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="FutureWarning">FutureWarning</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Always: reading these files is deprecated.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="UserWarning">UserWarning</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When Linear-head weights were dropped, when <code>allow_unchecked</code> let
+the upgrade write a file whose embedding was not compared, or when
+the permission bits could not be copied.</p>
               </div>
             </td>
           </tr>
@@ -1458,175 +1566,177 @@ than this EQUINE knows), or if the upgraded file is still refused.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/upgrade.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span>
-<span class="normal">141</span>
-<span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">upgrade_model_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">upgrade_model_file</span><span class="p">(</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">out_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">check_inputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">allow_unchecked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Rewrite a trusted model file from an earlier EQUINE release in the current</span>
-<span class="sd">    format.</span>
+<span class="sd">    Rewrite a trusted model file whose embedding model is TorchScript as a</span>
+<span class="sd">    data-only file.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    path : str</span>
-<span class="sd">        The file to upgrade. It is read with unrestricted unpickling.</span>
+<span class="sd">        The file to upgrade: a file saved by an earlier EQUINE release, or a</span>
+<span class="sd">        current-format file holding a TorchScript archive. It is first read</span>
+<span class="sd">        with the safe loader; a file from an earlier release is then read with</span>
+<span class="sd">        unrestricted unpickling, once the other arguments have been checked.</span>
+<span class="sd">        Its archive is loaded.</span>
+<span class="sd">    embedding_model : torch.nn.Module</span>
+<span class="sd">        An instance of the registered architecture the file's embedding was</span>
+<span class="sd">        built from. The archive's weights are copied into it.</span>
 <span class="sd">    out_path : Optional[str]</span>
-<span class="sd">        Where to write the result; defaults to replacing ``path``. The result</span>
-<span class="sd">        is written next to it and moved into place only after the safe loader</span>
-<span class="sd">        has read it, so a failed upgrade leaves the original as it was. A</span>
-<span class="sd">        symbolic link is followed, so its target is replaced, and the</span>
-<span class="sd">        replaced file keeps its permission bits where the filesystem allows</span>
-<span class="sd">        it (a ``UserWarning`` is issued otherwise).</span>
+<span class="sd">        Where to write the result; defaults to replacing ``path``. Its directory must</span>
+<span class="sd">        exist and allow creating a file. The result is written to a new file with a</span>
+<span class="sd">        random name next to it, created with the permission bits of the file it replaces</span>
+<span class="sd">        plus owner read and write, and moved into place only after it has been loaded</span>
+<span class="sd">        back and checked. A failed upgrade leaves the original as it was. A symbolic</span>
+<span class="sd">        link is followed and its target is replaced; the replaced file keeps its</span>
+<span class="sd">        permission bits where the filesystem allows it. A link that cannot be followed,</span>
+<span class="sd">        such as one that loops, is refused; a link to a missing file creates that file.</span>
+<span class="sd">    check_inputs : Optional[torch.Tensor]</span>
+<span class="sd">        Keyword-only. Inputs, one per row, on which the new embedding must</span>
+<span class="sd">        reproduce the archive's outputs, in addition to the file's support</span>
+<span class="sd">        rows. A file that stores no support rows (most ``EquineGP`` files)</span>
+<span class="sd">        needs them unless ``allow_unchecked`` is True.</span>
+<span class="sd">    allow_unchecked : bool</span>
+<span class="sd">        Keyword-only. Upgrade a file that stores no support rows without</span>
+<span class="sd">        ``check_inputs``; the new embedding is then not compared with the</span>
+<span class="sd">        archive's. By default such a file is refused and nothing is written.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    Optional[str]</span>
-<span class="sd">        The path of the written file, or None if ``path`` is already in the</span>
-<span class="sd">        current format and nothing was written.</span>
+<span class="sd">        The path of the written file, or None if ``path`` is already a</span>
+<span class="sd">        data-only current-format file and nothing was written.</span>
 
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If the file is not an EQUINE model file, if the safe loader refuses it</span>
-<span class="sd">        for a reason other than its age (for example a format version newer</span>
-<span class="sd">        than this EQUINE knows), or if the upgraded file is still refused.</span>
+<span class="sd">        for a reason other than its age, if ``out_path`` names a directory,</span>
+<span class="sd">        is a symbolic link that cannot be followed, or its directory does not</span>
+<span class="sd">        exist or no file can be created in it, if</span>
+<span class="sd">        ``embedding_model`` is not a registered architecture or does not match</span>
+<span class="sd">        the archive's weights, if ``check_inputs`` is not a tensor with at</span>
+<span class="sd">        least one row, if the file stores no support rows and neither</span>
+<span class="sd">        ``check_inputs`` nor ``allow_unchecked`` is given, if the rewritten</span>
+<span class="sd">        file does not load, or if its embedding does not reproduce the</span>
+<span class="sd">        archive's outputs.</span>
 <span class="sd">    OSError</span>
-<span class="sd">        If the result cannot be written next to ``out_path``.</span>
+<span class="sd">        If writing the result or moving it into place fails.</span>
+
+<span class="sd">    Warns</span>
+<span class="sd">    -----</span>
+<span class="sd">    FutureWarning</span>
+<span class="sd">        Always: reading these files is deprecated.</span>
+<span class="sd">    UserWarning</span>
+<span class="sd">        When Linear-head weights were dropped, when ``allow_unchecked`` let</span>
+<span class="sd">        the upgrade write a file whose embedding was not compared, or when</span>
+<span class="sd">        the permission bits could not be copied.</span>
 <span class="sd">    """</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">_DEPRECATION</span><span class="p">,</span> <span class="ne">FutureWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="k">except</span> <span class="n">LegacyFormatError</span><span class="p">:</span>
-        <span class="k">pass</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">_read_safely</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">checkpoint</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_holds_torchscript</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">None</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">,</span> <span class="n">weights_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">' could not be read as a PyTorch file (</span><span class="si">{</span><span class="n">_describe_error</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="si">}</span><span class="s2">)."</span>
-        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"train_summary"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">checkpoint</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">' is not an EQUINE model file."</span><span class="p">)</span>
-    <span class="n">current</span><span class="p">,</span> <span class="n">notes</span> <span class="o">=</span> <span class="n">_current_layout</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
-    <span class="n">out_path</span> <span class="o">=</span> <span class="n">out_path</span> <span class="ow">or</span> <span class="n">path</span>
-    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">islink</span><span class="p">(</span><span class="n">out_path</span><span class="p">):</span>
-        <span class="n">out_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span>  <span class="c1"># replace the link's target, not the link</span>
-    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">out_path</span><span class="p">))</span>
-    <span class="n">partial</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">".</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span><span class="si">}</span><span class="s2">.upgrading"</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">partial</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Could not write '</span><span class="si">{</span><span class="n">partial</span><span class="si">}</span><span class="s2">' (</span><span class="si">{</span><span class="n">_describe_error</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="si">}</span><span class="s2">)."</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">partial</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="n">reason</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">". Rewrite it once with"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"The safe loader refuses the rewritten file: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">. '</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">' "</span>
-                <span class="s2">"holds a value the upgrade does not convert; it was left unchanged."</span>
-            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">out_path</span><span class="p">):</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">shutil</span><span class="o">.</span><span class="n">copymode</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="n">partial</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>  <span class="c1"># a filesystem that rejects mode changes</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">"Could not copy the permission bits of '</span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s2">' onto the "</span>
-                    <span class="sa">f</span><span class="s2">"upgraded file (</span><span class="si">{</span><span class="n">err</span><span class="si">}</span><span class="s2">)."</span><span class="p">,</span>
-                    <span class="ne">UserWarning</span><span class="p">,</span>
-                    <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-                <span class="p">)</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">partial</span><span class="p">,</span> <span class="n">out_path</span><span class="p">)</span>
-    <span class="k">finally</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">partial</span><span class="p">):</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">partial</span><span class="p">)</span>
+    <span class="n">_require_arguments</span><span class="p">(</span><span class="n">embedding_model</span><span class="p">,</span> <span class="n">check_inputs</span><span class="p">,</span> <span class="n">_replaced_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">out_path</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">checkpoint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">checkpoint</span> <span class="o">=</span> <span class="n">_read_legacy</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">written</span><span class="p">,</span> <span class="n">notes</span> <span class="o">=</span> <span class="n">_upgrade</span><span class="p">(</span>
+        <span class="n">path</span><span class="p">,</span> <span class="n">checkpoint</span><span class="p">,</span> <span class="n">embedding_model</span><span class="p">,</span> <span class="n">out_path</span><span class="p">,</span> <span class="n">check_inputs</span><span class="p">,</span> <span class="n">allow_unchecked</span>
+    <span class="p">)</span>
     <span class="k">for</span> <span class="n">note</span> <span class="ow">in</span> <span class="n">notes</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">note</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">out_path</span>
+    <span class="k">return</span> <span class="n">written</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

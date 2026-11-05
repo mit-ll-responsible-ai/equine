@@ -1318,7 +1318,7 @@
 
 
 <h2 id="equine.load_equine_model.load_equine_model" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load_equine_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trust_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">load_equine_model</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">trust_executable</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">embedding_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#equine.load_equine_model.load_equine_model" class="headerlink" title="Permanent link">¤</a></h2>
 
@@ -1353,6 +1353,23 @@
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The device to load the model onto. Overrides the device recorded in
+the file; by default the model lands on the saved device.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -1437,7 +1454,9 @@ into it, and its floating-point tensors take their stored dtypes.</p>
 current EQUINE format (files from earlier releases must first be
 rewritten with <code>python -m equine.upgrade</code>), its recipe names an
 unregistered architecture, or it contains executable content without
-<code>trust_executable</code>.</p>
+<code>trust_executable</code>. If <code>device</code> is unavailable here, names an
+index at or above its device count, or lacks a dtype the file holds
+(float64 on MPS: load such a file with <code>device="cpu"</code>).</p>
               </div>
             </td>
           </tr>
@@ -1520,8 +1539,16 @@ is executable code, and need <code>trust_executable=True</code>.</p>
 <span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
-<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span>
     <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">trust_executable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -1533,6 +1560,9 @@ is executable code, and need <code>trust_executable=True</code>.</p>
 <span class="sd">    ----------</span>
 <span class="sd">    model_path : str</span>
 <span class="sd">        The path to the model file</span>
+<span class="sd">    device : Optional[str]</span>
+<span class="sd">        The device to load the model onto. Overrides the device recorded in</span>
+<span class="sd">        the file; by default the model lands on the saved device.</span>
 <span class="sd">    trust_executable : bool, optional</span>
 <span class="sd">        Keyword-only. Permit running the TorchScript module embedded in a file</span>
 <span class="sd">        saved with ``allow_executable=True``; keeping that module as the</span>
@@ -1554,7 +1584,9 @@ is executable code, and need <code>trust_executable=True</code>.</p>
 <span class="sd">        current EQUINE format (files from earlier releases must first be</span>
 <span class="sd">        rewritten with ``python -m equine.upgrade``), its recipe names an</span>
 <span class="sd">        unregistered architecture, or it contains executable content without</span>
-<span class="sd">        ``trust_executable``.</span>
+<span class="sd">        ``trust_executable``. If ``device`` is unavailable here, names an</span>
+<span class="sd">        index at or above its device count, or lacks a dtype the file holds</span>
+<span class="sd">        (float64 on MPS: load such a file with ``device="cpu"``).</span>
 
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
@@ -1564,7 +1596,7 @@ is executable code, and need <code>trust_executable=True</code>.</p>
 <span class="sd">    Files saved with ``allow_executable=True`` embed a TorchScript module, which</span>
 <span class="sd">    is executable code, and need ``trust_executable=True``.</span>
 <span class="sd">    """</span>
-    <span class="n">model_save</span> <span class="o">=</span> <span class="n">load_checkpoint</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
+    <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
     <span class="n">summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
     <span class="n">model_type</span> <span class="o">=</span> <span class="n">summary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"modelType"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">summary</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
@@ -1580,6 +1612,7 @@ is executable code, and need <code>trust_executable=True</code>.</p>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown model type </span><span class="si">{</span><span class="n">_truncate</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">model_type</span><span class="p">),</span><span class="w"> </span><span class="mi">80</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">classes</span><span class="p">[</span><span class="n">model_type</span><span class="p">]</span><span class="o">.</span><span class="n">_from_checkpoint</span><span class="p">(</span>
         <span class="n">model_save</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">,</span>
         <span class="n">trust_executable</span><span class="o">=</span><span class="n">trust_executable</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="o">=</span><span class="n">embedding_model</span><span class="p">,</span>
         <span class="c1"># _from_checkpoint, behind a beartype wrapper (none under -O).</span>

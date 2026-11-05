@@ -2,6 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import contextlib
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
@@ -13,6 +14,33 @@ import torch
 from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput
+
+
+@contextlib.contextmanager
+def _eval_mode(module: torch.nn.Module):
+    """Run the body with ``module`` in eval mode, then restore every submodule's mode.
+
+    The mode of every submodule is recorded and ``module.eval()`` is called. On the way
+    out, each submodule whose class overrides ``train()`` is given ``train()`` with its
+    recorded mode, which undoes what its ``train(False)`` did on the way in (loralib's
+    ``merge_weights=True`` layers, for example, merge their LoRA weights in eval mode
+    and unmerge them in training mode). Then every submodule's flag is set back
+    individually (``m.training = ...``, which does not propagate). A frozen embedding
+    (``model.train(); model.embedding_model.eval()``, which keeps BatchNorm statistics
+    and dropout fixed while the head trains) is still frozen afterwards, and so is any
+    other mix the caller set.
+    """
+    modes = {m: m.training for m in module.modules()}
+    module.eval()
+    try:
+        yield
+    finally:
+        for m, training in modes.items():
+            if type(m).train is not torch.nn.Module.train:
+                m.train(training)
+        for m, training in modes.items():
+            m.training = training
+
 
 # A type variable for Equine objects
 AnyEquine = TypeVar("AnyEquine", bound="Equine")

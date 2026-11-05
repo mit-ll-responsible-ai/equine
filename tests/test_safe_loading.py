@@ -3011,13 +3011,7 @@ def test_upgrade_reads_every_stored_archive_form() -> None:
 
 
 def test_declared_torch_floor_is_at_least_2_6() -> None:
-    try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib
-        except ImportError:
-            pytest.skip("tomllib/tomli not available")
+    import tomllib
 
     pyproject_path = Path(__file__).resolve().parent.parent / "pyproject.toml"
     with open(pyproject_path, "rb") as f:

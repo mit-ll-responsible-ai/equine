@@ -1356,6 +1356,15 @@ in the <a href="https://github.com/pytorch/pytorch">pytorch installation</a>. EQ
 few dependencies beyond torch. 
 <div class="language-console highlight"><pre><span></span><code><span class="go">pip install equine</span>
 </code></pre></div>
+EQUINE supports Python 3.11 to 3.15. On Python 3.15, install torch from PyTorch's index first:
+<div class="language-console highlight"><pre><span></span><code><span class="go">pip install torch --index-url https://download.pytorch.org/whl/cpu</span>
+<span class="go">pip install equine</span>
+</code></pre></div>
+On macOS with Python 3.15, use torch 2.15 or later: torch 2.14 crashes there when it is used
+from several threads at once, and EQUINE warns at import. Until torch 2.15 is released,
+install it from PyTorch's test index:
+<div class="language-console highlight"><pre><span></span><code><span class="go">pip install --upgrade 'torch&gt;=2.15' --index-url https://download.pytorch.org/whl/test/cpu</span>
+</code></pre></div>
 Users interested in contributing should refer to <a href="CONTRIBUTING/">CONTRIBUTING.md</a> for details.</p>
 <h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">¤</a></h2>
 <p>EQUINE extends pytorch's <code>nn.Module</code> interface using a <code>predict</code> method that returns both

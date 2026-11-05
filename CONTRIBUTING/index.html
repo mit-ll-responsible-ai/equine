@@ -1313,7 +1313,7 @@
 <p>Clone the <a href="https://github.com/mit-ll-responsible-ai/equine">git repository</a> and navigate to that directory</p>
 </li>
 <li>
-<p>Install a virtual environment. We currently support python versions from 3.10 to 3.14.</p>
+<p>Install a virtual environment. We currently support python versions from 3.11 to 3.15.</p>
 <p>Using conda:</p>
 <div class="language-shell highlight"><pre><span></span><code>conda<span class="w"> </span>create<span class="w"> </span>--name<span class="w"> </span>equine<span class="w"> </span><span class="nv">python</span><span class="o">==</span><span class="m">3</span>.11
 conda<span class="w"> </span>activate<span class="w"> </span>equine
@@ -1330,6 +1330,14 @@ conda<span class="w"> </span>activate<span class="w"> </span>equine
 <p>If you created the environment with uv, you can use <code>uv pip</code> instead:</p>
 <div class="language-shell highlight"><pre><span></span><code>uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[tests]'</span>
 </code></pre></div>
+<p>On Python 3.15, torch is published only on PyTorch's own package index
+until torch 2.15 reaches PyPI; install it from there first, e.g.
+<code>pip install torch --index-url https://download.pytorch.org/whl/cpu</code>.
+On macOS with Python 3.15, use torch &gt;= 2.15 (torch 2.14 crashes there
+when used from several threads, and EQUINE warns at import); until it is
+released, use <code>https://download.pytorch.org/whl/test/cpu</code>, or for tox
+<code>EQUINE_TORCH_INDEX=https://download.pytorch.org/whl/test/cpu tox -r -e py315</code>
+(<code>-r</code> rebuilds an environment that already has an older torch).</p>
 </li>
 <li>
 <p>Activate the pre-commit hooks

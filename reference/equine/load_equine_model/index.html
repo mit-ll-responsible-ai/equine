@@ -1360,7 +1360,7 @@
                 <code>device</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1377,7 +1377,7 @@ the file; by default the model lands on the saved device.</p>
                 <code>embedding_model</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="torch.nn.Module">Module</span>]</code>
+                  <code><span title="torch.nn.Module">Module</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1455,7 +1455,8 @@ architecture registry.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/load_equine_model.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">16</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">15</span>
+<span class="normal">16</span>
 <span class="normal">17</span>
 <span class="normal">18</span>
 <span class="normal">19</span>
@@ -1514,12 +1515,11 @@ architecture registry.</p>
 <span class="normal">72</span>
 <span class="normal">73</span>
 <span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span>
+<span class="normal">75</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load_equine_model</span><span class="p">(</span>
     <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">embedding_model</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Attempt to load an EQUINE model from a file</span>
@@ -1528,10 +1528,10 @@ architecture registry.</p>
 <span class="sd">    ----------</span>
 <span class="sd">    model_path : str</span>
 <span class="sd">        The path to the model file</span>
-<span class="sd">    device : Optional[str]</span>
+<span class="sd">    device : str | None</span>
 <span class="sd">        The device to load the model onto. Overrides the device recorded in</span>
 <span class="sd">        the file; by default the model lands on the saved device.</span>
-<span class="sd">    embedding_model : Optional[torch.nn.Module]</span>
+<span class="sd">    embedding_model : torch.nn.Module | None</span>
 <span class="sd">        Keyword-only. Use this module as the embedding architecture instead of</span>
 <span class="sd">        rebuilding it from the file's recipe; the file's weights are loaded</span>
 <span class="sd">        into it, and its floating-point tensors take their stored dtypes.</span>

@@ -1404,7 +1404,7 @@ built from. The archive's weights are copied into it.</p>
                 <code>out_path</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1427,7 +1427,7 @@ such as one that loops, is refused; a link to a missing file creates that file.<
                 <code>check_inputs</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="torch.Tensor">Tensor</span>]</code>
+                  <code><span title="torch.Tensor">Tensor</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1474,7 +1474,7 @@ archive's. By default such a file is refused and nothing is written.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1566,8 +1566,7 @@ the permission bits could not be copied.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/upgrade.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">629</span>
-<span class="normal">630</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">630</span>
 <span class="normal">631</span>
 <span class="normal">632</span>
 <span class="normal">633</span>
@@ -1651,14 +1650,15 @@ the permission bits could not be copied.</p>
 <span class="normal">711</span>
 <span class="normal">712</span>
 <span class="normal">713</span>
-<span class="normal">714</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">upgrade_model_file</span><span class="p">(</span>
+<span class="normal">714</span>
+<span class="normal">715</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">upgrade_model_file</span><span class="p">(</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
-    <span class="n">out_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">out_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">check_inputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">check_inputs</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">allow_unchecked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Rewrite a trusted model file whose embedding model is TorchScript as a</span>
 <span class="sd">    data-only file.</span>
@@ -1674,7 +1674,7 @@ the permission bits could not be copied.</p>
 <span class="sd">    embedding_model : torch.nn.Module</span>
 <span class="sd">        An instance of the registered architecture the file's embedding was</span>
 <span class="sd">        built from. The archive's weights are copied into it.</span>
-<span class="sd">    out_path : Optional[str]</span>
+<span class="sd">    out_path : str | None</span>
 <span class="sd">        Where to write the result; defaults to replacing ``path``. Its directory must</span>
 <span class="sd">        exist and allow creating a file. The result is written to a new file with a</span>
 <span class="sd">        random name next to it, created with the permission bits of the file it replaces</span>
@@ -1683,7 +1683,7 @@ the permission bits could not be copied.</p>
 <span class="sd">        link is followed and its target is replaced; the replaced file keeps its</span>
 <span class="sd">        permission bits where the filesystem allows it. A link that cannot be followed,</span>
 <span class="sd">        such as one that loops, is refused; a link to a missing file creates that file.</span>
-<span class="sd">    check_inputs : Optional[torch.Tensor]</span>
+<span class="sd">    check_inputs : torch.Tensor | None</span>
 <span class="sd">        Keyword-only. Inputs, one per row, on which the new embedding must</span>
 <span class="sd">        reproduce the archive's outputs, in addition to the file's support</span>
 <span class="sd">        rows. A file that stores no support rows (most ``EquineGP`` files)</span>
@@ -1695,7 +1695,7 @@ the permission bits could not be copied.</p>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    Optional[str]</span>
+<span class="sd">    str | None</span>
 <span class="sd">        The path of the written file, or None if ``path`` is already a</span>
 <span class="sd">        data-only current-format file and nothing was written.</span>
 

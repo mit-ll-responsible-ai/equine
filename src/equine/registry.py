@@ -26,7 +26,7 @@ import threading
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterator, Mapping
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 import torch
 
@@ -133,7 +133,7 @@ def _check_plain(
         path = keys[0] + "".join(f"[{_shown_key(key)}]" for key in keys[1:])
         return _truncate(path, 200)
 
-    def items_of(item: Any) -> Optional[Iterator[tuple[Any, Any]]]:
+    def items_of(item: Any) -> Iterator[tuple[Any, Any]] | None:
         """The ``(key, item)`` pairs of a plain container; None for a plain leaf."""
         item_type = type(item)
         if item_type in _PLAIN_SCALAR_TYPES:
@@ -503,7 +503,7 @@ def registered_architectures() -> list[str]:
         return sorted(_REGISTRY)
 
 
-def embedding_recipe(module: torch.nn.Module) -> Optional[dict[str, Any]]:
+def embedding_recipe(module: torch.nn.Module) -> dict[str, Any] | None:
     """
     Return the recipe recorded on ``module``, if any.
 

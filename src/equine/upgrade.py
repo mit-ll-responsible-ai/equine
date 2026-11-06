@@ -38,9 +38,10 @@ import os
 import stat
 import sys
 import warnings
+from collections.abc import Iterator
 from enum import Enum
 from secrets import token_hex
-from typing import Any, BinaryIO, Iterator, Optional
+from typing import Any, BinaryIO
 
 import numpy as np
 import torch
@@ -198,7 +199,7 @@ def _current_layout(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], list[st
     return out, notes
 
 
-def _attribute_tensor(module: Any, key: str) -> Optional[torch.Tensor]:
+def _attribute_tensor(module: Any, key: str) -> torch.Tensor | None:
     """The tensor reached by attribute access along dotted ``key``, if any."""
     value = module
     for part in key.split("."):
@@ -255,7 +256,7 @@ def _weights_from_archive(
     return weights
 
 
-def _first_float_dtype(module: torch.nn.Module) -> Optional[torch.dtype]:
+def _first_float_dtype(module: torch.nn.Module) -> torch.dtype | None:
     for tensor in itertools.chain(module.parameters(), module.buffers()):
         if tensor.is_floating_point():
             return tensor.dtype
@@ -309,7 +310,7 @@ def _has_rows(value: Any) -> bool:
 
 
 def _comparison_blocks(
-    checkpoint: dict[str, Any], check_inputs: Optional[torch.Tensor]
+    checkpoint: dict[str, Any], check_inputs: torch.Tensor | None
 ) -> list[torch.Tensor]:
     """The inputs to compare the embeddings on: each label's support rows and
     ``check_inputs``, each kept as its own block (dtypes and shapes may differ)."""
@@ -320,7 +321,7 @@ def _comparison_blocks(
     return [b for b in blocks if _has_rows(b)]
 
 
-def _replaced_file(path: str, out_path: Optional[str]) -> str:
+def _replaced_file(path: str, out_path: str | None) -> str:
     """
     The path the upgrade writes its result to: ``out_path``, or ``path`` when
     it is not given; for a symbolic link, the file the link points to.
@@ -338,7 +339,7 @@ def _parent_directory(path: str) -> str:
 
 def _require_arguments(
     embedding_model: torch.nn.Module,
-    check_inputs: Optional[torch.Tensor],
+    check_inputs: torch.Tensor | None,
     target: str,
 ) -> None:
     """
@@ -377,7 +378,7 @@ def _require_arguments(
         )
 
 
-def _read_safely(path: str) -> Optional[dict[str, Any]]:
+def _read_safely(path: str) -> dict[str, Any] | None:
     """
     ``path`` read with the safe loader, or None for a file from an earlier
     release, which only the unrestricted read in ``_read_legacy`` opens.
@@ -480,7 +481,7 @@ def _closed_quietly_on_error(file: BinaryIO) -> Iterator[None]:
 def _require_written_file(file: BinaryIO, partial: str, out_path: str) -> None:
     """Raise unless ``partial`` still names ``file``, the file written there."""
     written = os.fstat(file.fileno())
-    named: Optional[os.stat_result]
+    named: os.stat_result | None
     try:
         named = os.lstat(partial)
     except FileNotFoundError:
@@ -512,7 +513,7 @@ def _move_into_place(
             f"upgraded file ({_temp_named_as(str(err), partial, out_path)})."
         )
 
-    target: Optional[os.stat_result]
+    target: os.stat_result | None
     try:
         target = os.lstat(out_path)
     except FileNotFoundError:
@@ -522,8 +523,8 @@ def _move_into_place(
             f"'{out_path}' became a symbolic link during the upgrade; it was left "
             "unchanged."
         )
-    mode: Optional[int] = None if target is None else stat.S_IMODE(target.st_mode)
-    moved_mode: Optional[int] = None
+    mode: int | None = None if target is None else stat.S_IMODE(target.st_mode)
+    moved_mode: int | None = None
     if mode is not None:
         moved_mode = mode | stat.S_IWUSR if _RENAME_NEEDS_A_WRITABLE_TARGET else mode
         try:
@@ -568,8 +569,8 @@ def _upgrade(
     path: str,
     checkpoint: dict[str, Any],
     embedding_model: torch.nn.Module,
-    out_path: Optional[str],
-    check_inputs: Optional[torch.Tensor],
+    out_path: str | None,
+    check_inputs: torch.Tensor | None,
     allow_unchecked: bool,
 ) -> tuple[str, list[str]]:
     """Write the upgraded file and return where, plus the notes to report."""
@@ -629,11 +630,11 @@ def _upgrade(
 def upgrade_model_file(
     path: str,
     embedding_model: torch.nn.Module,
-    out_path: Optional[str] = None,
+    out_path: str | None = None,
     *,
-    check_inputs: Optional[torch.Tensor] = None,
+    check_inputs: torch.Tensor | None = None,
     allow_unchecked: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Rewrite a trusted model file whose embedding model is TorchScript as a
     data-only file.
@@ -649,7 +650,7 @@ def upgrade_model_file(
     embedding_model : torch.nn.Module
         An instance of the registered architecture the file's embedding was
         built from. The archive's weights are copied into it.
-    out_path : Optional[str]
+    out_path : str | None
         Where to write the result; defaults to replacing ``path``. Its directory must
         exist and allow creating a file. The result is written to a new file with a
         random name next to it, created with the permission bits of the file it replaces
@@ -658,7 +659,7 @@ def upgrade_model_file(
         link is followed and its target is replaced; the replaced file keeps its
         permission bits where the filesystem allows it. A link that cannot be followed,
         such as one that loops, is refused; a link to a missing file creates that file.
-    check_inputs : Optional[torch.Tensor]
+    check_inputs : torch.Tensor | None
         Keyword-only. Inputs, one per row, on which the new embedding must
         reproduce the archive's outputs, in addition to the file's support
         rows. A file that stores no support rows (most ``EquineGP`` files)
@@ -670,7 +671,7 @@ def upgrade_model_file(
 
     Returns
     -------
-    Optional[str]
+    str | None
         The path of the written file, or None if ``path`` is already a
         data-only current-format file and nothing was written.
 
@@ -768,7 +769,7 @@ def _check_inputs_from_file(path: str) -> torch.Tensor:
     return rows
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m equine.upgrade",
         description="Rewrite a model file whose embedding model is TorchScript "

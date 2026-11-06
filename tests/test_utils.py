@@ -2,6 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import math
 import sys
 import warnings
 
@@ -14,6 +15,7 @@ from conftest import script_module
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
+from equine.utils import _cholesky_with_jitter
 
 
 class _NoAnnotationModel(torch.nn.Module):
@@ -367,3 +369,143 @@ def test_warns_where_torch_crashes_with_threads(
         warnings.simplefilter("always")
         eq.utils._warn_if_torch_crashes_with_threads()
     assert any("several threads" in str(w.message) for w in record) == warns
+
+
+def _spd(classes: int, dim: int) -> torch.Tensor:
+    m = torch.randn(classes, dim, dim, dtype=torch.float64)
+    return m @ m.transpose(1, 2) + torch.eye(dim, dtype=torch.float64)
+
+
+@pytest.mark.parametrize(
+    "x_shape, classes, dim",
+    [((3, 4, 5), 3, 4), ((4, 5), 3, 4), ((3, 3), 3, 3), ((4,), 3, 4)],
+    ids=["classes-dim-examples", "dim-examples", "dim-examples-square", "dim"],
+)
+def test_mahalanobis_is_x_cinv_x_for_every_input_shape(x_shape, classes, dim):
+    """A 2-D ``x`` holds examples as columns and is shared by every class, even when its
+    shape equals (classes, dim)."""
+    torch.manual_seed(0)
+    cov = _spd(classes, dim)
+    x = torch.randn(*x_shape, dtype=torch.float64)
+    inv = torch.linalg.inv(cov)
+    if x.dim() == 1:
+        expected = torch.einsum("d,kde,e->k", x, inv, x)
+    elif x.dim() == 2:
+        expected = torch.einsum("dn,kde,en->kn", x, inv, x)
+    else:
+        expected = torch.einsum("kdn,kde,ken->kn", x, inv, x)
+    dist = eq.mahalanobis_distance_nosq(x, cov)
+    assert dist.shape == expected.shape
+    torch.testing.assert_close(dist, expected)
+
+
+@pytest.mark.parametrize(
+    "cov",
+    [
+        torch.eye(4) * 1e-5,
+        torch.ones(4, 4) + 1e-5 * torch.eye(4),
+    ],
+    ids=["all-eigenvalues-equal", "rank-one-plus-epsilon"],
+)
+def test_mahalanobis_gradient_is_finite_with_repeated_eigenvalues(cov):
+    """The distance has finite gradients when the covariance has repeated
+    eigenvalues."""
+    cov = cov.expand(2, 4, 4).clone().requires_grad_()
+    x = torch.rand(2, 4, 3, requires_grad=True)
+    eq.mahalanobis_distance_nosq(x, cov).sum().backward()
+    assert torch.isfinite(cov.grad).all()
+    assert torch.isfinite(x.grad).all()
+
+
+@pytest.mark.parametrize(
+    "cov",
+    [torch.ones(1, 3, 3), torch.diag(torch.tensor([1.0, -1.0, 1.0])).unsqueeze(0)],
+    ids=["singular", "indefinite"],
+)
+def test_mahalanobis_raises_on_a_covariance_that_is_not_positive_definite(cov):
+    """A covariance whose Cholesky factorization fails raises."""
+    with pytest.raises(torch.linalg.LinAlgError, match="positive-definite"):
+        eq.mahalanobis_distance_nosq(torch.ones(1, 3, 2), cov)
+
+
+def test_mahalanobis_rejects_an_unbatched_covariance():
+    """A single (dim, dim) covariance is refused."""
+    m = torch.randn(4, 4)
+    with pytest.raises(icontract.ViolationError, match="classes, dim, dim"):
+        eq.mahalanobis_distance_nosq(torch.randn(4, 5), m @ m.T + torch.eye(4))
+
+
+def test_cholesky_with_jitter_factors_only_the_matrices_that_need_it():
+    """A rank-deficient float32 covariance at a large scale is indefinite by
+    rounding and gets a small jitter; a well-conditioned one is left unchanged."""
+    torch.manual_seed(0)
+    emb = (torch.randn(50, 2) @ torch.randn(2, 8)) * 1000
+    rounded = torch.cov(emb.T) + 1e-5 * torch.eye(8)
+    m = torch.randn(8, 8)
+    good = m @ m.T + torch.eye(8)
+    cov = torch.stack([good, rounded])
+    assert torch.linalg.cholesky_ex(rounded)[1].item() != 0
+    factor = _cholesky_with_jitter(cov)
+    assert torch.equal(factor[0], torch.linalg.cholesky(good))
+    assert torch.isfinite(factor[1]).all()
+    largest = rounded.diagonal().max().item()
+    torch.testing.assert_close(
+        factor[1] @ factor[1].T, rounded, rtol=0, atol=1e-3 * largest
+    )
+
+
+def test_cholesky_with_jitter_raises_when_no_jitter_helps():
+    """A NaN covariance does not factor with any jitter."""
+    with pytest.raises(torch.linalg.LinAlgError, match="not positive definite"):
+        _cholesky_with_jitter(torch.full((1, 3, 3), float("nan")))
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+@pytest.mark.parametrize("power", [0, 1, 2, 3, "top"])
+def test_cholesky_with_jitter_uses_the_smallest_jitter_that_factors(dtype, power):
+    """A pivot of -0.5 * eps * 10**power factors with exactly the jitter eps * 10**power."""
+    eps = torch.finfo(dtype).eps
+    if power == "top":
+        power = int(math.log10(1e-3 / eps))
+    pivots = torch.tensor([1.0, 1.0, -0.5 * eps * 10**power], dtype=dtype)
+    cov = torch.diag(pivots).unsqueeze(0)
+    eye = torch.eye(3, dtype=dtype)
+    expected = torch.linalg.cholesky(cov + eps * 10**power * eye)
+    assert torch.equal(_cholesky_with_jitter(cov), expected)
+
+
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_cholesky_with_jitter_stops_at_its_cap(dtype):
+    """A pivot of -5e-4 needs more jitter than the largest rung, which stays at or
+    below 1e-3 of the largest variance; the error names that largest rung."""
+    eps = torch.finfo(dtype).eps
+    top = eps * 10 ** int(math.log10(1e-3 / eps))
+    cov = torch.diag(torch.tensor([1.0, 1.0, -5e-4], dtype=dtype)).unsqueeze(0)
+    with pytest.raises(torch.linalg.LinAlgError, match=f"jitter of {top:.1e} times"):
+        _cholesky_with_jitter(cov)
+
+
+def test_cholesky_with_jitter_treats_a_non_finite_factor_as_a_failure(monkeypatch):
+    """A NaN factor from a factorization that reports success raises."""
+
+    real = torch.linalg.cholesky
+
+    def nan_factor(cov):
+        factor = real(cov).clone()
+        factor[..., -1, -1] = float("nan")
+        return factor, torch.zeros(cov.shape[:-2], dtype=torch.int32)
+
+    monkeypatch.setattr(torch.linalg, "cholesky_ex", nan_factor)
+    with pytest.raises(torch.linalg.LinAlgError, match="not positive definite"):
+        _cholesky_with_jitter(torch.eye(3).unsqueeze(0))
+
+
+def test_mahalanobis_works_under_vmap():
+    """The distance can be batched with torch.func.vmap."""
+    torch.manual_seed(0)
+    m = torch.randn(4, 2, 3, 3)
+    cov = m @ m.transpose(-1, -2) + torch.eye(3)
+    x = torch.randn(4, 2, 3, 5)
+    batched = torch.func.vmap(eq.mahalanobis_distance_nosq)(x, cov)
+    looped = torch.stack([eq.mahalanobis_distance_nosq(x[i], cov[i]) for i in range(4)])
+    torch.testing.assert_close(batched, looped)

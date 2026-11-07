@@ -182,10 +182,30 @@ def test_gp_seen_count_mirrors_the_seen_data_buffer(device, tmp_path):
     model.save(path)
     for loaded in (eq.EquineGP.load(path, device), eq.load_equine_model(path)):
         assert loaded.model._seen_count == int(loaded.model.seen_data) == len(dataset)
+        assert loaded.model.seen_data.dtype == torch.int64
+        assert loaded.model.seen_data.device == loaded.model.precision.device
         assert_valid_prediction(loaded.predict(x[:5]), 5, CLASSES)
 
     model.model.reset_precision_matrix()
     assert model.model._seen_count == int(model.model.seen_data) == 0
+
+
+@pytest.mark.parametrize("dtype", [torch.uint8, torch.int16, torch.int32])
+def test_gp_loads_seen_data_of_another_integer_dtype_as_int64(dtype, tmp_path):
+    """A ``seen_data`` stored in another integer dtype loads into the model's int64
+    buffer with its value."""
+    model, _, _ = _gp("cpu")
+    path = str(tmp_path / "gp.eq")
+    model.save(path)
+    checkpoint = torch.load(path, weights_only=True)
+    stored = checkpoint["laplace_model_save"]["seen_data"].to(dtype)
+    checkpoint["laplace_model_save"]["seen_data"] = stored
+    torch.save(checkpoint, path)
+
+    loaded = eq.EquineGP.load(path)
+
+    assert loaded.model.seen_data.dtype == torch.int64
+    assert loaded.model._seen_count == int(loaded.model.seen_data) == int(stored)
 
 
 @pytest.mark.parametrize("device", devices())

@@ -166,7 +166,8 @@
   that allocates far more than the file holds), tensors whose shape is
   larger than their storage (expanded views), weights laid out as views of
   one storage too small for the network they describe, support tensors that
-  alias one another (`equine.upgrade` copies them apart), and
+  alias one another (`equine.upgrade` copies them apart in a file holding
+  TorchScript; the message for any other file says how to copy them), and
   recipes or settings that describe a model larger than the weights stored in
   the file. Known limit: the work done after loading (embedding the support
   set) grows with the number of support rows times the embedding's width, so

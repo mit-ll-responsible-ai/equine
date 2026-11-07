@@ -1,13 +1,13 @@
 # Copyright 2024, MASSACHUSETTS INSTITUTE OF TECHNOLOGY
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
-"""Cross-version compatibility: files saved by an earlier code version keep
-loading and keep producing the same predictions.
+"""Cross-version compatibility: files saved by an earlier code version, upgraded
+with ``equine.upgrade``, load and keep producing the same predictions.
 
 tests/fixtures/*_v2*.eq are fixed format-version-2, float32 files, built by
-the ``fixture_*`` functions in golden_data.
+the ``fixture_*`` functions in golden_data. Each test upgrades a copy.
 
-expected.json records each file's SHA-256, asserted before loading. It
+expected.json records each file's SHA-256, asserted before upgrading. It
 also records the persisted metadata (names, temperature, model type), which
 is asserted after load.
 """
@@ -15,12 +15,15 @@ is asserted after load.
 import hashlib
 import json
 import os
+import shutil
 
 import pytest
 import torch
 from golden_data import fixture_query_batch
 
 import equine as eq
+from equine import _model_file
+from equine.upgrade import upgrade_model_file
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 with open(os.path.join(FIXTURES, "expected.json")) as f:
@@ -49,13 +52,20 @@ FIXTURE_FILES = {
 }
 
 
+def _upgraded(filename: str, tmp_path) -> str:
+    """A copy of the fixture ``filename`` in ``tmp_path``, upgraded in place."""
+    path = str(tmp_path / filename)
+    shutil.copy(os.path.join(FIXTURES, filename), path)
+    upgrade_model_file(path)
+    return path
+
+
 @pytest.mark.parametrize("name", list(FIXTURE_FILES))
-def test_v2_fixture_loads_and_predicts_the_same(name) -> None:
+def test_v2_fixture_upgrades_and_predicts_the_same(name, tmp_path) -> None:
     filename, cls = FIXTURE_FILES[name]
-    path = os.path.join(FIXTURES, filename)
-    with open(path, "rb") as f:
+    with open(os.path.join(FIXTURES, filename), "rb") as f:
         assert hashlib.sha256(f.read()).hexdigest() == EXPECTED[name]["sha256"]
-    model = eq.load_equine_model(path)
+    model = eq.load_equine_model(_upgraded(filename, tmp_path))
     assert isinstance(model, cls)
     for key, expected in EXPECTED[name]["metadata"].items():
         assert key in METADATA_ACCESSORS, f"no accessor for metadata key {key!r}"
@@ -97,10 +107,10 @@ class _ProtonetWithoutOodDistance(eq.EquineProtonet):
         )
 
 
-def test_v2_fixture_loads_into_a_subclass_without_ood_distance() -> None:
+def test_v2_fixture_loads_into_a_subclass_without_ood_distance(tmp_path) -> None:
     """A subclass whose ``__init__`` does not take ``ood_distance`` loads a file
     without the setting, which scores with ``"rmd_sqrt"``."""
-    path = os.path.join(FIXTURES, "protonet_v2.eq")
+    path = _upgraded("protonet_v2.eq", tmp_path)
     model = _ProtonetWithoutOodDistance.load(path)
     assert model.ood_distance == "rmd_sqrt"
     out = model.predict(fixture_query_batch())
@@ -117,10 +127,10 @@ def test_subclass_without_ood_distance_refuses_a_file_with_the_setting(
 ) -> None:
     """A file that holds ``ood_distance`` needs a class whose ``__init__`` takes
     it, as for every saved setting."""
-    model = _ProtonetWithoutOodDistance.load(os.path.join(FIXTURES, "protonet_v2.eq"))
+    model = _ProtonetWithoutOodDistance.load(_upgraded("protonet_v2.eq", tmp_path))
     path = str(tmp_path / "saved.eq")
     model.save(path)
-    assert torch.load(path, weights_only=True)["settings"]["ood_distance"] == "rmd_sqrt"
+    assert _model_file.read(path)["settings"]["ood_distance"] == "rmd_sqrt"
     with pytest.raises(ValueError, match="does not accept, e.g. 'ood_distance'"):
         _ProtonetWithoutOodDistance.load(path)
 
@@ -148,7 +158,7 @@ def test_subclass_requiring_ood_distance_receives_the_files_value(
 ) -> None:
     """A subclass whose ``__init__`` requires ``ood_distance`` receives the value a
     file holds."""
-    model = eq.EquineProtonet.load(os.path.join(FIXTURES, "protonet_v2.eq"))
+    model = eq.EquineProtonet.load(_upgraded("protonet_v2.eq", tmp_path))
     model.ood_distance = ood_distance
     path = str(tmp_path / "saved.eq")
     model.save(path)
@@ -183,10 +193,10 @@ class _ProtonetSwallowingKwargs(eq.EquineProtonet):
         )
 
 
-def test_subclass_swallowing_kwargs_scores_with_the_files_statistic() -> None:
+def test_subclass_swallowing_kwargs_scores_with_the_files_statistic(tmp_path) -> None:
     """A subclass whose ``**kwargs`` drops ``ood_distance`` still scores a file
     without the setting with ``"rmd_sqrt"``."""
-    path = os.path.join(FIXTURES, "protonet_v2.eq")
+    path = _upgraded("protonet_v2.eq", tmp_path)
     model = _ProtonetSwallowingKwargs.load(path)
     assert model.ood_distance == "rmd_sqrt"
     queries = fixture_query_batch()
@@ -204,12 +214,12 @@ class _PassThroughProtonet(_ProtonetWithoutOodDistance):
         super().__init__(*args, **kwargs)
 
 
-def test_pass_through_subclass_of_a_narrow_parent_loads_a_file_without_the_setting() -> (
-    None
-):
+def test_pass_through_subclass_of_a_narrow_parent_loads_a_file_without_the_setting(
+    tmp_path,
+) -> None:
     """A ``*args, **kwargs`` subclass of a class whose ``__init__`` does not take
     ``ood_distance`` loads a file without the setting."""
-    path = os.path.join(FIXTURES, "protonet_v2.eq")
+    path = _upgraded("protonet_v2.eq", tmp_path)
     model = _PassThroughProtonet.load(path)
     assert model.ood_distance == "rmd_sqrt"
     queries = fixture_query_batch()

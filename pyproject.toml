@@ -28,6 +28,7 @@ dependencies = [
         "beartype >= 0.23.0; python_version >= '3.15'",
         "icontract >= 2.6.2",
         "scipy >= 1.13.0",
+        "safetensors >= 0.5.0",
 ]
 license = "MIT"
 license-files = ["LICENSE.md"]
@@ -103,6 +104,7 @@ known-third-party = [
     "icontract",
     "scikit-learn",
     "scipy",
+    "safetensors",
 ]
 combine-as-imports = true
 

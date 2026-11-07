@@ -2,26 +2,22 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 """
-The file-reading layer (``equine.utils.load_checkpoint``) and the safe format: model
-files are read without unrestricted unpickling, opening an untrusted file cannot run
-pickle payloads, and a crafted file cannot make the reader allocate more than the file
-holds. Legacy files are refused and rewritten by ``python -m equine.upgrade``. The
-model layer on top (recipes, save/load) is tested in test_persistence.py.
+The file-reading layer (``equine.utils.load_checkpoint``) and ``python -m
+equine.upgrade``: files from earlier releases (PyTorch archives and pickles) are
+refused without being unpickled, and the upgrade rewrites them in the current format.
+The file format itself is tested in test_model_file.py, the model layer on top
+(recipes, save/load) in test_persistence.py.
 """
 
-import codecs
 import collections
 import contextlib
 import io
 import itertools
+import json
 import os
-import pickle
 import re
 import shutil
-import struct
-import tracemalloc
-import zipfile
-from collections import OrderedDict
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -29,11 +25,11 @@ import pytest
 import torch
 from conftest import (
     BasicEmbeddingModel,
-    _rewrite_zip,
     archive_tensor,
     assert_on_device,
     script_module,
 )
+from safetensors.torch import save_file
 
 import equine as eq
 import equine.upgrade
@@ -222,12 +218,12 @@ def test_loading_untrusted_file_does_not_execute_payload(tmp_path, loader) -> No
 
 
 # ---------------------------------------------------------------------------
-# Files written by save() must be loadable with torch.load(weights_only=True)
+# Files written by save() hold the embedding as a recipe and weights
 # ---------------------------------------------------------------------------
 
 
-def _assert_weights_only_safe_layout(path: str) -> dict:
-    checkpoint = torch.load(path, weights_only=True)  # must not raise
+def _assert_data_only_layout(path: str) -> dict:
+    checkpoint = load_checkpoint(path)
     assert checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION
     assert isinstance(checkpoint["embedding_recipe"]["builder"], str)
     assert "embedding_state_dict" in checkpoint
@@ -236,14 +232,14 @@ def _assert_weights_only_safe_layout(path: str) -> dict:
     return checkpoint
 
 
-def test_protonet_save_format_is_weights_only_safe(tmp_path) -> None:
+def test_protonet_save_writes_a_data_only_file(tmp_path) -> None:
     model, X = _trained_protonet(cov_type=eq.CovType.DIAGONAL, use_temperature=True)
     # A non-default bandwidth catches a factor dropped or misapplied on reload.
     model.outlier_score_kde[1].set_bandwidth(0.3)
     path = str(tmp_path / "protonet.eq")
     model.save(path)
 
-    checkpoint = _assert_weights_only_safe_layout(path)
+    checkpoint = _assert_data_only_layout(path)
     assert checkpoint["settings"]["cov_type"] == "diag"
 
     reloaded = eq.load_equine_model(path)
@@ -263,12 +259,12 @@ def test_protonet_save_format_is_weights_only_safe(tmp_path) -> None:
     _assert_same_predictions(model, reloaded, X)
 
 
-def test_gp_save_format_is_weights_only_safe(tmp_path) -> None:
+def test_gp_save_writes_a_data_only_file(tmp_path) -> None:
     model, X = _trained_gp()
     path = str(tmp_path / "gp.eq")
     model.save(path)
 
-    _assert_weights_only_safe_layout(path)
+    _assert_data_only_layout(path)
 
     reloaded = eq.load_equine_model(path)
 
@@ -296,28 +292,6 @@ def test_legacy_file_is_refused_and_names_the_upgrade(
         type(model).load(path)
 
 
-def test_file_without_format_version_is_refused(tmp_path, monkeypatch) -> None:
-    """A file torch can read with weights_only=True but that never declared a
-    format version is not a current EQUINE file either."""
-    model, _ = _trained_protonet()
-    path = tmp_path / "unversioned.eq"
-    model.save(str(path))
-    checkpoint = torch.load(path, weights_only=True)
-    del checkpoint["equine_format_version"]
-    torch.save(checkpoint, path)
-
-    with pytest.raises(ValueError, match="python -m equine.upgrade"):
-        eq.load_equine_model(str(path))
-
-    copies: list = []
-    monkeypatch.setattr(
-        equine.utils, "_copy_off_the_file", lambda tensors, device: copies.append(1)
-    )
-    with pytest.raises(ValueError, match="python -m equine.upgrade"):
-        load_checkpoint(str(path))
-    assert copies == [], "a refused unversioned file must not be copied"
-
-
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_rewrites_legacy_file_as_a_data_only_file(
@@ -333,7 +307,7 @@ def test_upgrade_rewrites_legacy_file_as_a_data_only_file(
     with pytest.warns(FutureWarning, match="deprecated"):
         assert _upgrade(legacy_path, out_path) == out_path
 
-    _assert_weights_only_safe_layout(out_path)
+    _assert_data_only_layout(out_path)
     reloaded = eq.load_equine_model(out_path)
     assert type(reloaded) is type(model)
     _assert_same_predictions(model, reloaded, X)
@@ -358,78 +332,58 @@ def test_upgrade_replaces_the_file_in_place_by_default(tmp_path) -> None:
 
     assert _upgrade(path) == path
 
-    _assert_weights_only_safe_layout(path)
+    _assert_data_only_layout(path)
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
 def test_upgrade_leaves_a_current_file_alone(tmp_path) -> None:
+    """Nothing is written and no deprecation is issued."""
     model, _ = _trained_protonet()
     path = str(tmp_path / "current.eq")
     model.save(path)
     before = Path(path).read_bytes()
 
-    with pytest.warns(FutureWarning):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         assert _upgrade(path, str(tmp_path / "copy.eq")) is None
 
     assert Path(path).read_bytes() == before
     assert not (tmp_path / "copy.eq").exists()
 
 
-def test_legacy_file_that_passes_the_pre_checks_is_still_refused(
-    tmp_path, monkeypatch
-) -> None:
-    """A legacy file swapped in after the pickle check is refused by torch.load."""
-    model, _ = _trained_protonet()
-    path = str(tmp_path / "legacy.eq")
-    _write_legacy_protonet_file(model, path)
-    monkeypatch.setattr(equine.utils, "_check_pickle_globals", lambda path: None)
-    with pytest.raises(LegacyFormatError):
-        load_checkpoint(path)
+def _newer_model_file(path) -> None:
+    newer = EQUINE_FORMAT_VERSION + 1
+    save_file(
+        {},
+        str(path),
+        metadata={
+            "equine_format_version": str(newer),
+            "equine": json.dumps({"equine_format_version": newer}),
+        },
+    )
 
 
-def test_archive_without_a_pickle_that_passes_the_pre_checks_is_refused(
-    tmp_path, monkeypatch
-) -> None:
-    """torch.load's own failure on such an archive is reported as a ValueError."""
-    path = tmp_path / "no_pickle.pt"
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
-        archive.writestr("archive/notes.txt", b"not a model")
-    monkeypatch.setattr(equine.utils, "_check_pickle_globals", lambda path: None)
-    with pytest.raises(ValueError, match="could not be read as a PyTorch archive"):
-        load_checkpoint(str(path))
-
-
-def test_legacy_refusal_is_its_own_error_type(tmp_path) -> None:
-    """The upgrade keys off this type, so it must not cover other refusals."""
-    model, _ = _trained_protonet()
-    path = str(tmp_path / "legacy.eq")
-    _write_legacy_protonet_file(model, path)
-    with pytest.raises(LegacyFormatError):
-        load_checkpoint(path)
-
-    current = tmp_path / "newer.eq"
-    model.save(str(current))
-    checkpoint = torch.load(current, weights_only=True)
-    checkpoint["equine_format_version"] = EQUINE_FORMAT_VERSION + 1
-    torch.save(checkpoint, current)
-    with pytest.raises(ValueError, match="Upgrade EQUINE") as err:
-        load_checkpoint(str(current))
-    assert not isinstance(err.value, LegacyFormatError)
-
-
-def test_upgrade_does_not_downgrade_a_newer_format(tmp_path) -> None:
-    """A file written by a newer EQUINE is refused by the loader with its own
-    message; the upgrade must not unpickle it and re-stamp it as the current
-    version."""
-    model, _ = _trained_protonet()
+@pytest.mark.parametrize(
+    "write, message",
+    [
+        (_newer_model_file, "Upgrade EQUINE"),
+        (
+            lambda path: torch.save({"equine_format_version": 5}, path),
+            "is a PyTorch archive with equine_format_version 5, which no EQUINE "
+            "version wrote",
+        ),
+    ],
+    ids=["newer-model-file", "archive"],
+)
+def test_upgrade_does_not_downgrade_a_newer_format(tmp_path, write, message) -> None:
+    """A model file written by a newer EQUINE is refused by the loader with its own
+    message, and a PyTorch archive declaring a format other than 2 or 3 is refused;
+    the upgrade must not unpickle either and re-stamp it as the current version."""
     path = tmp_path / "newer.eq"
-    model.save(str(path))
-    checkpoint = torch.load(path, weights_only=True)
-    checkpoint["equine_format_version"] = EQUINE_FORMAT_VERSION + 1
-    torch.save(checkpoint, path)
+    write(path)
     before = path.read_bytes()
 
-    with pytest.warns(FutureWarning), pytest.raises(ValueError, match="Upgrade EQUINE"):
+    with pytest.raises(ValueError, match=message):
         _upgrade(str(path))
 
     assert path.read_bytes() == before
@@ -442,59 +396,78 @@ def test_upgrade_refuses_to_run_on_old_torch(tmp_path, monkeypatch) -> None:
     path = tmp_path / "legacy.eq"
     _write_legacy_protonet_file(model, str(path))
     before = path.read_bytes()
-    monkeypatch.setattr(equine.utils, "_torch_version", lambda: (2, 5))
+    monkeypatch.setattr(equine.upgrade, "_torch_version", lambda: (2, 5))
     loads: list = []
     real_load = torch.load
     monkeypatch.setattr(
         torch, "load", lambda *a, **k: loads.append(k) or real_load(*a, **k)
     )
 
-    with pytest.warns(FutureWarning), pytest.raises(ValueError, match="CVE-2025-32434"):
+    with pytest.raises(ValueError, match="CVE-2025-32434"):
         _upgrade(str(path))
 
     assert path.read_bytes() == before
-    assert loads == []  # load_checkpoint refuses before torch.load is ever called
+    assert loads == []  # the upgrade refuses before torch.load is ever called
 
 
 @pytest.mark.parametrize(
-    "blob, reason",
+    "version, key, value, reason",
     [
-        (io.BytesIO(b"opaque"), "is not in the current EQUINE model format"),
-        (b"opaque", "holds a bytes or bytearray value"),
+        (None, "blob", io.BytesIO(b"opaque"), "['blob'] is a BytesIO"),
+        (None, "blob", b"opaque", "['blob'] is a bytes"),
+        (None, "blob", {1, 2}, "['blob'] is a set"),
+        (None, "label_names", np.array("abc"), "['label_names'] is a ndarray"),
+        (
+            None,
+            "label_names",
+            np.array([["a", "b"], ["c", "d"]]),
+            "['label_names'] is a ndarray",
+        ),
+        (2, "blob", torch.ones(2).to(torch.complex128), "is a complex128 tensor"),
+        (3, "blob", torch.ones(2).to(torch.complex128), "is a complex128 tensor"),
     ],
-    ids=["bytesio", "bytes"],
+    ids=["bytesio", "bytes", "set", "names-0-d", "names-2-d", "format-2", "format-3"],
 )
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_leaves_the_original_when_the_result_is_refused(
-    tmp_path, blob, reason
+    tmp_path, version, key, value, reason
 ) -> None:
-    """A legacy file holding a value the converter does not convert cannot be
-    rewritten; the original stays, and the error says why, without the loader's
-    advice for the rewritten file. The directory name holds ". ", which the
-    message must not be cut at."""
+    """A file holding a value a model file does not store cannot be rewritten: a
+    legacy file (``version`` None) or a format-2 or format-3 file. Names are converted
+    only from a list, a tuple or a one-dimensional array. The original stays, and the
+    error says why. The directory name holds ". ", which the message must not be cut
+    at."""
     model, _ = _trained_protonet()
     tmp_path = tmp_path / "my. models"
     tmp_path.mkdir()
     path = tmp_path / "legacy.eq"
-    _write_legacy_protonet_file(model, str(path))
-    checkpoint = torch.load(path, weights_only=False)
-    checkpoint["train_summary"]["blob"] = blob
+    if version is None:
+        _write_legacy_protonet_file(model, str(path))
+        checkpoint = torch.load(path, weights_only=False)
+    else:
+        checkpoint = _in_format(model, str(path), version)
+    if key == "blob":
+        checkpoint["train_summary"]["blob"] = value
+    else:
+        checkpoint[key] = value
     torch.save(checkpoint, path)
     before = path.read_bytes()
 
-    with (
-        pytest.warns(FutureWarning),
-        pytest.raises(
-            ValueError, match="safe loader refuses the rewritten file"
-        ) as err,
-    ):
+    with pytest.raises(ValueError) as err:
         _upgrade(str(path))
 
+    assert re.fullmatch(
+        f"'{re.escape(str(path))}' holds a value the upgrade does not convert "
+        rf"\(Cannot save: checkpoint.*{re.escape(reason)}, which a model file does "
+        r"not store; .*\); it was left unchanged\. To convert it, read it with "
+        r"torch\.load \(weights_only=True for a format 2 or 3 file; weights_only=False "
+        r"for a file from EQUINE 0\.1\.x, which runs code from the file, so only if you "
+        r"trust it\), change that value, write it back with torch\.save, and upgrade it "
+        r"again\.",
+        str(err.value),
+    ), str(err.value)
     assert path.read_bytes() == before
     assert sorted(p.name for p in tmp_path.iterdir()) == ["legacy.eq"]
-    assert ".upgrading" not in str(err.value)
-    assert "python -m equine.upgrade" not in str(err.value)
-    assert "torch.load" not in str(err.value)
-    assert reason in str(err.value)
 
 
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
@@ -505,8 +478,8 @@ def test_upgrade_leaves_the_original_when_the_result_is_refused(
 def test_upgrade_turns_names_into_a_list_of_plain_strings(
     tmp_path, train, write_legacy, container
 ) -> None:
-    """Names from LabelEncoder are numpy strings or arrays, which the safe loader
-    refuses; the loaders also require a list, whatever the file held."""
+    """Names from LabelEncoder are numpy strings or arrays, which a model file does
+    not store; the loaders also require a list, whatever the file held."""
     model, _ = train()
     model.feature_names = container([np.str_(f"f{i}") for i in range(6)])
     model.label_names = container([np.str_(n) for n in ("a", "b", "c")])
@@ -515,7 +488,7 @@ def test_upgrade_turns_names_into_a_list_of_plain_strings(
 
     _upgrade(path)
 
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = load_checkpoint(path)
     features = [f"f{i}" for i in range(6)]
     for key, expected in (
         ("label_names", ["a", "b", "c"]),
@@ -568,8 +541,8 @@ def test_upgrade_in_place_keeps_a_relative_path(tmp_path, monkeypatch, capsys) -
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_turns_numpy_scalars_into_python_values(tmp_path) -> None:
-    """A numpy integer anywhere in the settings or the training summary would
-    make torch.load(weights_only=True) refuse the rewritten file."""
+    """A numpy integer anywhere in the settings or the training summary is written
+    as a Python int."""
     model, X = _trained_protonet()
     path = str(tmp_path / "legacy.eq")
     _write_legacy_protonet_file(model, path)
@@ -580,7 +553,7 @@ def test_upgrade_turns_numpy_scalars_into_python_values(tmp_path) -> None:
 
     _upgrade(path)
 
-    upgraded = torch.load(path, weights_only=True)
+    upgraded = load_checkpoint(path)
     assert type(upgraded["settings"]["emb_out_dim"]) is int
     assert type(upgraded["train_summary"]["numTrainExamples"][0]["numExamples"]) is int
     _assert_same_predictions(model, eq.load_equine_model(path), X)
@@ -1024,6 +997,108 @@ def test_upgrade_warns_when_the_mode_cannot_be_copied(
         _upgrade(other, existing)
 
 
+def test_a_converted_file_that_reads_back_different_is_not_kept(
+    tmp_path, monkeypatch
+) -> None:
+    model, _ = _trained_protonet()
+    path = str(tmp_path / "m.eq")
+    torch.save(_in_format(model, path, 3), path)
+    before = Path(path).read_bytes()
+
+    def altered(file: str) -> dict:
+        checkpoint = load_checkpoint(file)
+        checkpoint["support"][0] = checkpoint["support"][0] + 1
+        return checkpoint
+
+    monkeypatch.setattr(equine.upgrade, "load_checkpoint", altered)
+    with pytest.raises(ValueError, match="does not read back as written; '.*m.eq' was"):
+        upgrade_model_file(path)
+    assert Path(path).read_bytes() == before
+    assert os.listdir(tmp_path) == ["m.eq"]
+
+
+def test_the_repair_a_refused_upgrade_names_lets_the_file_convert(tmp_path) -> None:
+    model, X = _trained_protonet()
+    path = str(tmp_path / "m.eq")
+    checkpoint = _in_format(model, path, 3)
+    checkpoint["train_summary"]["blob"] = torch.ones(2, dtype=torch.complex128)
+    torch.save(checkpoint, path)
+    with pytest.raises(ValueError, match="weights_only=True for a format 2 or 3 file"):
+        upgrade_model_file(path)
+
+    repaired = torch.load(path, weights_only=True)
+    repaired["train_summary"]["blob"] = repaired["train_summary"]["blob"].real
+    torch.save(repaired, path)
+    assert upgrade_model_file(path) == path
+    _assert_same_predictions(model, eq.load_equine_model(path), X)
+
+
+def test_converting_a_data_only_file_imports_the_modules_named_on_the_command_line(
+    tmp_path, capsys
+) -> None:
+    model, _ = _trained_protonet()
+    path = str(tmp_path / "m.eq")
+    torch.save(_in_format(model, path, 3), path)
+    capsys.readouterr()  # training progress
+    assert main([path, "--import", "no_such_module_for_this_test"]) == 1
+    assert "Could not import 'no_such_module_for_this_test'" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("via", ["api", "cli"])
+def test_converting_a_data_only_file_refuses_an_unusable_output(
+    tmp_path, capsys, via
+) -> None:
+    model, _ = _trained_protonet()
+    path = str(tmp_path / "m.eq")
+    torch.save(_in_format(model, path, 3), path)
+    before = Path(path).read_bytes()
+    outputs = {
+        "is not an existing directory": str(tmp_path / "no_such_dir" / "out.eq"),
+        "names a directory": str(tmp_path),
+    }
+    names = ["m.eq"]
+    if os.name != "nt":
+        loop = tmp_path / "loop.eq"
+        loop.symlink_to(loop)
+        outputs["is a symbolic link that cannot be followed"] = str(loop)
+        names.append("loop.eq")
+    capsys.readouterr()  # training progress
+    for message, output in outputs.items():
+        if via == "api":
+            with pytest.raises(ValueError, match=message):
+                upgrade_model_file(path, out_path=output)
+        else:
+            assert main([path, "-o", output]) == 1
+            assert message in capsys.readouterr().err
+    assert Path(path).read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(names)
+
+
+@pytest.mark.parametrize("via", ["api", "cli"])
+def test_converting_a_data_only_file_warns_when_the_mode_cannot_be_copied(
+    tmp_path, monkeypatch, capsys, via
+) -> None:
+    model, X = _trained_protonet()
+    path = str(tmp_path / "m.eq")
+    torch.save(_in_format(model, path, 3), path)
+
+    def refuse(*args, **kwargs):
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "chmod", refuse)
+    monkeypatch.setattr(os, "fchmod", refuse, raising=False)
+    capsys.readouterr()  # training progress
+    if via == "api":
+        with pytest.warns(UserWarning, match="permission bits of '.*m.eq'"):
+            assert upgrade_model_file(path) == path
+    else:
+        assert main([path]) == 0
+        out, err = capsys.readouterr()
+        assert out == f"Upgraded {path} in place.\n"
+        assert err.startswith(f"note: Could not copy the permission bits of '{path}'")
+    _assert_same_predictions(model, eq.load_equine_model(path), X)
+
+
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_follows_a_symlink_and_keeps_the_mode(tmp_path) -> None:
     model, X = _trained_protonet()
@@ -1062,12 +1137,11 @@ def test_upgrade_writes_a_private_file_for_a_private_original(
     _write_legacy_protonet_file(model, str(path))
     os.chmod(path, 0o600)
     write_modes: list = []
-    save = torch.save
 
-    def save_spy(obj, f, *args, **kwargs):
-        if hasattr(f, "fileno"):  # the upgrade writes to an open file
-            write_modes.append(os.fstat(f.fileno()).st_mode & 0o777)
-        return save(obj, f, *args, **kwargs)
+    class Recording(io.BufferedWriter):
+        def write(self, data):
+            write_modes.append(os.fstat(self.fileno()).st_mode & 0o777)
+            return super().write(data)
 
     modes: list = []
     compare = equine.upgrade._require_same_embedding
@@ -1076,20 +1150,23 @@ def test_upgrade_writes_a_private_file_for_a_private_original(
         modes.extend(p.stat().st_mode & 0o777 for p in tmp_path.glob(".*.upgrading"))
         return compare(*args)
 
-    monkeypatch.setattr(torch, "save", save_spy)
+    monkeypatch.setattr(
+        os, "fdopen", lambda descriptor, *args: Recording(io.FileIO(descriptor, "wb"))
+    )
     monkeypatch.setattr(equine.upgrade, "_require_same_embedding", spy)
     with _umask(0o022):
         _upgrade(str(path))
-    assert write_modes == [0o600]
+    assert write_modes and set(write_modes) == {0o600}
     assert modes and set(modes) == {0o600}
     assert path.stat().st_mode & 0o777 == 0o600
     _assert_same_predictions(model, eq.load_equine_model(str(path)), X)
 
     _write_legacy_protonet_file(model, str(path))
     out = tmp_path / "new.eq"
+    write_modes.clear()
     with _umask(0o027):
         _upgrade(str(path), str(out))
-    assert write_modes == [0o600, 0o640]
+    assert write_modes and set(write_modes) == {0o640}
     assert out.stat().st_mode & 0o777 == 0o640
 
 
@@ -1155,11 +1232,16 @@ def test_upgrade_removes_its_file_when_the_write_fails(tmp_path, monkeypatch) ->
     _write_legacy_protonet_file(model, str(path))
     before = path.read_bytes()
 
-    def fail(obj, file, *args, **kwargs):
-        file.write(b"partial")
-        raise RuntimeError("disk full")
+    class FailingWrite(io.BufferedWriter):
+        def write(self, data):
+            super().write(b"partial")
+            raise RuntimeError("disk full")
 
-    monkeypatch.setattr(torch, "save", fail)
+    monkeypatch.setattr(
+        os,
+        "fdopen",
+        lambda descriptor, *args: FailingWrite(io.FileIO(descriptor, "wb")),
+    )
     with pytest.raises(OSError, match=r"Could not write '.*\.upgrading'.*disk full"):
         _upgrade(str(path))
 
@@ -1193,34 +1275,10 @@ def test_upgrade_keeps_use_temperature_for_protonet_files(tmp_path) -> None:
 
     _upgrade(path)
 
-    assert torch.load(path, weights_only=True)["settings"]["use_temperature"] is True
+    assert load_checkpoint(path)["settings"]["use_temperature"] is True
     reloaded = eq.load_equine_model(path)
     assert reloaded.use_temperature is True
     _assert_same_predictions(model, reloaded, X)
-
-
-@pytest.mark.parametrize(
-    "names",
-    [np.array("abc"), np.array([["a", "b"], ["c", "d"]])],
-    ids=["0-d", "2-d"],
-)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_upgrade_leaves_a_name_array_of_the_wrong_rank_alone(tmp_path, names) -> None:
-    """Only one-dimensional arrays are names; any other rank is written as it
-    is, which the safe loader then refuses, so the upgrade reports that and
-    keeps the original."""
-    model, _ = _trained_protonet()
-    path = tmp_path / "legacy.eq"
-    _write_legacy_protonet_file(model, str(path))
-    checkpoint = torch.load(path, weights_only=False)
-    checkpoint["label_names"] = names
-    torch.save(checkpoint, path)
-    before = path.read_bytes()
-
-    with pytest.raises(ValueError, match="safe loader refuses the rewritten file"):
-        _upgrade(str(path))
-
-    assert path.read_bytes() == before
 
 
 def test_upgrade_refuses_a_file_that_is_not_an_equine_model(tmp_path) -> None:
@@ -1254,10 +1312,19 @@ def test_upgrade_command_line(tmp_path, capsys) -> None:
 
     garbage = tmp_path / "garbage.eq"
     garbage.write_bytes(b"hello world, not a pickle")
-    assert main([str(garbage)]) == 1
-    assert "error: --recipe is required" in capsys.readouterr().err
     assert main([str(garbage), "--recipe", _RECIPE]) == 1
-    assert "could not be read as a PyTorch file" in capsys.readouterr().err
+    assert f"error: '{garbage}' is not an EQUINE model file" in capsys.readouterr().err
+    garbage.write_bytes(b"PK\x03\x04" + bytes(64))
+    assert main([str(garbage), "--recipe", _RECIPE]) == 1
+    assert f"error: '{garbage}' could not be read as a PyTorch file" in (
+        capsys.readouterr().err
+    )
+    garbage.write_bytes(b"\x80\x02cnonexistent_module_for_this_test\nthing\nq\x00.")
+    assert main([str(garbage), "--recipe", _RECIPE]) == 1
+    assert (
+        f"error: '{garbage}' could not be read as a PyTorch file (ModuleNotFoundError"
+        in capsys.readouterr().err
+    )
 
     assert main([str(tmp_path)]) == 1  # a directory
     assert "error:" in capsys.readouterr().err
@@ -1293,8 +1360,7 @@ def test_upgrade_command_line(tmp_path, capsys) -> None:
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_converts_non_zip_files(tmp_path) -> None:
-    """The safe loader refuses torch's pre-1.6 format; the upgrade rewrites it as a zip
-    archive."""
+    """The loader refuses torch's pre-1.6 format; the upgrade rewrites it."""
     model, X = _trained_protonet()
     checkpoint_path = str(tmp_path / "legacy.eq")
     _write_legacy_protonet_file(model, checkpoint_path)
@@ -1327,23 +1393,23 @@ def test_upgrade_drops_legacy_linear_head_weights_with_a_note(tmp_path) -> None:
     with pytest.warns(UserWarning, match="Linear head"):
         _upgrade(path)
 
-    assert torch.load(path, weights_only=True)["model_head_save"] == {}
+    assert load_checkpoint(path)["model_head_save"] == {}
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
-def test_linear_head_weights_in_a_current_file_name_the_upgrade(tmp_path) -> None:
+def test_linear_head_weights_in_a_current_file_are_refused(tmp_path) -> None:
     model, _ = _trained_protonet()
     path = str(tmp_path / "m.eq")
     model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = load_checkpoint(path)
     checkpoint["model_head_save"] = dict(_LINEAR_HEAD)
-    torch.save(checkpoint, path)
+    equine._model_file.write(path, checkpoint)
 
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="0.1.6") as err:
+        with pytest.raises(
+            ValueError, match="model_head_save does not match the model its settings"
+        ):
             loader(path)
-        assert "python -m equine.upgrade" in str(err.value)
-        assert "tampered" not in str(err.value)
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
@@ -1359,7 +1425,7 @@ def test_upgrade_drops_use_temperature_from_gp_settings(tmp_path) -> None:
 
     _upgrade(path)
 
-    assert "use_temperature" not in torch.load(path, weights_only=True)["settings"]
+    assert "use_temperature" not in load_checkpoint(path)["settings"]
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
@@ -1376,9 +1442,8 @@ def _slices_of_one_tensor(support):
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_copies_aliased_support_apart(tmp_path, train, write_legacy) -> None:
-    """Legacy files may store support tensors that share one storage. The safe
-    loader refuses that (see _aliasing_checkpoint); the upgrade copies the
-    tensors apart."""
+    """Legacy files may store support tensors that share one storage; the upgrade
+    writes each label's rows."""
     model, X = train()
     support = model.model.support if isinstance(model, eq.EquineProtonet) else None
     if support is not None:
@@ -1393,10 +1458,6 @@ def test_upgrade_copies_aliased_support_apart(tmp_path, train, write_legacy) -> 
 
     _upgrade(legacy_path)
 
-    upgraded = torch.load(legacy_path, weights_only=True)["support"]
-    assert len({t.untyped_storage().data_ptr() for t in upgraded.values()}) == len(
-        upgraded
-    )
     _assert_same_predictions(model, eq.load_equine_model(legacy_path), X)
 
 
@@ -1565,6 +1626,53 @@ def test_upgrade_keeps_extra_state_and_non_persistent_buffers(tmp_path) -> None:
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
+@eq.embedding_architecture("equine.tests.complex_extra_state")
+class _ComplexExtraState(torch.nn.Module):
+    """``_WithExtras`` with an extra state that a model file does not store."""
+
+    def __init__(self, tensor_dim: int, num_classes: int) -> None:
+        super().__init__()
+        self.linear_relu_stack = torch.nn.Sequential(
+            torch.nn.Linear(tensor_dim, 32),
+            torch.nn.ReLU(),
+            torch.nn.Linear(32, num_classes),
+        )
+        self.register_buffer("scale", torch.full((1,), 2.0), persistent=False)
+
+    def forward(self, x):
+        return self.linear_relu_stack(x) * self.scale
+
+    def get_extra_state(self):
+        return torch.ones(2, dtype=torch.complex64)
+
+    def set_extra_state(self, state):
+        pass
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgrade_names_the_embedding_model_for_a_value_a_file_does_not_store(
+    tmp_path,
+) -> None:
+    dataset, _ = _tiny_dataset()
+    model = eq.EquineProtonet(_LegacyWithBuffer(6, 3), 3, ood_distance="rmd_sqrt")
+    model.train_model(
+        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
+    )
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+    before = Path(path).read_bytes()
+
+    with pytest.raises(
+        ValueError,
+        match=r"^The supplied embedding_model \(_ComplexExtraState\) holds a value a "
+        r"model file does not store \(Cannot save: "
+        r"checkpoint\['embedding_state_dict'\]\['_extra_state'\] is a complex64 tensor",
+    ):
+        upgrade_model_file(path, _ComplexExtraState(6, 3))
+    assert Path(path).read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["legacy.eq"]
+
+
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_reports_names_for_a_mismatched_architecture(tmp_path) -> None:
     model, _ = _trained_protonet()
@@ -1609,7 +1717,7 @@ def test_upgrade_of_a_gpu_trained_file_on_the_cpu(tmp_path, monkeypatch) -> None
 
     assert locations == ["cpu"]
 
-    assert torch.load(path, weights_only=True)["settings"]["device"] == "cuda"
+    assert load_checkpoint(path)["settings"]["device"] == "cuda"
     _assert_same_predictions(model, eq.load_equine_model(path, device="cpu"), X)
 
 
@@ -1878,32 +1986,38 @@ def test_upgraded_file_loads_without_torchscript(tmp_path, monkeypatch) -> None:
 @pytest.mark.parametrize("flag", [True, False, None], ids=["flag", "false", "no-flag"])
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_current_file_with_an_archive_is_upgraded(
+def test_format_3_file_with_an_archive_is_upgraded(
     tmp_path, train, write_legacy, flag
 ) -> None:
+    """A format-3 file holding a TorchScript archive is upgraded only with the
+    architecture, and the upgrade warns that reading it is deprecated."""
     model, X = train()
     path = str(tmp_path / "m.eq")
-    model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
-    del checkpoint["embedding_recipe"], checkpoint["embedding_state_dict"]
-    checkpoint["embed_jit_save"] = archive_tensor(
-        model.model.embedding_model
-        if isinstance(model, eq.EquineProtonet)
-        else model.model.feature_extractor
-    )
+    checkpoint = _with_archive(model, path, 3)
     if flag is not None:
         checkpoint["contains_executable"] = flag
     torch.save(checkpoint, path)
-    with pytest.raises(ValueError, match="TorchScript"):
-        eq.load_equine_model(path)
+    before = Path(path).read_bytes()
     copy = str(tmp_path / "copy.eq")
     shutil.copyfile(path, copy)
 
-    assert _upgrade(path) == path
+    with (
+        pytest.warns(FutureWarning, match="deprecated"),
+        pytest.raises(
+            ValueError,
+            match="embedding is TorchScript, so the upgrade needs the registered "
+            r"architecture to rebuild it: pass embedding_model\.$",
+        ),
+    ):
+        upgrade_model_file(path)
+    assert Path(path).read_bytes() == before
+
+    with pytest.warns(FutureWarning, match="deprecated"):
+        assert _upgrade(path) == path
     assert main([copy, "--recipe", _RECIPE]) == 0
 
     for upgraded in (path, copy):
-        checkpoint = torch.load(upgraded, weights_only=True)
+        checkpoint = load_checkpoint(upgraded)
         assert (
             "embed_jit_save" not in checkpoint
             and "contains_executable" not in checkpoint
@@ -2049,6 +2163,8 @@ def test_upgrade_checks_its_arguments_before_unpickling(tmp_path) -> None:
     class Plain(torch.nn.Module):
         pass
 
+    with pytest.raises(ValueError, match="pass embedding_model"):
+        upgrade_model_file(path)
     with pytest.raises(ValueError, match="embedding_architecture"):
         upgrade_model_file(path, Plain())
     with pytest.raises(ValueError, match="check_inputs must be a tensor"):
@@ -2145,595 +2261,6 @@ def test_upgrade_refuses_check_inputs_that_are_not_rows(tmp_path, bad) -> None:
         _upgrade(path, check_inputs=bad)
 
 
-def test_safe_layout_with_payload_is_refused_without_running_it(tmp_path) -> None:
-    """A file that declares the current format but smuggles a payload is not an
-    EQUINE model; the default load never reaches the payload."""
-    marker = tmp_path / "pwned"
-    path = tmp_path / "evil.eq"
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "train_summary": {"modelType": "EquineProtonet"},
-            "payload": _MakesDirectoryWhenUnpickled(str(marker)),
-        },
-        path,
-    )
-    with pytest.raises(ValueError, match="not in the current EQUINE model format"):
-        eq.load_equine_model(str(path))
-    assert not marker.exists()
-
-
-# ---------------------------------------------------------------------------
-# Every tensor a checkpoint yields must be backed by its own storage. A tensor's shape
-# never claims more memory than the file supplied.
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "make_tensor, message",
-    [
-        (lambda: torch.zeros(1).expand(1000, 6), "storage is smaller than its shape"),
-        (
-            lambda: torch.arange(100.0).as_strided((10, 3), (1, 1)),
-            "storage is smaller than its shape",
-        ),
-        (
-            lambda: torch.empty(1000, 1000, device="meta"),
-            "which EQUINE model files do not contain",
-        ),
-        (
-            lambda: torch.sparse_coo_tensor(
-                torch.tensor([[0], [0]]), torch.tensor([1.0]), (100_000, 6)
-            ),
-            "which EQUINE model files do not contain",
-        ),
-    ],
-    ids=["expanded", "overlapping", "meta", "sparse"],
-)
-def test_load_checkpoint_refuses_tensors_without_honest_storage(
-    tmp_path, make_tensor, message
-) -> None:
-    path = tmp_path / "trick.pt"
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "nested": [{"deep": (make_tensor(),)}],
-        },
-        path,
-    )
-    with pytest.raises(ValueError, match=message):
-        load_checkpoint(str(path))
-
-
-_DENSE_DTYPES = (
-    torch.float32,
-    torch.float64,
-    torch.float16,
-    torch.bfloat16,
-    torch.int64,
-    torch.int32,
-    torch.int16,
-    torch.int8,
-    torch.uint8,
-    torch.bool,
-    torch.complex64,
-    torch.complex128,
-)
-
-
-@pytest.mark.parametrize(
-    "make_tensor",
-    [
-        lambda: torch.empty(3, device="meta"),
-        lambda: torch.sparse_coo_tensor(torch.tensor([[0]]), torch.tensor([1.0]), (3,)),
-    ],
-    ids=["meta", "sparse"],
-)
-def test_tensor_without_dense_storage_is_refused(make_tensor) -> None:
-    with pytest.raises(ValueError, match="sparse or meta tensor"):
-        equine.utils._reject_storage_tricks([make_tensor()])
-
-
-def test_load_checkpoint_accepts_honest_views_and_cycles(tmp_path) -> None:
-    base = torch.arange(24.0).reshape(4, 6)
-    cyclic: list = []
-    cyclic.append(cyclic)
-    data = {
-        "transposed": base.t(),
-        "columns": base[:, :3],
-        "rows": base[1:3],
-        "empty": torch.zeros(0, 5),
-        "shared": [base, base],
-        "uint16": torch.tensor([0, 1, 2]).to(torch.uint16),
-        "parameter": torch.nn.Parameter(torch.ones(2)),
-        "dtypes": [torch.tensor([0, 1]).to(dtype) for dtype in _DENSE_DTYPES],
-        "cyclic": cyclic,
-        "equine_format_version": EQUINE_FORMAT_VERSION,
-    }
-    path = tmp_path / "honest.pt"
-    torch.save(data, path)
-    loaded = load_checkpoint(str(path))
-    for key in ("transposed", "columns", "rows", "empty"):
-        assert torch.equal(loaded[key], data[key])
-    assert loaded["uint16"].dtype == torch.uint16
-    assert loaded["uint16"].tolist() == [0, 1, 2]
-    assert type(loaded["parameter"]) is torch.nn.Parameter
-    assert loaded["parameter"].tolist() == [1.0, 1.0]
-    assert [t.dtype for t in loaded["dtypes"]] == list(_DENSE_DTYPES)
-    assert all(t.tolist() == [0, 1] for t in loaded["dtypes"])
-
-
-def test_load_checkpoint_refuses_a_non_dictionary(tmp_path) -> None:
-    path = tmp_path / "list.pt"
-    torch.save([torch.zeros(2)], path)
-    with pytest.raises(ValueError, match="not an EQUINE model file"):
-        load_checkpoint(str(path))
-
-
-# ---------------------------------------------------------------------------
-# A compressed archive (a zip bomb) or one whose entries claim more bytes than the file
-# is refused before torch.load runs.
-# ---------------------------------------------------------------------------
-
-_NOT_PLAIN_ARCHIVE = r"not a plain \(uncompressed\) PyTorch archive"
-
-
-def _rewrite_zip_deflated(src: str, dst: str) -> None:
-    """Copy a torch archive entry by entry into a DEFLATE-compressed zip."""
-    with (
-        zipfile.ZipFile(src) as zin,
-        zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_DEFLATED) as zout,
-    ):
-        for info in zin.infolist():
-            zout.writestr(info.filename, zin.read(info.filename))
-
-
-@pytest.fixture
-def torch_load_calls(monkeypatch) -> list:
-    """Record every call to torch.load."""
-    calls: list = []
-    real_load = torch.load
-
-    def spy(*args, **kwargs):
-        calls.append(args[0] if args else kwargs.get("f"))
-        return real_load(*args, **kwargs)
-
-    monkeypatch.setattr(torch, "load", spy)
-    return calls
-
-
-def test_compressed_archive_is_refused_before_loading(
-    tmp_path, torch_load_calls
-) -> None:
-    model, X = _trained_protonet()
-    genuine = str(tmp_path / "genuine.eq")
-    model.save(genuine)
-    deflated = str(tmp_path / "deflated.eq")
-    _rewrite_zip_deflated(genuine, deflated)
-
-    torch_load_calls.clear()
-    for loader in (eq.load_equine_model, eq.EquineProtonet.load, load_checkpoint):
-        with pytest.raises(ValueError, match=_NOT_PLAIN_ARCHIVE):
-            loader(deflated)
-    assert torch_load_calls == [], "torch.load ran on a compressed archive"
-
-    _assert_same_predictions(model, eq.load_equine_model(genuine), X)
-
-
-def test_archive_whose_entries_claim_more_than_the_file_is_refused(tmp_path) -> None:
-    """Overlapping entries (several names over the same bytes) show up the same
-    way: the entries add up to more than the file."""
-    path = tmp_path / "sizes.pt"
-    torch.save({"x": torch.zeros(16)}, path)
-    data = bytearray(path.read_bytes())
-    header = data.find(b"PK\x01\x02")  # central-directory entries
-    while header != -1:
-        struct.pack_into("<I", data, header + 24, 2**31)  # uncompressed size
-        header = data.find(b"PK\x01\x02", header + 4)
-    path.write_bytes(bytes(data))
-    with pytest.raises(ValueError, match=_NOT_PLAIN_ARCHIVE):
-        load_checkpoint(str(path))
-
-
-def test_unreadable_archive_is_refused(tmp_path) -> None:
-    """A file that starts with the zip signature but that the zipfile module cannot read
-    is refused."""
-    path = tmp_path / "broken.pt"
-    path.write_bytes(b"PK\x03\x04" + bytes(64))
-    with pytest.raises(ValueError, match=_NOT_PLAIN_ARCHIVE):
-        load_checkpoint(str(path))
-
-
-def test_stored_archive_without_a_pickle_is_refused(tmp_path) -> None:
-    """A well-formed, uncompressed zip that is not a PyTorch archive passes the
-    zipfile pre-check; torch's own failure to read it surfaces as a bounded
-    ValueError."""
-    path = tmp_path / "no_pickle.pt"
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
-        archive.writestr("no_pickle/version", "3\n")
-    with pytest.raises(ValueError, match="could not be read as a PyTorch archive"):
-        load_checkpoint(str(path))
-
-
-# ---------------------------------------------------------------------------
-# The pickle may name only what save writes. A dry run refuses anything else before
-# torch.load runs.
-# ---------------------------------------------------------------------------
-
-_NOT_IN_THE_FORMAT = (
-    "^Model file's pickle uses .+, which EQUINE model files do not contain"
-)
-_STORAGE_CALL = "^Model file's pickle calls .+, which EQUINE model files only reference"
-_COPIES_TOO_MUCH = "^Model file's pickle copies more items than it has bytes"
-
-
-class _Reduces:
-    """Pickles as the call ``function(*args)``."""
-
-    def __init__(self, function, *args) -> None:
-        self.function = function
-        self.args = args
-
-    def __reduce__(self):
-        return (self.function, self.args)
-
-
-class _ReferencesAStorage(pickle.Pickler):
-    """Pickles this class as a storage reference without a storage class."""
-
-    def persistent_id(self, obj):
-        return (
-            ("storage", "not a storage class") if obj is _ReferencesAStorage else None
-        )
-
-
-def _torch_load_must_not_run(*args, **kwargs):
-    pytest.fail("torch.load ran")
-
-
-def _pickle_replaced(pickled: bytes):
-    return lambda name, data: pickled if name.endswith("data.pkl") else data
-
-
-def _new_object_pickle() -> bytes:
-    """``{"equine_format_version": ..., "a": OrderedDict.__new__(OrderedDict)}``."""
-    pickled = pickle.dumps(
-        {"equine_format_version": EQUINE_FORMAT_VERSION, "a": None}, protocol=2
-    )
-    assert pickled.count(b"N") == 1
-    return pickled.replace(b"N", b"ccollections\nOrderedDict\n)\x81")
-
-
-def _storage_reference_pickle() -> bytes:
-    buffer = io.BytesIO()
-    _ReferencesAStorage(buffer, protocol=2).dump(
-        {"equine_format_version": EQUINE_FORMAT_VERSION, "a": _ReferencesAStorage}
-    )
-    return buffer.getvalue()
-
-
-@pytest.mark.parametrize(
-    "value, message",
-    [
-        (_Reduces(bytearray, 10**6), _NOT_IN_THE_FORMAT),
-        (_Reduces(torch.FloatTensor, 10**6), _NOT_IN_THE_FORMAT),
-        (_Reduces(torch.UntypedStorage, 10**6), _STORAGE_CALL),
-        (_Reduces(torch.FloatStorage, 10**6), _STORAGE_CALL),
-        (
-            _Reduces(
-                torch._utils._rebuild_device_tensor_from_cpu_tensor,
-                torch.zeros(1, dtype=torch.uint8).expand(10**6),
-                torch.complex128,
-                "cpu",
-                False,
-            ),
-            _NOT_IN_THE_FORMAT,
-        ),
-        (
-            _Reduces(
-                torch._utils._rebuild_tensor_v2, [], 0, (1,), (1,), False, OrderedDict()
-            ),
-            _NOT_IN_THE_FORMAT,
-        ),
-    ],
-    ids=[
-        "bytearray",
-        "tensor-type",
-        "untyped-storage",
-        "storage-class",
-        "dtype-conversion",
-        "tensor-without-storage",
-    ],
-)
-def test_pickle_global_outside_the_format_is_refused_before_loading(
-    tmp_path, monkeypatch, value, message
-) -> None:
-    path = str(tmp_path / "calls.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION, "value": value}, path)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=message):
-        load_checkpoint(path)
-
-
-@pytest.mark.parametrize("name", ["DATA.PKL", "Data.pkl"])
-def test_pickle_record_is_checked_whatever_its_case(
-    tmp_path, monkeypatch, name
-) -> None:
-    """torch reads the pickle record by a case-insensitive name."""
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    value = _Reduces(bytearray, 10**6)
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION, "value": value}, src)
-    with (
-        zipfile.ZipFile(src) as zin,
-        zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_STORED) as zout,
-    ):
-        for info in zin.infolist():
-            data = zin.read(info.filename)
-            if info.filename.endswith("/data.pkl"):
-                info.filename = info.filename[: -len("data.pkl")] + name
-            zout.writestr(info, data)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT):
-        load_checkpoint(dst)
-
-
-def test_dry_run_memory_does_not_follow_a_memo_index(tmp_path) -> None:
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION}, src)
-    pickled = pickle.dumps({"equine_format_version": EQUINE_FORMAT_VERSION}, protocol=2)
-    assert pickled.count(b"q\x00") == 1
-    pickled = pickled.replace(b"q\x00", b"r" + struct.pack("<I", 2**24))
-    _rewrite_zip(src, dst, _pickle_replaced(pickled))
-    tracemalloc.start()
-    try:
-        equine.utils._check_pickle_globals(dst)
-        peak = tracemalloc.get_traced_memory()[1]
-    finally:
-        tracemalloc.stop()
-    assert peak < 20_000_000
-
-
-class _BuildsState:
-    """Pickles as an empty OrderedDict whose state ``BUILD`` sets to ``state``."""
-
-    def __init__(self, state) -> None:
-        self.state = state
-
-    def __reduce__(self):
-        return (OrderedDict, (), self.state)
-
-
-def _same_call(function, args, times: int) -> list:
-    """``times`` calls of ``function`` on one ``args`` tuple, which pickle memoizes."""
-    calls = [_Reduces(function) for _ in range(times)]
-    for call in calls:
-        call.args = args
-    return calls
-
-
-_LONG = list(range(5000))
-_STATE = {f"k{i}": None for i in range(5000)}
-_KEYS = dict.fromkeys(_LONG)
-_STORAGE = torch.zeros(1).untyped_storage()
-_DIMS = (1,) * 5000
-_REBUILD = torch._utils._rebuild_tensor_v2
-
-
-@pytest.mark.parametrize(
-    "value, message",
-    [
-        ([_Reduces(torch.Size, _LONG) for _ in range(50)], _COPIES_TOO_MUCH),
-        ([_Reduces(set, _LONG) for _ in range(50)], _COPIES_TOO_MUCH),
-        ([_Reduces(OrderedDict, _KEYS) for _ in range(50)], _COPIES_TOO_MUCH),
-        ([_BuildsState(_STATE) for _ in range(50)], _COPIES_TOO_MUCH),
-        (
-            _same_call(_REBUILD, (_STORAGE, 0, _DIMS, _DIMS, False, OrderedDict()), 50),
-            _COPIES_TOO_MUCH,
-        ),
-        (_same_call(_REBUILD, (_STORAGE,) + (None,) * 5000, 50), _COPIES_TOO_MUCH),
-    ],
-    ids=["size", "set", "ordered-dict", "build-state", "rebuild-shape", "rebuild-args"],
-)
-def test_pickle_that_copies_more_than_its_length_is_refused_before_loading(
-    tmp_path, monkeypatch, value, message
-) -> None:
-    """Each list repeats one call on the same memoized argument."""
-    path = str(tmp_path / "copies.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION, "value": value}, path)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=message):
-        load_checkpoint(path)
-
-
-def test_dry_run_charges_every_argument_of_a_tensor_rebuild() -> None:
-    buffer = io.BytesIO()
-    torch.save({"value": _same_call(_REBUILD, (_STORAGE,), 100)}, buffer)
-    buffer.seek(0)
-    with torch.serialization._open_zipfile_reader(buffer) as archive:
-        pickled = archive.get_record("data.pkl")
-    unpickler = equine.utils._DryRunUnpickler(io.BytesIO(pickled), budget=len(pickled))
-    unpickler.load()
-    assert len(pickled) - unpickler.budget == 100
-
-
-@pytest.mark.parametrize(
-    "pickled, message",
-    [
-        (_storage_reference_pickle(), _NOT_IN_THE_FORMAT),
-        (
-            pickle.dumps(
-                {
-                    "equine_format_version": EQUINE_FORMAT_VERSION,
-                    "a": _Reduces(OrderedDict, 5),
-                },
-                protocol=2,
-            ),
-            "could not be read as a PyTorch archive",
-        ),
-        (
-            pickle.dumps({"equine_format_version": EQUINE_FORMAT_VERSION}, protocol=2)[
-                :-1
-            ],
-            "could not be read as a PyTorch archive",
-        ),
-        (_new_object_pickle(), "^Model file's pickle uses NEWOBJ"),
-        (b"\x80", "could not be read as a PyTorch archive"),
-        (
-            b"\x80\x63"
-            + pickle.dumps(
-                {"equine_format_version": EQUINE_FORMAT_VERSION}, protocol=4
-            )[2:],
-            "could not be read as a PyTorch archive",
-        ),
-        (b"N\x05.", "could not be read as a PyTorch archive"),
-    ],
-    ids=[
-        "malformed-storage-reference",
-        "failing-call",
-        "truncated",
-        "newobj",
-        "protocol-header-only",
-        "protocol-99",
-        "second-byte-5-without-a-header",
-    ],
-)
-def test_unreadable_pickle_is_refused_before_loading(
-    tmp_path, monkeypatch, pickled, message
-) -> None:
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION}, src)
-    _rewrite_zip(src, dst, _pickle_replaced(pickled))
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=message):
-        load_checkpoint(dst)
-
-
-# ---------------------------------------------------------------------------
-# The safe path maps the file (mmap), refuses storages that claim more than their record
-# holds, and then copies every storage off the mapping.
-# ---------------------------------------------------------------------------
-
-_STORAGE_LIE = "declares tensor storage larger than the data it contains"
-
-
-def _first_record_shortened(name: str, data: bytes) -> bytes:
-    return data[:8] if name.endswith("/data/0") else data
-
-
-def test_storage_claim_past_the_end_of_the_file_is_refused(tmp_path) -> None:
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save({"a": torch.zeros(1_000_000, dtype=torch.uint8)}, src)
-    _rewrite_zip(src, dst, _first_record_shortened)
-    assert os.path.getsize(dst) < 10_000
-    with pytest.raises(ValueError, match=_STORAGE_LIE):
-        load_checkpoint(dst)
-
-
-def test_storage_claim_into_the_next_record_is_refused(tmp_path) -> None:
-    """A short record followed by more data: the claim stays inside the file but
-    reads the following record, so the mapped storages overlap."""
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": torch.full((1024,), 7, dtype=torch.uint8),
-            "b": torch.full((200_000,), 9, dtype=torch.uint8),
-        },
-        src,
-    )
-    _rewrite_zip(src, dst, _first_record_shortened)
-    with pytest.raises(ValueError, match="storages overlap in the file") as err:
-        load_checkpoint(dst)
-    assert _STORAGE_LIE not in str(err.value)
-
-
-def test_loaded_tensors_are_copied_off_the_file(tmp_path) -> None:
-    base = torch.arange(1000.0)
-    path = tmp_path / "t.pt"
-    torch.save(
-        {
-            "a": base,
-            "view": base[10:20],
-            "b": torch.ones(5),
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-        },
-        path,
-    )
-    loaded = load_checkpoint(str(path))
-    # A storage read from a file is never resizable; a fresh copy is.
-    tensors = [v for v in loaded.values() if isinstance(v, torch.Tensor)]
-    assert all(t.untyped_storage().resizable() for t in tensors)
-    # Copied once per storage; the view and its base still share one storage.
-    assert (
-        loaded["view"].untyped_storage().data_ptr()
-        == loaded["a"].untyped_storage().data_ptr()
-    )
-    os.truncate(path, 0)
-    assert torch.equal(loaded["view"], torch.arange(10.0, 20.0))
-
-
-def _aliasing_checkpoint(kind: str) -> dict:
-    shared = torch.rand(50, 6)
-    kde = {"dataset": shared, "bw_factor": 0.5}
-    return {
-        "same_tensor": {"support": {0: shared, 1: shared}},
-        "same_kde": {"outlier_kde": {0: kde, 1: kde}},
-        "support_and_kde": {"support": {0: shared}, "outlier_kde": {0: kde}},
-        "views": {"support": {0: shared[:25], 1: shared[25:]}},
-    }[kind]
-
-
-@pytest.mark.parametrize(
-    "kind", ["same_tensor", "same_kde", "support_and_kde", "views"]
-)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_aliased_support_or_kde_tensors_are_refused(
-    tmp_path, monkeypatch, kind
-) -> None:
-    """Support or KDE tensors that alias one another, in a file without a TorchScript
-    archive, are refused with the repair and without the upgrade hint; the upgrade
-    refuses them too, without unpickling the file."""
-    path = str(tmp_path / "alias.pt")
-    expected = {
-        "equine_format_version": EQUINE_FORMAT_VERSION,
-        **_aliasing_checkpoint(kind),
-    }
-    torch.save(expected, path)
-    with pytest.raises(ValueError, match="alias one another") as err:
-        load_checkpoint(path)
-    assert type(err.value) is ValueError
-    assert "python -m equine.upgrade" not in str(err.value)
-    assert "`torch.load(path, map_location='cpu', weights_only=True)`" in str(err.value)
-    assert "`.clone()` copies" in str(err.value)
-
-    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
-    with pytest.raises(ValueError, match="alias one another"):
-        _upgrade(path)
-
-    # The upgrade gives each label its own copy, which the loader then accepts.
-    equine.utils._unalias_support(expected)
-    assert not equine.utils._support_is_aliased(expected)
-
-
-@pytest.mark.parametrize("container", [set, frozenset])
-def test_load_checkpoint_refuses_sets(tmp_path, container) -> None:
-    """A checkpoint holding a set or a frozenset is refused."""
-    path = str(tmp_path / "set.pt")
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "s": container([torch.zeros(1).expand(1000, 6)]),
-        },
-        path,
-    )
-    if container is set:
-        with pytest.raises(ValueError, match="contains a set"):
-            load_checkpoint(path)
-    else:  # restricted unpickling refuses frozensets by itself
-        with pytest.raises(ValueError, match="not in the current EQUINE model format"):
-            load_checkpoint(path)
-
-
 _OTHER_DEVICE = (
     "cuda"
     if torch.cuda.is_available()
@@ -2748,13 +2275,13 @@ _OTHER_DEVICE = (
 def test_load_checkpoint_maps_tensors_to_the_requested_device(tmp_path) -> None:
     base = torch.arange(100.0)
     path = str(tmp_path / "t.pt")
-    torch.save(
+    equine._model_file.write(
+        path,
         {
             "a": base,
             "view": base[10:20],
             "equine_format_version": EQUINE_FORMAT_VERSION,
         },
-        path,
     )
     loaded = load_checkpoint(path, map_location=_OTHER_DEVICE)
     tensors = [v for v in loaded.values() if isinstance(v, torch.Tensor)]
@@ -2825,16 +2352,22 @@ def test_archive_bytes_is_fast_for_large_tensors() -> None:
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_upgrade_refuses_a_flagged_file_without_an_archive(tmp_path) -> None:
+def test_upgrade_refuses_a_flagged_file_without_an_archive(
+    tmp_path, monkeypatch
+) -> None:
+    """A format-3 file flagged as holding TorchScript, without an archive, is
+    refused from the safe read."""
     model, _ = _trained_protonet()
     path = str(tmp_path / "m.eq")
-    model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = _in_format(model, path, 3)
     checkpoint["contains_executable"] = True
     torch.save(checkpoint, path)
+    before = Path(path).read_bytes()
+    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
     with pytest.raises(ValueError, match="holds no TorchScript archive") as err:
         _upgrade(path)
     assert "was not written by an EQUINE version the upgrade converts" in str(err.value)
+    assert Path(path).read_bytes() == before
 
 
 @pytest.mark.parametrize(
@@ -3012,8 +2545,23 @@ def test_upgrade_of_a_file_saved_from_a_subclass(tmp_path, train, write_legacy) 
             ),
             "Bad support (x).",
         ),
+        (
+            ValueError(
+                "Model file's header is malformed (x); the file was not written by "
+                "save() or was changed after. Save the model again, or upgrade the "
+                "original file again with `python -m equine.upgrade`."
+            ),
+            "Model file's header is malformed (x).",
+        ),
     ],
-    ids=["no-message", "other-type", "temp-path", "upgrade-hint", "tampering"],
+    ids=[
+        "no-message",
+        "other-type",
+        "temp-path",
+        "upgrade-hint",
+        "tampering",
+        "malformed",
+    ],
 )
 def test_upgrade_error_reasons_read_as_one_sentence(err, expected) -> None:
     from equine.upgrade import _reason
@@ -3051,21 +2599,6 @@ def test_upgrade_error_reasons_name_an_escaped_temp_path_both_ways_quoted() -> N
     err = ValueError(f"'{partial}' holds {partial!r}")
 
     assert _reason(err, partial, path) == f"'{path}' holds {path!r}."
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_safe_loader_refusal_reads_as_one_sentence(tmp_path) -> None:
-    model, _ = _trained_protonet()
-    path = str(tmp_path / "legacy.eq")
-    _write_legacy_protonet_file(model, path)
-    checkpoint = torch.load(path, weights_only=False)
-    checkpoint["train_summary"]["tags"] = {"a", "b"}
-    torch.save(checkpoint, path)
-    with pytest.raises(ValueError) as err:
-        _upgrade(path)
-    message = str(err.value)
-    assert "contains a set" in message and "refusing to load. '" in message
-    assert ".." not in message
 
 
 def test_upgrade_reads_every_stored_archive_form() -> None:
@@ -3111,57 +2644,6 @@ def test_declared_torch_floor_is_at_least_2_6() -> None:
     assert floor >= (2, 6), f"declared torch floor {floor} is below the required (2, 6)"
 
 
-def test_load_checkpoint_refuses_old_torch(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(equine.utils, "_torch_version", lambda: (2, 5))
-
-    path = tmp_path / "trivial.pt"
-    torch.save({"a": 1}, path)
-
-    with pytest.raises(ValueError, match="CVE-2025-32434"):
-        load_checkpoint(str(path))
-
-
-def test_load_checkpoint_accepts_supported_torch(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(equine.utils, "_torch_version", lambda: (2, 6))
-
-    path = tmp_path / "trivial.pt"
-    torch.save({"a": 1, "equine_format_version": EQUINE_FORMAT_VERSION}, path)
-
-    assert load_checkpoint(str(path))["a"] == 1
-
-
-@pytest.mark.parametrize("version", ["3", True], ids=["str", "bool"])
-def test_load_rejects_a_malformed_format_version(tmp_path, version) -> None:
-    path = str(tmp_path / "m.eq")
-    torch.save({"equine_format_version": version}, path)
-    with pytest.raises(ValueError, match="equine_format_version is malformed") as err:
-        load_checkpoint(path)
-    assert len(str(err.value)) < 300
-
-
-def test_huge_format_version_gives_a_bounded_error() -> None:
-    """The weights-only unpickler refuses such an int; the check still bounds its
-    message for any caller that reaches it another way."""
-    with pytest.raises(ValueError, match="Unsupported EQUINE") as err:
-        equine.utils._validate_format_version({"equine_format_version": 10**4000})
-    assert len(str(err.value)) < 300
-
-
-def test_load_rejects_newer_format_version(tmp_path) -> None:
-    """A file declaring a format version newer than this EQUINE build
-    understands must be rejected rather than silently misread."""
-    model, _ = _trained_protonet()
-    path = tmp_path / "future.eq"
-    model.save(str(path))
-
-    checkpoint = torch.load(path, weights_only=True)
-    checkpoint["equine_format_version"] = EQUINE_FORMAT_VERSION + 1
-    torch.save(checkpoint, path)
-
-    with pytest.raises(ValueError, match="Unsupported EQUINE model format version"):
-        eq.load_equine_model(str(path))
-
-
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_keeps_the_support_order_of_a_legacy_file(tmp_path) -> None:
     model, X = _trained_protonet()
@@ -3188,7 +2670,7 @@ def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
     _write_legacy_protonet_file(model, path)
     _upgrade(path)
 
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = load_checkpoint(path)
     assert checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION
     assert "ood_distance" not in checkpoint["settings"]
     upgraded = eq.load_equine_model(path)
@@ -3197,7 +2679,7 @@ def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
 
 
 # ---------------------------------------------------------------------------
-# Refused files: what the message names, and the repair it gives
+# Files from development builds: PyTorch archives of format 2 or 3
 # ---------------------------------------------------------------------------
 
 
@@ -3212,10 +2694,21 @@ def _weights_only_load(real_load):
     return load
 
 
-def _with_archive(model, path: str) -> dict:
-    """``model``'s saved checkpoint with its embedding as a TorchScript archive."""
+def _in_format(model, path: str, version: int | None) -> dict:
+    """``model``'s saved checkpoint declaring format ``version`` (no version for
+    None), for the caller to write with ``torch.save``."""
     model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = load_checkpoint(path)
+    if version is None:
+        del checkpoint["equine_format_version"]
+    else:
+        checkpoint["equine_format_version"] = version
+    return checkpoint
+
+
+def _with_archive(model, path: str, version: int | None) -> dict:
+    """``_in_format``'s checkpoint with its embedding as a TorchScript archive."""
+    checkpoint = _in_format(model, path, version)
     del checkpoint["embedding_recipe"], checkpoint["embedding_state_dict"]
     checkpoint["embed_jit_save"] = archive_tensor(
         model.model.embedding_model
@@ -3236,50 +2729,6 @@ def _kde_datasets_of_one_tensor(kdes: dict) -> dict:
     return out
 
 
-def _versionless_overlapping_storages(path: str) -> None:
-    src = path + ".src"
-    torch.save(
-        {
-            "a": torch.full((1024,), 7, dtype=torch.uint8),
-            "b": torch.full((200_000,), 9, dtype=torch.uint8),
-        },
-        src,
-    )
-    _rewrite_zip(src, path, _first_record_shortened)
-
-
-@pytest.mark.parametrize(
-    "write",
-    [
-        lambda path: torch.save({"t": torch.zeros(1).expand(1000, 6)}, path),
-        lambda path: torch.save(
-            {"t": torch.arange(100.0).as_strided((10, 3), (1, 1))}, path
-        ),
-        _versionless_overlapping_storages,
-        lambda path: torch.save(_aliasing_checkpoint("views"), path),
-        lambda path: torch.save(_aliasing_checkpoint("same_kde"), path),
-        lambda path: torch.save({"s": {torch.zeros(2)}}, path),
-    ],
-    ids=[
-        "expanded",
-        "overlapping-view",
-        "overlapping-storages",
-        "aliased-support",
-        "aliased-kde",
-        "set",
-    ],
-)
-def test_file_without_a_version_is_legacy_before_its_tensors_are_checked(
-    tmp_path, write
-) -> None:
-    path = str(tmp_path / "old.pt")
-    write(path)
-    with pytest.raises(
-        LegacyFormatError, match="not in the current EQUINE model format"
-    ):
-        load_checkpoint(path)
-
-
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_converts_a_file_without_a_version_whose_support_is_aliased(
@@ -3287,8 +2736,7 @@ def test_upgrade_converts_a_file_without_a_version_whose_support_is_aliased(
 ) -> None:
     model, X = train()
     path = str(tmp_path / "m.eq")
-    checkpoint = _with_archive(model, path)
-    del checkpoint["equine_format_version"]
+    checkpoint = _with_archive(model, path, None)
     checkpoint["support"] = _slices_of_one_tensor(checkpoint["support"])
     torch.save(checkpoint, path)
     with pytest.raises(LegacyFormatError):
@@ -3296,32 +2744,7 @@ def test_upgrade_converts_a_file_without_a_version_whose_support_is_aliased(
 
     assert _upgrade(path) == path
 
-    upgraded = torch.load(path, weights_only=True)["support"]
-    assert len({t.untyped_storage().data_ptr() for t in upgraded.values()}) == len(
-        upgraded
-    )
     _assert_same_predictions(model, eq.load_equine_model(path), X)
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_upgrade_refuses_a_file_without_a_version_holding_a_set(tmp_path) -> None:
-    """The upgrade reads the file, then refuses the rewritten file, naming the set;
-    the original stays."""
-    model, _ = _trained_protonet()
-    path = tmp_path / "m.eq"
-    checkpoint = _with_archive(model, str(path))
-    del checkpoint["equine_format_version"]
-    checkpoint["train_summary"]["extra"] = {1, 2}
-    torch.save(checkpoint, path)
-    before = path.read_bytes()
-
-    with pytest.raises(
-        ValueError, match="safe loader refuses the rewritten file"
-    ) as err:
-        _upgrade(str(path))
-
-    assert "contains a set" in str(err.value)
-    assert path.read_bytes() == before
 
 
 _FORMAT_2_ALIASING = [
@@ -3337,12 +2760,11 @@ def test_format_2_file_with_aliased_data_is_upgraded_from_the_safe_read(
     tmp_path, monkeypatch, train, aliased
 ) -> None:
     """A format-2 file holding a TorchScript archive whose support or KDE data are
-    views of one tensor: the loaders give the TorchScript message, and the upgrade
-    reads the file without unrestricted unpickling and copies the labels apart."""
+    views of one tensor: the upgrade reads the file without unrestricted unpickling
+    and writes each label's data."""
     model, X = train()
     path = str(tmp_path / "m.eq")
-    checkpoint = _with_archive(model, path)
-    checkpoint["equine_format_version"] = 2
+    checkpoint = _with_archive(model, path, 2)
     if aliased == "support":
         original = dict(checkpoint["support"])
         checkpoint["support"] = _slices_of_one_tensor(checkpoint["support"])
@@ -3353,246 +2775,63 @@ def test_format_2_file_with_aliased_data_is_upgraded_from_the_safe_read(
         )
     torch.save(checkpoint, path)
 
-    for loader in (load_checkpoint, type(model).load, eq.load_equine_model):
-        with pytest.raises(
-            ValueError, match="stores its embedding model as TorchScript"
-        ) as err:
-            loader(path)
-        assert type(err.value) is ValueError
-
     monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
     assert _upgrade(path) == path
 
-    stored = torch.load(path, weights_only=True)[aliased]
+    stored = load_checkpoint(path)[aliased]
     rows = {k: v if aliased == "support" else v["dataset"] for k, v in stored.items()}
-    assert len({t.untyped_storage().data_ptr() for t in rows.values()}) == len(rows)
     assert all(torch.equal(rows[k], original[k]) for k in original)
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_flagged_file_without_an_archive_and_aliased_support_is_not_unpickled(
-    tmp_path, monkeypatch
+@pytest.mark.parametrize("via", ["api", "cli"])
+@pytest.mark.parametrize("version", [2, 3])
+@pytest.mark.parametrize(
+    "train", [_trained_protonet, _trained_gp], ids=["protonet", "gp"]
+)
+def test_data_only_file_of_format_2_or_3_is_converted_without_the_architecture(
+    tmp_path, capsys, train, version, via
 ) -> None:
-    """A file flagged as holding TorchScript, without an archive, whose support is
-    aliased gets the alias refusal, from the loader and the upgrade alike."""
-    model, _ = _trained_protonet()
-    path = tmp_path / "m.eq"
-    model.save(str(path))
-    checkpoint = torch.load(path, weights_only=True)
-    checkpoint["contains_executable"] = True
-    checkpoint["support"] = _slices_of_one_tensor(checkpoint["support"])
-    torch.save(checkpoint, path)
-    before = path.read_bytes()
-
-    with pytest.raises(ValueError, match="alias one another") as err:
-        load_checkpoint(str(path))
-    assert "`torch.load(path, map_location='cpu', weights_only=True)`" in str(err.value)
-
-    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
-    with pytest.raises(ValueError, match="alias one another"):
-        _upgrade(str(path))
-    assert path.read_bytes() == before
-
-
-@pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
-def test_the_alias_message_repair_gives_a_file_that_loads(
-    tmp_path, train, write_legacy
-) -> None:
+    """A file whose embedding is a recipe and weights is rewritten with the same
+    contents, without embedding_model or --recipe and without a deprecation warning:
+    in place through the API, to -o through the command line. A format-2 file's
+    ``contains_executable`` entry is dropped."""
     model, X = train()
     path = str(tmp_path / "m.eq")
-    model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
-    checkpoint["support"] = _slices_of_one_tensor(checkpoint["support"])
+    checkpoint = _in_format(model, path, version)
+    if version == 2:
+        checkpoint["contains_executable"] = False
     torch.save(checkpoint, path)
-    with pytest.raises(ValueError, match="alias one another") as err:
-        eq.load_equine_model(path)
-    assert "`torch.load(path, map_location='cpu', weights_only=True)`" in str(err.value)
+    before = Path(path).read_bytes()
+    out = str(tmp_path / "out.eq")
+    capsys.readouterr()  # training progress
 
-    # The repair the message gives.
-    repaired = torch.load(path, map_location="cpu", weights_only=True)
-    for key in ("support", "outlier_kde"):
-        if key in repaired:
-            repaired[key] = {
-                label: (
-                    {
-                        name: v.clone() if isinstance(v, torch.Tensor) else v
-                        for name, v in value.items()
-                    }
-                    if isinstance(value, dict)
-                    else value.clone()
-                )
-                for label, value in repaired[key].items()
-            }
-    torch.save(repaired, path)
-    _assert_same_predictions(model, eq.load_equine_model(path), X)
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        b"abc",
-        bytearray(b"abc"),
-        bytearray(),
-        bytearray(b"a" * 1000),
-        bytearray(os.urandom(1000)),
-        [b"x", b"y"],
-    ],
-    ids=[
-        "bytes",
-        "bytearray",
-        "empty-bytearray",
-        "bytearray-1000",
-        "bytearray-random",
-        "list-of-bytes",
-    ],
-)
-@pytest.mark.parametrize("versioned", [True, False], ids=["versioned", "no-version"])
-def test_bytes_values_are_refused_with_the_repair(
-    tmp_path, monkeypatch, value, versioned
-) -> None:
-    path = str(tmp_path / "b.pt")
-    contents: dict = {"value": value}
-    if versioned:
-        contents["equine_format_version"] = EQUINE_FORMAT_VERSION
-    torch.save(contents, path)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value") as err:
-        load_checkpoint(path)
-    assert "`torch.load(path, map_location='cpu', weights_only=True)`" in str(err.value)
-
-
-def test_bytes_next_to_an_allocation_get_the_allocation_refusal(
-    tmp_path, monkeypatch
-) -> None:
-    """A file holding a bytes value and a refused allocation call gets the
-    allocation refusal."""
-    path = str(tmp_path / "b.pt")
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": b"abc",
-            "b": _Reduces(bytearray, 10**6),
-        },
-        path,
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        if via == "api":
+            assert upgrade_model_file(path) == path
+            out = path
+        else:
+            assert main([path, "-o", out]) == 0
+            assert Path(path).read_bytes() == before
+    assert capsys.readouterr() == (
+        "" if via == "api" else f"Upgraded {path} -> {out}\n",
+        "",
     )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(path)
-    assert "bytearray" in str(err.value)
 
-
-@pytest.mark.parametrize(
-    "args",
-    [
-        ("abc", "utf-32"),
-        ("abc", "hex"),
-        ("abc", "latin-1"),
-        (5, "latin1"),
-        ("a\u0100", "latin1"),
-        ("abc",),
-        ("abc", "latin1", "strict"),
-    ],
-    ids=[
-        "utf-32",
-        "hex",
-        "latin-1",
-        "not-a-str",
-        "beyond-latin-1",
-        "one-argument",
-        "three-arguments",
-    ],
-)
-def test_codecs_encode_other_than_bytes_is_refused(tmp_path, monkeypatch, args) -> None:
-    """Only the call pickle writes for a bytes value builds one."""
-    path = str(tmp_path / "e.pt")
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": _Reduces(codecs.encode, *args),
-        },
-        path,
-    )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(path)
-    assert "_codecs.encode" in str(err.value)
-    assert "holds a bytes or bytearray value" not in str(err.value)
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_the_bytes_message_repair_lets_the_upgrade_convert_the_archive(
-    tmp_path,
-) -> None:
-    model, X = _trained_protonet()
-    path = str(tmp_path / "m.eq")
-    checkpoint = _with_archive(model, path)
-    checkpoint["embed_jit_save"] = checkpoint["embed_jit_save"].numpy().tobytes()
-    torch.save(checkpoint, path)
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value"):
-        eq.load_equine_model(path)
-
-    # The repair the message gives.
-    repaired = torch.load(path, map_location="cpu", weights_only=True)
-    repaired["embed_jit_save"] = torch.frombuffer(
-        bytearray(repaired["embed_jit_save"]), dtype=torch.uint8
-    )
-    torch.save(repaired, path)
-
-    assert _upgrade(path) == path
-    _assert_same_predictions(model, eq.load_equine_model(path), X)
-
-
-@pytest.mark.parametrize("protocol", [4, 5])
-def test_pickle_protocol_4_or_higher_is_named_with_the_repair(
-    tmp_path, monkeypatch, protocol
-) -> None:
-    """The repair reads the file onto the CPU, so a storage tagged for another device
-    keeps its data."""
-    path = str(tmp_path / "p.pt")
-    contents = {"equine_format_version": EQUINE_FORMAT_VERSION, "t": torch.arange(3.0)}
-    with monkeypatch.context() as patch:
-        patch.setattr(torch.serialization, "location_tag", lambda storage: "meta")
-        torch.save(contents, path, pickle_protocol=protocol)
-    with pytest.raises(
-        ValueError,
-        match=f"uses protocol {protocol}, which torch's safe loader does not read",
-    ) as err:
-        load_checkpoint(path)
-    assert "If you trust the file" in str(err.value)
-    assert "`torch.load(path, map_location='cpu', weights_only=False)`" in str(
-        err.value
-    )
-    assert not isinstance(err.value, LegacyFormatError)
-
-    # The repair the message gives.
-    torch.save(torch.load(path, map_location="cpu", weights_only=False), path)
-    assert torch.equal(load_checkpoint(path)["t"], contents["t"])
-
-
-@pytest.mark.parametrize(
-    "protocol, contents",
-    [
-        (0, {"t": torch.arange(3.0)}),
-        (1, {"t": torch.arange(3.0)}),
-        (3, {"note": b"abc"}),
-    ],
-    ids=["protocol-0", "protocol-1", "protocol-3-bytes"],
-)
-def test_other_pickles_torch_cannot_scan_keep_the_archive_message(
-    tmp_path, protocol, contents
-) -> None:
-    path = str(tmp_path / "p.pt")
-    torch.save(
-        {"equine_format_version": EQUINE_FORMAT_VERSION, **contents},
-        path,
-        pickle_protocol=protocol,
-    )
-    with pytest.raises(
-        ValueError, match="could not be read as a PyTorch archive"
-    ) as err:
-        load_checkpoint(path)
-    assert "uses protocol" not in str(err.value)
+    expected = {k: v for k, v in checkpoint.items() if k != "contains_executable"}
+    expected["equine_format_version"] = EQUINE_FORMAT_VERSION
+    tensors, header = equine._model_file.encode(expected)
+    written_tensors, written_header = equine._model_file.encode(load_checkpoint(out))
+    assert written_header == header
+    assert written_tensors.keys() == tensors.keys()
+    for name, tensor in tensors.items():
+        assert written_tensors[name].dtype == tensor.dtype
+        assert torch.equal(written_tensors[name], tensor)
+    expected_output = model.predict(X[1:10])
+    output = eq.load_equine_model(out).predict(X[1:10])
+    assert torch.equal(output.classes, expected_output.classes)
+    assert torch.equal(output.ood_scores, expected_output.ood_scores)
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
@@ -3605,347 +2844,3 @@ def test_upgrade_names_what_a_file_without_a_train_summary_lacks(tmp_path) -> No
         "with a train_summary",
     ):
         _upgrade(path)
-
-
-def _ordered_dict_with(**attributes) -> OrderedDict:
-    """An OrderedDict with ``attributes`` set on it, which pickle restores by BUILD."""
-    ordered = OrderedDict(a=1)
-    for name, value in attributes.items():
-        setattr(ordered, name, value)
-    return ordered
-
-
-@pytest.mark.parametrize(
-    "value, name",
-    [
-        (lambda: codecs.encode, "_codecs.encode"),
-        (lambda: bytearray, "bytearray"),
-        (lambda: {codecs.encode: 1}, "_codecs.encode"),
-        (lambda: [b"abc", codecs.encode], "_codecs.encode"),
-        (
-            lambda: [str(i) for i in range(300)] + [b"abc", codecs.encode],
-            "_codecs.encode",
-        ),
-        (
-            lambda: _Reduces(
-                torch._utils._rebuild_tensor_v2,
-                torch.zeros(1).storage(),
-                0,
-                (1,),
-                (1,),
-                False,
-                OrderedDict([("hook", codecs.encode)]),
-            ),
-            "_codecs.encode",
-        ),
-        (lambda: _Reduces(torch.Size, {1: codecs.encode}), "_codecs.encode"),
-        (lambda: _Reduces(set, {1: codecs.encode}), "_codecs.encode"),
-        (
-            lambda: _Reduces(OrderedDict, _ordered_dict_with(hook=bytearray)),
-            "bytearray",
-        ),
-        (lambda: _ordered_dict_with(hook=codecs.encode), "_codecs.encode"),
-    ],
-    ids=[
-        "encode",
-        "bytearray",
-        "dict-key",
-        "encode-after-a-call",
-        "encode-after-a-call-long-memo",
-        "in-backward-hooks",
-        "size-of-a-dict",
-        "set-of-a-dict",
-        "ordered-dict-copy",
-        "build-state",
-    ],
-)
-@pytest.mark.filterwarnings("ignore:TypedStorage is deprecated")
-def test_bytes_calls_named_without_being_called_are_refused(
-    tmp_path, monkeypatch, value, name
-) -> None:
-    path = str(tmp_path / "r.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION, "a": value()}, path)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(path)
-    assert name in str(err.value)
-    assert "holds a bytes or bytearray value" not in str(err.value)
-
-
-def test_bytearray_copies_are_charged_their_length(tmp_path, monkeypatch) -> None:
-    """One stored bytes value copied through bytearray until the copies exceed the
-    pickle's length is refused by the budget."""
-    path = str(tmp_path / "c.pt")
-    data = b"a" * 10_000
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": [_Reduces(bytearray, data) for _ in range(100)],
-        },
-        path,
-    )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_COPIES_TOO_MUCH):
-        load_checkpoint(path)
-
-
-@pytest.mark.parametrize(
-    "message",
-    [
-        lambda: equine.utils._ALIASED_SUPPORT_ERROR,
-        lambda: equine.utils._PICKLE_BYTES_ERROR,
-        lambda: equine.utils._PICKLE_PROTOCOL_ERROR.format(protocol=4),
-    ],
-    ids=["aliased", "bytes", "protocol"],
-)
-def test_upgrade_error_reasons_cut_the_loaders_repair(message) -> None:
-    from equine.upgrade import _reason
-
-    text = message()
-    reason = _reason(ValueError(text), "/out/.m.eq.0123.upgrading", "/out/m.eq")
-    assert "torch.load" not in reason
-    assert "python -m equine.upgrade" not in reason
-    assert reason.startswith(text.split("refusing to load.")[0])
-
-
-def _with_edited_pickle(tmp_path, contents: dict, old: bytes, new: bytes) -> str:
-    """A file of ``contents`` whose pickle has ``old`` replaced by ``new``."""
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save(contents, src)
-    with zipfile.ZipFile(src) as archive:
-        record = next(n for n in archive.namelist() if n.endswith("/data.pkl"))
-        pickled = archive.read(record)
-    assert pickled.count(old) == 1
-    _rewrite_zip(src, dst, _pickle_replaced(pickled.replace(old, new)))
-    return dst
-
-
-@pytest.mark.parametrize(
-    "contents, old, new, name",
-    [
-        (
-            {"equine_format_version": EQUINE_FORMAT_VERSION},
-            b"\x80\x02",
-            b"\x80\x02c_codecs\nencode\n",
-            "_codecs.encode",
-        ),
-        (
-            {"equine_format_version": EQUINE_FORMAT_VERSION},
-            b"\x80\x02",
-            b"\x80\x02c__builtin__\nbytearray\n",
-            "bytearray",
-        ),
-        (
-            {"equine_format_version": EQUINE_FORMAT_VERSION},
-            b"\x80\x02",
-            b"\x80\x02(c_codecs\nencode\n",
-            "_codecs.encode",
-        ),
-        (
-            {"equine_format_version": EQUINE_FORMAT_VERSION, "x": torch.arange(3.0)},
-            b"X\x03\x00\x00\x00cpu",
-            b"c_codecs\nencode\n",
-            "_codecs.encode",
-        ),
-    ],
-    ids=["left-on-the-stack", "bytearray-left", "after-an-unclosed-mark", "location"],
-)
-def test_bytes_calls_left_in_the_pickle_are_refused(
-    tmp_path, monkeypatch, contents, old, new, name
-) -> None:
-    """References that unpickling drops (below the result at STOP, after an unclosed
-    MARK, in a storage reference's location) are refused too."""
-    path = _with_edited_pickle(tmp_path, contents, old, new)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(path)
-    assert name in str(err.value)
-
-
-def test_a_chain_of_bytearray_copies_is_charged(tmp_path, monkeypatch) -> None:
-    """Each bytearray of a bytearray is charged the length it copies."""
-    path = str(tmp_path / "chain.pt")
-    value = b"a" * 10_000
-    for _ in range(50):
-        value = _Reduces(bytearray, value)
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION, "a": value}, path)
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_COPIES_TOO_MUCH):
-        load_checkpoint(path)
-
-
-def _dict_pickle(value: bytes) -> bytes:
-    """A protocol-2 pickle of ``{"equine_format_version": ..., "x": <value>}``, where
-    ``value`` is raw pickle opcodes that leave one object on the stack."""
-    key = b"equine_format_version"
-    return (
-        b"\x80\x02}("
-        + b"X"
-        + struct.pack("<I", len(key))
-        + key
-        + b"K"
-        + bytes([EQUINE_FORMAT_VERSION])
-        + b"X\x01\x00\x00\x00x"
-        + value
-        + b"u."
-    )
-
-
-@pytest.mark.parametrize(
-    "value, name",
-    [
-        (
-            b"c_codecs\nencode\n}bX\x03\x00\x00\x00abcX\x06\x00\x00\x00latin1\x86R",
-            "_codecs.encode",
-        ),
-        (b"c__builtin__\nbytearray\n}b)R", "bytearray"),
-        (
-            b"(c_codecs\nencode\n}bX\x03\x00\x00\x00abcX\x06\x00\x00\x00latin1\x86Rt",
-            "_codecs.encode",
-        ),
-        (b"(c__builtin__\nbytearray\n}b)Rt", "bytearray"),
-    ],
-    ids=["encode", "bytearray", "encode-in-a-frame", "bytearray-in-a-frame"],
-)
-def test_build_on_a_bytes_call_is_refused(tmp_path, monkeypatch, value, name) -> None:
-    """BUILD on _codecs.encode or bytearray, even when the pickle then calls it."""
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION}, src)
-    _rewrite_zip(src, dst, _pickle_replaced(_dict_pickle(value)))
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(dst)
-    assert name in str(err.value)
-
-
-def test_encoding_one_text_many_times_is_charged(tmp_path, monkeypatch) -> None:
-    """Each _codecs.encode call is charged its text's length, also when the pickle
-    reuses one stored text."""
-    path = str(tmp_path / "e.pt")
-    text = "a" * 10_000
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": [_Reduces(codecs.encode, text, "latin1") for _ in range(100)],
-        },
-        path,
-    )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_COPIES_TOO_MUCH):
-        load_checkpoint(path)
-
-
-def test_a_call_through_a_stored_setstate_is_not_counted(tmp_path, monkeypatch) -> None:
-    """BUILD calling a bytearray stored as an OrderedDict's __setstate__ does not
-    consume the reference, so the file is refused naming bytearray."""
-    value = (
-        b"ccollections\nOrderedDict\n)R"
-        b"}X\x0c\x00\x00\x00__setstate__c__builtin__\nbytearray\nsb"
-        b"c_codecs\nencode\nX\x03\x00\x00\x00abcX\x06\x00\x00\x00latin1\x86Rb"
-    )
-    src, dst = str(tmp_path / "src.pt"), str(tmp_path / "dst.pt")
-    torch.save({"equine_format_version": EQUINE_FORMAT_VERSION}, src)
-    _rewrite_zip(src, dst, _pickle_replaced(_dict_pickle(value)))
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(dst)
-    assert "bytearray" in str(err.value)
-
-
-def test_bytearray_other_than_a_copy_is_refused(tmp_path, monkeypatch) -> None:
-    path = str(tmp_path / "b.pt")
-    torch.save(
-        {
-            "equine_format_version": EQUINE_FORMAT_VERSION,
-            "a": _Reduces(bytearray, b"abc", "latin-1"),
-        },
-        path,
-    )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match=_NOT_IN_THE_FORMAT) as err:
-        load_checkpoint(path)
-    assert "bytearray" in str(err.value)
-    assert "holds a bytes or bytearray value" not in str(err.value)
-
-
-def test_the_bytes_repair_keeps_tensors_tagged_for_another_device(
-    tmp_path, monkeypatch
-) -> None:
-    """The repair reads the file onto the CPU, as the loader does, so a storage
-    tagged for another device keeps its data."""
-    path = str(tmp_path / "m.pt")
-    with monkeypatch.context() as patch:
-        patch.setattr(torch.serialization, "location_tag", lambda storage: "meta")
-        torch.save(
-            {
-                "equine_format_version": EQUINE_FORMAT_VERSION,
-                "t": torch.arange(6.0),
-                "b": b"abc",
-            },
-            path,
-        )
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value") as err:
-        load_checkpoint(path)
-    assert "map_location='cpu'" in str(err.value)
-
-    # The repair the message gives.
-    repaired = torch.load(path, map_location="cpu", weights_only=True)
-    repaired["b"] = torch.frombuffer(bytearray(repaired["b"]), dtype=torch.uint8)
-    torch.save(repaired, path)
-
-    assert torch.equal(load_checkpoint(path)["t"], torch.arange(6.0))
-
-
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_a_bytes_value_never_reaches_the_unrestricted_read(
-    tmp_path, monkeypatch
-) -> None:
-    """A file without a version holding a bytes value is refused, not classed as
-    one from an earlier release, so the upgrade refuses it too."""
-    path = str(tmp_path / "b.pt")
-    torch.save(
-        {
-            "value": b"abc",
-            "train_summary": {},
-            "embed_jit_save": torch.zeros(3, dtype=torch.uint8),
-        },
-        path,
-    )
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value") as err:
-        load_checkpoint(path)
-    assert not isinstance(err.value, LegacyFormatError)
-
-    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value"):
-        _upgrade(path)
-
-
-def test_an_empty_bytearray_in_protocol_3_gets_the_bytes_message(
-    tmp_path, monkeypatch
-) -> None:
-    """Protocol 3 names the class builtins.bytearray."""
-    path = str(tmp_path / "b.pt")
-    torch.save(
-        {"equine_format_version": EQUINE_FORMAT_VERSION, "a": bytearray()},
-        path,
-        pickle_protocol=3,
-    )
-    monkeypatch.setattr(torch, "load", _torch_load_must_not_run)
-    with pytest.raises(ValueError, match="holds a bytes or bytearray value"):
-        load_checkpoint(path)
-
-
-@pytest.mark.parametrize(
-    "pickled",
-    [
-        b"c_codecs\nencode\np0\n(Vabc\nVlatin1\ntR0g0\n.",
-        b"c_codecs\nencode\n2(Vabc\nVlatin1\ntR0.",
-    ],
-    ids=["get", "dup"],
-)
-def test_the_dry_run_counts_references_from_get_and_dup(pickled) -> None:
-    """torch's scan refuses GET and DUP; the dry run counts them as references."""
-    unpickler = equine.utils._DryRunUnpickler(io.BytesIO(pickled), budget=len(pickled))
-    unpickler.load()
-    with pytest.raises(ValueError, match="_codecs.encode"):
-        unpickler.refuse_uncalled()

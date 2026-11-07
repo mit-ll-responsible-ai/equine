@@ -24,6 +24,7 @@ from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
 import equine.utils
+from equine import _model_file
 from equine.equine_gp import _inverse_via_cholesky
 
 pytestmark = pytest.mark.device
@@ -197,10 +198,10 @@ def test_gp_loads_seen_data_of_another_integer_dtype_as_int64(dtype, tmp_path):
     model, _, _ = _gp("cpu")
     path = str(tmp_path / "gp.eq")
     model.save(path)
-    checkpoint = torch.load(path, weights_only=True)
+    checkpoint = _model_file.read(path)
     stored = checkpoint["laplace_model_save"]["seen_data"].to(dtype)
     checkpoint["laplace_model_save"]["seen_data"] = stored
-    torch.save(checkpoint, path)
+    _model_file.write(path, checkpoint)
 
     loaded = eq.EquineGP.load(path)
 
@@ -361,13 +362,13 @@ def test_loaders_read_the_file_onto_the_cpu(build, device, tmp_path, monkeypatch
     path = str(tmp_path / "m.eq")
     model.save(path)
     read_onto: list[str] = []
-    copy_off_the_file = equine.utils._copy_off_the_file
+    load_checkpoint = equine.utils.load_checkpoint
 
-    def spy(tensors, map_location):
+    def spy(path, map_location=None):
         read_onto.append(torch.device(map_location or "cpu").type)
-        copy_off_the_file(tensors, map_location)
+        return load_checkpoint(path, map_location)
 
-    monkeypatch.setattr(equine.utils, "_copy_off_the_file", spy)
+    monkeypatch.setattr(equine.utils, "load_checkpoint", spy)
     for loader in (type(model).load, eq.load_equine_model):
         loaded = loader(path, device)
         assert_on_device(loaded, device)

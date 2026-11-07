@@ -256,12 +256,9 @@ class _Laplace(torch.nn.Module):
                 0, 0.05, (num_gp_features, num_deep_features)
             )
             self.register_buffer("random_matrix", random_matrix)
-            self.jl: Callable = lambda x: torch.nn.functional.linear(
-                x, self.random_matrix
-            )
         else:
             self.num_gp_features: int = num_deep_features
-            self.jl: Callable = lambda x: x  # Identity
+        self._has_projection: bool = num_gp_features > 0
 
         self.normalize_gp_features = normalize_gp_features
         if normalize_gp_features:
@@ -284,6 +281,25 @@ class _Laplace(torch.nn.Module):
         self.recompute_covariance = True
         self.register_buffer("covariance", torch.eye(num_random_features))
         self.training_parameters_set = False
+
+    def jl(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Project features onto the GP feature space.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The feature-extractor output.
+
+        Returns
+        -------
+        torch.Tensor
+            The projected features, or ``x`` unchanged when no
+            projection was built.
+        """
+        if self._has_projection:
+            return torch.nn.functional.linear(x, self.random_matrix)
+        return x
 
     def reset_precision_matrix(self) -> None:
         """
@@ -398,7 +414,9 @@ class _Laplace(torch.nn.Module):
         pred = self.beta(k)
 
         if self.training:
-            precision_minibatch = k.t() @ k
+            # Detached: the stored precision carries no autograd graph.
+            k_detached = k.detach()
+            precision_minibatch = k_detached.t() @ k_detached
             self.precision += precision_minibatch
             # Marks any covariance cached since the last reset as stale.
             self.recompute_covariance = True
@@ -756,14 +774,18 @@ class EquineGP(Equine):
                 (label, self._input_to_model(x)) for label, x in support.items()
             )
 
-            support_embeddings = OrderedDict().fromkeys(
-                self.support.keys(), torch.Tensor()
-            )
-            for label in self.support:
-                support_embeddings[label] = self.compute_embeddings(self.support[label])
+            # Embedded without autograd: the result carries no graph.
+            with torch.no_grad():
+                support_embeddings = OrderedDict().fromkeys(
+                    self.support.keys(), torch.Tensor()
+                )
+                for label in self.support:
+                    support_embeddings[label] = self.compute_embeddings(
+                        self.support[label]
+                    )
 
-            self.support_embeddings = support_embeddings
-            self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
+                self.support_embeddings = support_embeddings
+                self.prototypes: torch.Tensor = self._prototypes_from_embeddings()
 
     def compute_embeddings(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -1184,11 +1206,12 @@ class EquineGP(Equine):
             )
             if len(support) > 0:
                 eq_model.support = support
-                eq_model.support_embeddings = OrderedDict(
-                    (label, eq_model.compute_embeddings(x))
-                    for label, x in support.items()
-                )
-                eq_model.prototypes = eq_model._prototypes_from_embeddings()
+                with torch.no_grad():
+                    eq_model.support_embeddings = OrderedDict(
+                        (label, eq_model.compute_embeddings(x))
+                        for label, x in support.items()
+                    )
+                    eq_model.prototypes = eq_model._prototypes_from_embeddings()
         except Exception as err:
             raise ValueError(
                 "Model file's support could not be passed through its embedding "

@@ -2,6 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import copy
 from collections import OrderedDict
 
 import pytest
@@ -686,3 +687,32 @@ def test_predict_accepts_nan_input_that_the_embedding_handles() -> None:
     out = model.predict(rows)
     assert torch.equal(out.classes, expected.classes)
     assert torch.equal(out.ood_scores, expected.ood_scores)
+
+
+def test_equine_protonet_deepcopy_after_train_model() -> None:
+    """A trained Protonet keeps no autograd history; deepcopy works."""
+    model, _, _ = _briefly_trained_protonet_with_data()
+    for name, t in stored_tensors(model).items():
+        assert t.grad_fn is None, f"{name} still has a grad_fn"
+    copy.deepcopy(model)
+
+
+def test_equine_protonet_loaded_from_a_file_keeps_no_autograd_history(
+    tmp_path,
+) -> None:
+    model, _, _ = _briefly_trained_protonet_with_data()
+    path = str(tmp_path / "protonet.eq")
+    model.save(path)
+    loaded = eq.load_equine_model(path)
+    for name, t in stored_tensors(loaded).items():
+        assert t.grad_fn is None, f"{name} still has a grad_fn"
+    copy.deepcopy(loaded)
+
+
+def test_equine_protonet_deepcopy_after_update_support() -> None:
+    """A Protonet's public ``update_support`` keeps no autograd history."""
+    model, x, y = _briefly_trained_protonet_with_data()
+    model.update_support(x, y, 0.2)
+    for name, t in stored_tensors(model).items():
+        assert t.grad_fn is None, f"{name} still has a grad_fn"
+    copy.deepcopy(model)

@@ -254,3 +254,11 @@
   `torch.linalg.LinAlgError`), and support and episode sampling raise
   `ValueError`; an episode now needs more than `support_size` examples of each
   class, which was checked only by an `assert` (#217).
+- `copy.deepcopy` on a trained `EquineGP` or `EquineProtonet`, or on one
+  loaded from a file with a support set, raised `RuntimeError`: the
+  tensors a model stores (the GP's precision matrix, support embeddings
+  and prototypes, the Protonet's support embeddings, prototypes and
+  covariances) kept autograd history, through which a trained GP also
+  held its last epoch's training features. Training, `update_support` and
+  `load` now compute them without autograd, and a deep copy's GP
+  projection uses the copy's own random matrix (#250).

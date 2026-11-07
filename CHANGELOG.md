@@ -338,6 +338,10 @@
   `train_model`, e.g. on a frozen embedding) saved a file that
   `load_equine_model` refused with `Unknown model type ''`: `modelType` was
   set only by `train_model`. It is now set when the model is built.
+- `EquineProtonet.calibrate_temperature` and `EquineGP.calibrate_model` could
+  drive the temperature to zero or below with more epochs or a larger
+  learning rate, which reverses every class ranking. Both now keep it at or
+  above 1e-3.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

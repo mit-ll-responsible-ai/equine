@@ -477,7 +477,7 @@ def test_train_model_accumulates_the_precision_in_the_promoted_dtype(
 ) -> None:
     """After train_model under ``default_dtype`` the precision matrix has
     ``precision_dtype`` and equals the identity plus the sum of ``k.t() @ k`` over
-    the epoch's features to within the rounding of the model's dtype."""
+    the epoch's features to within the rounding of ``precision_dtype``."""
     torch.manual_seed(0)
     dataset, x, y = separable_dataset()
     model = eq.EquineGP(
@@ -506,7 +506,7 @@ def test_train_model_accumulates_the_precision_in_the_promoted_dtype(
     precision = model.model.precision
     assert precision.dtype == precision_dtype
     error = (precision.double() - expected).abs().max() / expected.abs().max()
-    assert error <= 16 * torch.finfo(dtype).eps
+    assert error <= 16 * torch.finfo(precision_dtype).eps
 
 
 def test_a_float64_gp_with_a_float32_precision_accumulates_in_float64() -> None:
@@ -527,6 +527,29 @@ def test_a_float64_gp_with_a_float32_precision_accumulates_in_float64() -> None:
         batch_size=32,
     )
     assert model.model.precision.dtype == torch.float64
+
+
+def test_a_bfloat16_gp_predicts_after_training() -> None:
+    """The precision matrix of a trained bfloat16 GP is positive definite and
+    predict inverts it."""
+    torch.manual_seed(0)
+    gen = torch.Generator().manual_seed(0)
+    x = torch.cat([torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(3)])
+    y = torch.arange(3).repeat_interleave(200).float()
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
+    )
+    model = eq.EquineGP(embedding, 8, 3).to(torch.bfloat16)
+    model.train_model(
+        torch.utils.data.TensorDataset(x.bfloat16(), y),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.Adam(model.parameters(), lr=1e-2),
+        num_epochs=3,
+        batch_size=32,
+    )
+    assert torch.linalg.eigvalsh(model.model.precision.double()).min() >= 0.99
+    output = model.predict(x[:20].bfloat16())
+    assert bool(torch.isfinite(output.ood_scores).all())
 
 
 def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:

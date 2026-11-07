@@ -258,11 +258,16 @@
   scores (#285).
 - `EquineProtonet.predict` reads each OOD score from a float64 table of the CDF
   of the predicted class's outlier-score KDE, kept on the model, instead of
-  summing a normal CDF over every KDE point. The first `predict` that predicts
-  a class builds that class's table, which can make that call slower than
-  before. Later calls that score many examples of a class with a table are
-  faster; a call that scores a few examples of a class with a small KDE can
-  take slightly longer than before. A table is rebuilt after its KDE's points,
+  summing a normal CDF over every KDE point. A `predict` that predicts a class
+  with no table for its KDE's current points, weights and bandwidth builds one
+  when it predicts the class for at least one eighth as many examples as the
+  table has nodes (1,024 examples always suffice), which can make that call
+  slower than before; a call with fewer examples of the class sums its KDE as
+  before. Every call reads a class's table while its KDE keeps those values. An
+  example's score can differ by up to 1e-13 depending on whether an earlier
+  call built its class's table. Later calls that score many examples of a class
+  with a table are faster; a call that scores a few examples of a class can
+  take slightly longer than before. A table is not read after its KDE's points,
   weights or bandwidth change, pickling and `copy.deepcopy` leave the tables
   out, and they are never saved. A KDE is summed over its points as before when
   its table would need more than 8,192 nodes or more than 2**27 node-point

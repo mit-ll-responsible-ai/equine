@@ -25,7 +25,7 @@ from torchmetrics.metric import Metric
 from tqdm import tqdm
 
 from . import _model_file
-from .equine import Equine, EquineOutput, _eval_mode
+from .equine import MIN_TEMPERATURE, Equine, EquineOutput, _eval_mode
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     EQUINE_FORMAT_VERSION,
@@ -1057,7 +1057,8 @@ class EquineGP(Equine):
         calibration_batch_size: int = 256,
     ) -> None:
         """
-        Fine-tune the temperature on ``dataset``.
+        Fine-tune the temperature on ``dataset``. After each optimizer step the
+        temperature is clamped to at least ``MIN_TEMPERATURE`` (1e-3).
 
         ``train_model`` does not call this method; ``temperature`` stays at
         ``init_temperature`` until it is called.
@@ -1106,6 +1107,8 @@ class EquineGP(Equine):
                     loss = loss_fn(logits, labels.to(torch.long))
                     loss.backward()
                     optimizer.step()
+                    with torch.no_grad():
+                        temperature.clamp_(min=MIN_TEMPERATURE)
         except BaseException:
             with torch.no_grad():
                 temperature.copy_(initial_temperature)

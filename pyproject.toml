@@ -183,6 +183,15 @@ deps = coverage[toml]
 commands = pytest --cov-report term-missing --cov-config=pyproject.toml --cov-fail-under=97 --cov=equine tests {posargs: -n auto --maxprocesses=4}
 
 
+[testenv:optimized]
+description = Runs the test suite with PYTHONOPTIMIZE=1, which turns off
+              icontract and beartype; tests marked `contracts` are skipped.
+basepython = python3.11
+setenv = PYTHONOPTIMIZE=1
+extras = tests
+commands = pytest tests/ {posargs: -n auto --maxprocesses=4}
+
+
 [testenv:floors]
 description = Runs the test suite with every direct dependency at the lowest
               version that pyproject.toml allows (needs tox-uv >= 1.6, which

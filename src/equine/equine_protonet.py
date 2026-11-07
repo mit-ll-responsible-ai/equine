@@ -826,6 +826,7 @@ class EquineProtonet(Equine):
         ood_distance: str = "rmd_sq",
         pred_cov_type: CovType | None = None,
         ood_cov_type: CovType | None = None,
+        min_kde_samples: int | None = None,
     ) -> None:
         """
         EquineProtonet class constructor
@@ -866,17 +867,28 @@ class EquineProtonet(Equine):
             same for both values.
         pred_cov_type : CovType, optional
             Covariance of the class distances at prediction time; None selects the
-            module default ``PRED_COV_TYPE`` (DIAGONAL).
+            module default ``PRED_COV_TYPE`` (DIAGONAL). UNIT uses Euclidean
+            distances and accepts classes with a single support example.
         ood_cov_type : CovType, optional
             Covariance of the distance to the global mean in the relative
             Mahalanobis OOD score; None selects the module default ``OOD_COV_TYPE``
             (DIAGONAL).
+        min_kde_samples : int, optional
+            None (the default) fits one outlier-score KDE per class and refuses a
+            class with fewer than 2 calibration examples or equal OOD distances.
+            An int pools instead: a class with fewer than ``min_kde_samples``
+            calibration examples, or whose distances are all equal (a single
+            example always is), shares one KDE fitted on every calibration example.
 
         Raises
         ------
         ValueError
-            If ``ood_distance`` is not ``"rmd_sq"`` or ``"rmd_sqrt"``.
+            If ``ood_distance`` is not ``"rmd_sq"`` or ``"rmd_sqrt"``, or
+            ``min_kde_samples`` is not None or an int of at least 1 (a bool is
+            refused), the rule ``load`` applies to a model file.
         """
+        if min_kde_samples is not None:
+            _positive_int(min_kde_samples, "min_kde_samples")
         if ood_distance not in _OOD_DISTANCES:
             raise ValueError(
                 f"ood_distance must be one of {list(_OOD_DISTANCES)}; got "
@@ -892,6 +904,7 @@ class EquineProtonet(Equine):
         self.cov_reg_type = COV_REG_TYPE
         self.relative_mahal = relative_mahal
         self.ood_distance = ood_distance
+        self.min_kde_samples = min_kde_samples
         self.emb_out_dim = emb_out_dim
         self.epsilon = DEFAULT_EPSILON
         self.outlier_score_kde: OrderedDict[int, gaussian_kde] = OrderedDict()
@@ -966,11 +979,13 @@ class EquineProtonet(Equine):
     def __setstate__(self, state: dict[str, Any]) -> None:
         """
         Restore a pickled model; a pickle without ``ood_distance`` uses
-        ``"rmd_sqrt"``. ``support``, ``support_embeddings`` and ``prototypes``
-        entries in its instance dict are dropped: these names are read-only
-        properties. The model starts with no tabulated outlier scores.
+        ``"rmd_sqrt"``, and one without ``min_kde_samples`` uses None.
+        ``support``, ``support_embeddings`` and ``prototypes`` entries in its
+        instance dict are dropped: these names are read-only properties. The model
+        starts with no tabulated outlier scores.
         """
         state.setdefault("ood_distance", "rmd_sqrt")
+        state.setdefault("min_kde_samples", None)
         for name in ("support", "support_embeddings", "prototypes"):
             state.pop(name, None)
         state["_outlier_grids"] = {}
@@ -1061,7 +1076,8 @@ class EquineProtonet(Equine):
             ``num_episodes`` is positive and ``way`` is not between 2 and the
             number of classes, or ``episode_size`` is below ``way``; or if the
             ``calib_frac`` split leaves a class with fewer than 2 calibration
-            examples or too few training examples (more than ``support_size``
+            examples (with ``min_kde_samples`` None; otherwise such a class shares
+            the pooled KDE) or too few training examples (more than ``support_size``
             when ``num_episodes`` is positive, ``support_size`` otherwise); the
             model is then unchanged. Also, after training, if a calibration
             example's embedding or OOD distance holds a NaN or infinite value,
@@ -1101,7 +1117,8 @@ class EquineProtonet(Equine):
         _require_examples_per_class(
             train_y, labels, "training", support_size + episode_queries
         )
-        _require_examples_per_class(calib_y, labels, "calibration", 2)
+        if self.min_kde_samples is None:
+            _require_examples_per_class(calib_y, labels, "calibration", 2)
 
         self.train()
 
@@ -1247,7 +1264,7 @@ class EquineProtonet(Equine):
             Tensor of computed OOD distances.
         calib_y : torch.Tensor
             Tensor of class labels for `ood_dists` examples. Every class needs
-            at least 2 examples.
+            at least 2 examples when ``min_kde_samples`` is None.
 
         Returns
         -------
@@ -1257,8 +1274,12 @@ class EquineProtonet(Equine):
         ------
         ValueError
             If a class's OOD distances include a NaN or infinite value or are all
-            equal, or fitting a KDE fails; no KDE is changed then.
+            equal (with ``min_kde_samples`` None), or fitting a KDE fails; no KDE is
+            changed then.
         """
+        if self.min_kde_samples is not None:
+            self._fit_pooled_outlier_scores(ood_dists, calib_y)
+            return
         class_ood_dists = OrderedDict(
             (label, ood_dists[calib_y == int(label)])
             for label in self.model.support_embeddings.keys()
@@ -1282,6 +1303,45 @@ class EquineProtonet(Equine):
         )
         self.outlier_score_kde = fitted
         self._outlier_grids = {}
+
+    def _fit_pooled_outlier_scores(
+        self, ood_dists: torch.Tensor, calib_y: torch.Tensor
+    ) -> None:
+        """
+        Fit one KDE per class with enough calibration examples, and share one KDE
+        fitted on every calibration example among the rest (``min_kde_samples``).
+
+        Raises
+        ------
+        ValueError
+            If an OOD distance is NaN or infinite, or there are fewer than 2
+            calibration examples or all have the same OOD distance; no KDE is
+            changed then.
+        """
+        if not bool(torch.isfinite(ood_dists).all()):
+            raise ValueError(
+                "A calibration example has a NaN or infinite OOD distance; fitting "
+                "the outlier scores needs finite values. Check the embedding model's "
+                "output for the calibration examples."
+            )
+        if len(ood_dists) < 2 or bool((ood_dists == ood_dists[0]).all()):
+            raise ValueError(
+                "The pooled outlier-score KDE needs at least 2 distinct calibration "
+                "OOD distances; give more calibration examples with different OOD "
+                "distances (calib_x and calib_y, or a larger calib_frac)."
+            )
+        assert self.min_kde_samples is not None
+        pooled = gaussian_kde(ood_dists.cpu().detach().numpy())
+        fitted: OrderedDict[int, gaussian_kde] = OrderedDict()
+        for label in self.model.support_embeddings.keys():
+            dists = ood_dists[calib_y == int(label)]
+            if len(dists) >= self.min_kde_samples and not bool(
+                (dists == dists[0]).all()
+            ):
+                fitted[label] = gaussian_kde(dists.cpu().detach().numpy())
+            else:
+                fitted[label] = pooled
+        self.outlier_score_kde = fitted
 
     def _compute_outlier_scores(self, ood_dists, predictions) -> torch.Tensor:
         """
@@ -1554,9 +1614,10 @@ class EquineProtonet(Equine):
             ``calib_y`` is given; if ``calib_y`` is not 1-D, not whole numbers, not
             one label per ``calib_x`` row or holds a label ``support_y`` does not,
             or ``calib_x``'s rows are shaped unlike ``support_x``'s; if a class has
-            fewer than 2 support examples or fewer than 2 calibration examples; or
-            if a calibration example's embedding or OOD distance holds a NaN or
-            infinite value, or a class's calibration examples all have the same OOD
+            fewer than 2 support examples (1 with a UNIT ``pred_cov_type``) or, with
+            ``min_kde_samples`` None, fewer than 2 calibration examples; or if a
+            calibration example's embedding or OOD distance holds a NaN or infinite
+            value, or a class's calibration examples all have the same OOD
             distance. A failed update leaves the model as it was.
         """
         if len(args) > 2:
@@ -1613,8 +1674,14 @@ class EquineProtonet(Equine):
             else:
                 _require_calibration_set(support_x, all_labels, calib_x, calib_y)
                 where = ("in support_y", "in calib_y")
-            _require_examples_per_class(support_y, all_labels, "support", 2, where[0])
-            _require_examples_per_class(calib_y, all_labels, "calibration", 2, where[1])
+            min_support = 1 if self.model.pred_cov_type == CovType.UNIT else 2
+            _require_examples_per_class(
+                support_y, all_labels, "support", min_support, where[0]
+            )
+            if self.min_kde_samples is None:
+                _require_examples_per_class(
+                    calib_y, all_labels, "calibration", 2, where[1]
+                )
             # Restored if a later step raises.
             state, model_state = dict(vars(self)), dict(vars(self.model))
             try:
@@ -1729,6 +1796,8 @@ class EquineProtonet(Equine):
             model_settings["pred_cov_type"] = self.model.pred_cov_type.value
         if self.model.ood_cov_type != OOD_COV_TYPE:
             model_settings["ood_cov_type"] = self.model.ood_cov_type.value
+        if self.min_kde_samples is not None:
+            model_settings["min_kde_samples"] = self.min_kde_samples
         save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
             **_embedding_checkpoint(self.model.embedding_model),
@@ -1840,11 +1909,21 @@ class EquineProtonet(Equine):
                 "Model file's support holds one class; an EquineProtonet needs at "
                 "least 2."
             )
+        file_settings = model_save["settings"]
+        pred_cov_type = (
+            file_settings.get("pred_cov_type", PRED_COV_TYPE.value)
+            if isinstance(file_settings, dict)
+            else PRED_COV_TYPE.value
+        )
+        min_support = 1 if pred_cov_type == CovType.UNIT.value else 2
         for label, rows in support.items():
-            if rows.shape[0] < 2:
+            if rows.shape[0] < min_support:
                 raise ValueError(
                     f"Model file's support holds {rows.shape[0]} example(s) of class "
-                    f"{label}; an EquineProtonet needs at least 2 per class."
+                    f"{label}; an EquineProtonet with pred_cov_type "
+                    f"{_shown(pred_cov_type)} needs at least {min_support} per class. "
+                    "Save the model again, or upgrade the original file again with "
+                    "`python -m equine.upgrade`."
                 )
         outlier_kde = _outlier_kde_from_file(model_save["outlier_kde"])
         for key in ("feature_names", "label_names"):
@@ -1871,6 +1950,17 @@ class EquineProtonet(Equine):
                     f"one of {[member.value for member in CovType]}; the file was not "
                     "written by save() or was changed after. Save the model again, or "
                     "upgrade the original file again with `python -m equine.upgrade`."
+                ) from err
+        if settings.get("min_kde_samples") is not None:
+            try:
+                _positive_int(
+                    settings["min_kde_samples"],
+                    "Model file's settings['min_kde_samples']",
+                )
+            except ValueError as err:
+                raise ValueError(
+                    f"{err} Save the model again, or upgrade the original file again "
+                    "with `python -m equine.upgrade`."
                 ) from err
         # Allow the user to override the saved device state dynamically
         if device is not None:

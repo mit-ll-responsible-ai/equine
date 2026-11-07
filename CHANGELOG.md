@@ -262,3 +262,9 @@
   held its last epoch's training features. Training, `update_support` and
   `load` now compute them without autograd, and a deep copy's GP
   projection uses the copy's own random matrix (#250).
+- `EquineGP.predict` and `EquineGP.forward` (`model(x)`) raised
+  `RuntimeError` for a single unbatched example in eval mode; in training
+  mode `forward` returned 1-D logits, counted the example's features as
+  training rows and added a constant to every entry of the precision
+  matrix. Both now treat it as a batch of one, as `EquineProtonet.predict`
+  does (#247).

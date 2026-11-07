@@ -146,7 +146,7 @@ def test_equine_gp_save_load(random_dataset) -> None:
     )
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
-    use_save_load_model_tests(model, X, tmp_filename="gp_save_load.eq")
+    use_save_load_model_tests(model, X)
 
 
 @given(random_dataset=random_dataset())
@@ -173,9 +173,7 @@ def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
     assert calibrated != before, "calibrate_model must move the temperature"
     assert calibrated > 0
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="gp_save_load_with_temperature.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
     assert new_model.temperature.item() == pytest.approx(calibrated), (
         "temperature changed on reload"
     )
@@ -205,9 +203,7 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
         support_size=train_kwargs["support_size"],
     )
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="gp_save_load_with_vis.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
 
     assert new_model.support is not None, "support was not saved"
     assert new_model.prototypes is not None, "prototypes were not saved"
@@ -238,9 +234,7 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
     )
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="gp_save_load_no_feature_and_label_names.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
 
     assert new_model.get_feature_names() is None, "feature_names changed on reload"
     assert new_model.get_label_names() is None, "label_names changed on reload"
@@ -264,9 +258,7 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
     )
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="gp_save_load_with_feature_and_label_names.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
 
     assert new_model.get_feature_names() == feature_names, (
         "feature_names changed on reload"

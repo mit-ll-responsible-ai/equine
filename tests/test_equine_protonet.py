@@ -18,6 +18,7 @@ from golden_data import CLASSES, FEATURES, separable_dataset
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
+from equine.equine_protonet import Protonet
 
 
 @given(
@@ -26,9 +27,11 @@ import equine as eq
         st.integers(min_value=1, max_value=1000),
     ),
     num_classes=st.integers(min_value=2, max_value=256),
+    seed=st.integers(min_value=0, max_value=2**31 - 1),
 )
 @settings(deadline=None)
-def test_compute_embeddings(data_shape, num_classes):
+def test_compute_embeddings(data_shape, num_classes, seed):
+    torch.manual_seed(seed)
     queries = torch.rand(data_shape)
     embed_model = BasicEmbeddingModel(data_shape[1], num_classes)
     model = eq.EquineProtonet(embed_model, num_classes)
@@ -69,26 +72,6 @@ def test_update_support_rejects_wrong_label_names_length() -> None:
         match=r"The length of label_names \(2\) does not match the number of classes \(3\)",
     ):
         model.update_support(x, y, 0.5, label_names=["only", "two"])
-
-
-@st.composite
-def embeddings(draw):
-    dataset_row_count = draw(st.integers(min_value=100, max_value=1000))
-    dataset_col_count = draw(st.integers(min_value=3, max_value=10))
-    shape = (dataset_row_count, dataset_col_count)
-    support_embeddings = torch.rand(shape)
-    query_embeddings = torch.rand(shape)
-    ptrs = [0]
-    curr_idx = 0
-
-    for i in range(dataset_col_count - 1):
-        curr_idx += int(dataset_row_count / dataset_col_count)
-        ptrs.append(curr_idx)
-
-    ptrs.append(dataset_row_count - 1)
-    ptrs = torch.Tensor(ptrs).to(torch.long)
-
-    return support_embeddings, ptrs, query_embeddings
 
 
 @given(random_dataset=random_dataset())
@@ -434,3 +417,30 @@ def test_full_covariance_trains_with_a_rank_deficient_embedding():
     )
     assert all(torch.isfinite(p).all() for p in model.parameters())
     assert_valid_prediction(model.predict(x[:10]), 10, 3)
+
+
+def test_shared_regularization_of_a_unit_covariance_falls_back_to_epsilon() -> None:
+    torch.manual_seed(0)
+    proto = Protonet(torch.nn.Identity(), 3, eq.CovType.UNIT, "shared", 1e-5)
+    support = OrderedDict({0: torch.randn(5, 3), 1: torch.randn(5, 3)})
+    proto.train()
+    with pytest.warns(UserWarning, match="reverting to epsilon regularization"):
+        proto.update_support(support)
+    assert torch.equal(proto.covariance, torch.ones(2, 3))
+
+
+def test_shared_regularization_blends_full_covariances() -> None:
+    torch.manual_seed(0)
+    support = OrderedDict({0: torch.randn(5, 3), 1: 3 * torch.randn(7, 3)})
+    covariances = {}
+    for cov_reg_type in ("shared", "epsilon"):
+        proto = Protonet(torch.nn.Identity(), 3, eq.CovType.FULL, cov_reg_type, 1e-5)
+        proto.train()
+        proto.update_support(support)
+        covariances[cov_reg_type] = proto.covariance
+    shared = covariances["shared"]
+    assert shared.shape == (2, 3, 3)
+    assert torch.isfinite(shared).all()
+    torch.testing.assert_close(shared, shared.transpose(1, 2))
+    assert not torch.allclose(shared, covariances["epsilon"])
+    assert not torch.allclose(shared[0], shared[1])

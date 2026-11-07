@@ -159,7 +159,7 @@ class Equine(torch.nn.Module, ABC):
         self.train_summary: dict[str, Any] = {
             "numTrainExamples": 0,
             "dateTrained": "",
-            "modelType": "",
+            "modelType": self.__class__.__name__,
         }
         self.device = device
         self.to(device)

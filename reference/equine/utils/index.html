@@ -2451,7 +2451,8 @@ the metrics are computed.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Dictionary of model metrics.</p>
+                <p>Dictionary of model metrics. <code>"confusionMatrix"</code> has one row per true
+class and one column per predicted class.</p>
               </div>
             </td>
           </tr>
@@ -2504,7 +2505,8 @@ the metrics are computed.</p>
 <span class="normal">1746</span>
 <span class="normal">1747</span>
 <span class="normal">1748</span>
-<span class="normal">1749</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1749</span>
+<span class="normal">1750</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">true_y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -2525,7 +2527,8 @@ the metrics are computed.</p>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    dict[str, Any]</span>
-<span class="sd">        Dictionary of model metrics.</span>
+<span class="sd">        Dictionary of model metrics. ``"confusionMatrix"`` has one row per true</span>
+<span class="sd">        class and one column per predicted class.</span>
 <span class="sd">    """</span>
     <span class="n">device</span> <span class="o">=</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">device</span>
     <span class="n">true_y</span> <span class="o">=</span> <span class="n">true_y</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
@@ -2538,9 +2541,9 @@ the metrics are computed.</p>
         <span class="n">num_classes</span><span class="o">=</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
     <span class="n">metrics</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">"accuracy"</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
-        <span class="s2">"microF1Score"</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">),</span>
-        <span class="s2">"confusionMatrix"</span><span class="p">:</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">true_y</span><span class="p">,</span> <span class="n">pred_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s2">"accuracy"</span><span class="p">:</span> <span class="n">accuracy</span><span class="p">(</span><span class="n">pred_y</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
+        <span class="s2">"microF1Score"</span><span class="p">:</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">pred_y</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
+        <span class="s2">"confusionMatrix"</span><span class="p">:</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">pred_y</span><span class="p">,</span> <span class="n">true_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="s2">"brierScore"</span><span class="p">:</span> <span class="n">brier_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
         <span class="s2">"brierSkillScore"</span><span class="p">:</span> <span class="n">brier_skill_score</span><span class="p">(</span><span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">true_y</span><span class="p">),</span>
         <span class="s2">"expectedCalibrationError"</span><span class="p">:</span> <span class="n">expected_calibration_error</span><span class="p">(</span>
@@ -2661,8 +2664,7 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1813</span>
-<span class="normal">1814</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1814</span>
 <span class="normal">1815</span>
 <span class="normal">1816</span>
 <span class="normal">1817</span>
@@ -2691,7 +2693,8 @@ the metrics are computed.</p>
 <span class="normal">1840</span>
 <span class="normal">1841</span>
 <span class="normal">1842</span>
-<span class="normal">1843</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1843</span>
+<span class="normal">1844</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">:</span> <span class="n">test_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -3118,8 +3121,7 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1783</span>
-<span class="normal">1784</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1784</span>
 <span class="normal">1785</span>
 <span class="normal">1786</span>
 <span class="normal">1787</span>
@@ -3145,7 +3147,8 @@ the metrics are computed.</p>
 <span class="normal">1807</span>
 <span class="normal">1808</span>
 <span class="normal">1809</span>
-<span class="normal">1810</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">1810</span>
+<span class="normal">1811</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
@@ -3249,8 +3252,7 @@ the metrics are computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1752</span>
-<span class="normal">1753</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1753</span>
 <span class="normal">1754</span>
 <span class="normal">1755</span>
 <span class="normal">1756</span>
@@ -3277,7 +3279,8 @@ the metrics are computed.</p>
 <span class="normal">1777</span>
 <span class="normal">1778</span>
 <span class="normal">1779</span>
-<span class="normal">1780</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">Y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+<span class="normal">1780</span>
+<span class="normal">1781</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">Y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="s2">"label"</span> <span class="ow">in</span> <span class="n">d</span> <span class="ow">and</span> <span class="s2">"numExamples"</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">)</span>
 <span class="p">)</span>
@@ -3723,8 +3726,7 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1887</span>
-<span class="normal">1888</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1888</span>
 <span class="normal">1889</span>
 <span class="normal">1890</span>
 <span class="normal">1891</span>
@@ -3762,7 +3764,8 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 <span class="normal">1923</span>
 <span class="normal">1924</span>
 <span class="normal">1925</span>
-<span class="normal">1926</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1926</span>
+<span class="normal">1927</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"cov must have shape (classes, dim, dim)"</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -3940,8 +3943,7 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1929</span>
-<span class="normal">1930</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1930</span>
 <span class="normal">1931</span>
 <span class="normal">1932</span>
 <span class="normal">1933</span>
@@ -4014,7 +4016,8 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 <span class="normal">2000</span>
 <span class="normal">2001</span>
 <span class="normal">2002</span>
-<span class="normal">2003</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">2003</span>
+<span class="normal">2004</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
     <span class="s2">"X and Y must have the same number of samples."</span><span class="p">,</span>
 <span class="p">)</span>

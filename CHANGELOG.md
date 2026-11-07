@@ -268,3 +268,16 @@
   training rows and added a constant to every entry of the precision
   matrix. Both now treat it as a batch of one, as `EquineProtonet.predict`
   does (#247).
+- `EquineProtonet` assumed its class labels were 0 to C-1. With other labels,
+  such as `{1, 2, 3}` or `{0, 2, 5}`, `predict` raised `KeyError` or scored OOD
+  with another class's KDE; `train_model` on a model built with
+  `use_temperature=True` raised `IndexError` on the CPU and calibrated against
+  the wrong classes on MPS; and
+  `generate_model_summary` failed or reported wrong metrics. Probability
+  column `j` is the `j`-th label of `get_support()`; OOD scores, temperature
+  calibration and the summary map columns to labels through it, and
+  `generate_model_metrics` takes a keyword-only `label_order` to do the same.
+  `update_support` with a different label set drops the outlier-score KDEs of
+  labels no longer in the support, and `predict` on a model or file whose
+  support has a label without a KDE raises `ValueError` naming it (refit with
+  `update_support`) instead of using another class's KDE (#169).

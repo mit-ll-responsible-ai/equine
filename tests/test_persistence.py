@@ -409,7 +409,7 @@ def _dtypes(module: torch.nn.Module) -> dict[str, torch.dtype]:
 )
 def test_float64_models_round_trip_at_their_precision(tmp_path, cls) -> None:
     """The stored weights' dtypes are kept tensor by tensor; a trained float64
-    EquineGP keeps its precision matrix in float32."""
+    EquineGP keeps its precision matrix in float64."""
     model, X = _train_in_float64(cls)
     expected = model.predict(X[:8])
     assert expected.classes.dtype == torch.float64
@@ -422,7 +422,7 @@ def test_float64_models_round_trip_at_their_precision(tmp_path, cls) -> None:
         assert torch.equal(output.classes, expected.classes)
         assert torch.equal(output.ood_scores, expected.ood_scores)
     if cls is eq.EquineGP:
-        assert _dtypes(model.model)["precision"] == torch.float32
+        assert _dtypes(model.model)["precision"] == torch.float64
 
 
 @pytest.mark.parametrize(

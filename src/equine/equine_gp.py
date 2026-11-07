@@ -319,9 +319,13 @@ class _Laplace(torch.nn.Module):
 
     def reset_precision_matrix(self) -> None:
         """
-        Reset the precision matrix to the identity matrix times the ridge penalty.
+        Reset the precision matrix to the identity matrix times the ridge penalty,
+        in the dtype that the ``beta`` weights' dtype and the default dtype promote to.
         """
-        identity = torch.eye(self.precision.shape[0], device=self.precision.device)
+        dtype = torch.promote_types(self.beta.weight.dtype, torch.get_default_dtype())
+        identity = torch.eye(
+            self.precision.shape[0], dtype=dtype, device=self.precision.device
+        )
         self.precision: torch.Tensor = identity * self.ridge_penalty
         self.seen_data: torch.Tensor = torch.tensor(0, device=self.precision.device)
         self._seen_count = 0

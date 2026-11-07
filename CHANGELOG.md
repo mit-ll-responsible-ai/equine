@@ -430,3 +430,15 @@
   `loss_fn` that ignores or masks such labels (for example
   `CrossEntropyLoss(ignore_index=-1)`), `train_model` on MPS with torch 2.14,
   and `update_support` with such labels (#291).
+- A float64 `EquineGP` accumulated its precision matrix in float32: the
+  identity `train_model` starts each epoch from had the default dtype. Its
+  covariance therefore had float32 accuracy (relative error up to about 5e-3
+  on 200,000 rows). The precision matrix now takes the dtype that the GP's
+  weight dtype and the default dtype at `train_model` promote to. With the
+  float32 or float64 default, only models whose weights are wider than the
+  default change, such as float64 models with the float32 default: their
+  probabilities and OOD scores change slightly (up to about 1e-3 on 200,000
+  rows), predicted classes do not, and their saved files hold a float64
+  precision matrix. Under a float16 or bfloat16 default, where the precision
+  was half precision, it is now float32 or wider unless the model has that
+  same dtype (#294).

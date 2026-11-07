@@ -610,3 +610,71 @@ def test_generate_model_metrics_rejects_labels_outside_label_order() -> None:
             eq.generate_model_metrics(
                 out, torch.tensor([0, 2, 2, 2]), label_order=label_order
             )
+
+
+def _indexed_rows(label_dtype):
+    """Rows whose only feature is the row index, with labels -7, 3 and 42 in classes
+    of 9, 5 and 11 rows, interleaved."""
+    train_y = torch.tensor([-7] * 9 + [3] * 5 + [42] * 11)
+    order = torch.randperm(len(train_y), generator=torch.Generator().manual_seed(1))
+    return torch.arange(len(train_y))[:, None], train_y[order].to(label_dtype)
+
+
+def _permuted_rows(train_y, label):
+    """The indices of ``label``'s rows in ascending order, permuted by one
+    ``randperm``."""
+    rows = torch.argwhere(train_y == label).reshape(-1)
+    return rows[torch.randperm(len(rows))]
+
+
+@pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
+def test_generate_support_draws_one_permutation_per_label_in_order(
+    label_dtype,
+) -> None:
+    """The support and the RNG state after the call equal a replay of one
+    ``randperm`` over each label's rows, in ``selected_labels`` order."""
+    train_x, train_y = _indexed_rows(label_dtype)
+    selected_labels = [42, -7, 3]
+    for seed in range(10):
+        torch.manual_seed(seed)
+        support = eq.generate_support(train_x, train_y, 4, selected_labels)
+        state = torch.get_rng_state()
+
+        torch.manual_seed(seed)
+        expected = [
+            (label, _permuted_rows(train_y, label)) for label in selected_labels
+        ]
+        assert list(support) == selected_labels
+        for label, rows in expected:
+            assert torch.equal(support[label], train_x[rows[:4]])
+        assert torch.equal(torch.get_rng_state(), state)
+
+
+@pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
+def test_generate_episode_draws_the_labels_then_each_selected_class(
+    label_dtype,
+) -> None:
+    """The support, the queries, their labels and the RNG state after the call equal
+    a replay of one ``randperm`` over the labels, then one over each selected class's
+    rows in ascending label order."""
+    train_x, train_y = _indexed_rows(label_dtype)
+    support_size, way, episode_size = 3, 2, 8
+    for seed in range(20):
+        torch.manual_seed(seed)
+        support, query_x, query_y = eq.generate_episode(
+            train_x, train_y, support_size, way, episode_size
+        )
+        state = torch.get_rng_state()
+
+        torch.manual_seed(seed)
+        labels = torch.unique(train_y)
+        selected = sorted(labels[torch.randperm(len(labels))][:way].tolist())
+        queries = []
+        for position, label in enumerate(selected):
+            rows = _permuted_rows(train_y, label)
+            assert torch.equal(support[position], train_x[rows[:support_size]])
+            queries.append(rows[support_size : support_size + episode_size // way])
+        expected_y = [torch.full((len(q),), p) for p, q in enumerate(queries)]
+        assert torch.equal(query_x, train_x[torch.cat(queries)])
+        assert torch.equal(query_y, torch.cat(expected_y))
+        assert torch.equal(torch.get_rng_state(), state)

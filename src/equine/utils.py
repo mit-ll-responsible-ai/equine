@@ -4,14 +4,10 @@
 
 import copy
 import inspect
-import io
 import itertools
 import math
-import os
-import pickle
 import sys
 import warnings
-import zipfile
 from collections import OrderedDict
 from collections.abc import Mapping
 from typing import Any
@@ -20,7 +16,6 @@ import icontract
 import torch
 from beartype import beartype
 from scipy.stats import gaussian_kde
-from torch import _weights_only_unpickler
 from torchmetrics.classification import (
     MulticlassAccuracy,
     MulticlassCalibrationError,
@@ -28,6 +23,8 @@ from torchmetrics.classification import (
     MulticlassF1Score,
 )
 
+from . import _model_file
+from ._model_file import EQUINE_FORMAT_VERSION
 from .equine import Equine
 from .equine_output import EquineOutput
 from .registry import (
@@ -38,14 +35,6 @@ from .registry import (
     build_from_recipe,
     embedding_recipe,
 )
-
-# Layout version written by ``save``. Versions 2 and 3 hold only tensors,
-# containers and plain scalars/strings, so ``torch.load(weights_only=True)``
-# reads them. The embedding is a recipe plus a state_dict (see
-# ``equine.registry``). ``EquineProtonet.save`` writes the ``ood_distance``
-# setting; a Protonet file without it (every version 2 file, and the files
-# ``equine.upgrade`` writes) loads as ``"rmd_sqrt"``.
-EQUINE_FORMAT_VERSION = 3
 
 # Values of the ``EquineProtonet`` setting ``ood_distance``.
 _OOD_DISTANCES = ("rmd_sq", "rmd_sqrt")
@@ -72,12 +61,16 @@ _TORCHSCRIPT_CHECKPOINT_ERROR = (
 )
 
 _LEGACY_FILE_ERROR = (
-    "'{path}' is not in the current EQUINE model format: it has no "
-    "equine_format_version, or it holds pickled Python objects, as files saved "
-    "by earlier EQUINE releases do. Rewrite it once with "
+    "'{path}' is not in the current EQUINE model format (a safetensors file, format "
+    f"{EQUINE_FORMAT_VERSION}): it is a PyTorch archive or a pickle, as files saved "
+    "by EQUINE 0.1.x and by development builds before format "
+    f"{EQUINE_FORMAT_VERSION} are. Rewrite it once with `{_UPGRADE_HINT} {{path}}`; "
+    "a file whose embedding is TorchScript (every file from EQUINE 0.1.x) also "
+    "needs the embedding architecture: "
     + _UPGRADE_USAGE
-    + ". Only upgrade files you trust: the upgrade unpickles the file "
-    "without restrictions, which can run code embedded in it."
+    + ". Only upgrade such files if you trust them: the upgrade unpickles a file "
+    "from EQUINE 0.1.x without restrictions and loads TorchScript, either of which "
+    "can run code embedded in the file."
 )
 
 
@@ -85,92 +78,13 @@ class LegacyFormatError(ValueError):
     """The file predates the current format; ``python -m equine.upgrade`` rewrites it."""
 
 
-# torch < 2.6 has a known bypass of weights_only=True (CVE-2025-32434).
-_MIN_SAFE_TORCH = (2, 6)
-
-_OLD_TORCH_ERROR = (
-    "EQUINE needs torch >= 2.6 to read model files (installed: {version}): "
-    "torch.load(weights_only=True) has a known bypass on earlier releases "
-    "(CVE-2025-32434)."
-)
-
-
-_STORAGE_TRICK_ERROR = (
-    "Model file contains a tensor whose storage is smaller than its shape "
-    "(expanded or overlapping view); refusing to load."
-)
-
-_NOT_PLAIN_ARCHIVE_ERROR = (
-    "Model file is not a plain (uncompressed) PyTorch archive; refusing to load."
-)
-
-_PICKLE_CALL_ERROR = (
-    "Model file's pickle uses {name}, which EQUINE model files do not contain; "
-    "refusing to load."
-)
-
-_PICKLE_SIZE_ERROR = (
-    "Model file's pickle copies more items than it has bytes; refusing to load."
-)
-
-_PICKLE_STORAGE_CALL_ERROR = (
-    "Model file's pickle calls {name}, which EQUINE model files only reference as a "
-    "tensor's storage; refusing to load."
-)
-
-# Functions, storage classes and dtypes a model file's pickle may name.
-_PICKLE_FUNCTIONS = frozenset(
-    {
-        "torch._utils._rebuild_tensor_v2",
-        "torch._utils._rebuild_tensor_v3",
-        "torch._utils._rebuild_parameter",
-    }
-)
-_PICKLE_STORAGE_CLASSES = frozenset(
-    f"torch.{kind}Storage"
-    for kind in (
-        "Float",
-        "Double",
-        "Half",
-        "BFloat16",
-        "Long",
-        "Int",
-        "Short",
-        "Char",
-        "Byte",
-        "Bool",
-        "ComplexFloat",
-        "ComplexDouble",
-    )
-) | {"torch.storage.UntypedStorage"}
-_PICKLE_DTYPES = {
-    f"torch.{name}": value
-    for name, value in vars(torch).items()
-    if isinstance(value, torch.dtype)
-}
-
-# torch.load reads a file as a zip archive exactly when it starts with this
-# local-file-header signature (torch.serialization._is_zipfile).
+# The first bytes of a PyTorch zip archive, and of a pickle (protocol 2 or later).
 _ZIP_SIGNATURE = b"PK\x03\x04"
+_PICKLE_SIGNATURE = b"\x80"
 
-_NO_STORAGE_ERROR = (
-    "Model file contains a sparse or meta tensor, which has no dense storage "
-    "backing its shape; refusing to load."
-)
-
-_STORAGE_SIZE_ERROR = (
-    "Model file declares tensor storage larger than the data it contains; "
-    "refusing to load."
-)
-
-_ALIASED_SUPPORT_ERROR = (
-    "Model file's support/KDE tensors alias one another, which lets a small file "
-    "multiply the memory and work of loading it; refusing to load. The current "
-    f"format stores each label's data separately; `{_UPGRADE_HINT}` rewrites a "
-    "trusted file from an earlier release with the tensors copied apart."
-)
-
-_SET_ERROR = "Model file contains a set; EQUINE files never do; refusing to load."
+# Longest header, in bytes, that safetensors reads; a safetensors file starts with
+# its header's length as an 8-byte little-endian integer.
+_SAFETENSORS_MAX_HEADER = 100_000_000
 
 
 def _torch_version() -> tuple[int, int]:
@@ -202,17 +116,12 @@ def _warn_if_torch_crashes_with_threads() -> None:
 
 def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any]:
     """
-    Read a saved EQUINE model file with ``torch.load(weights_only=True)``.
+    Read a saved EQUINE model file: a safetensors file (see ``equine._model_file``).
 
-    Files from earlier releases hold pickled Python objects and are refused;
-    ``python -m equine.upgrade`` rewrites them in the current format.
-
-    Memory is bounded by the bytes present in the file. The file must be a plain zip
-    archive (see ``_check_zip_archive``) whose pickle names only what ``save`` writes
-    (see ``_check_pickle_globals``), and is mapped with ``mmap=True``; each storage is a
-    slice of the file. Expanded or overlapping views, meta and sparse tensors, and
-    support/KDE tensors that alias one another are refused. Every storage is then
-    copied once off the mapping, onto ``map_location``.
+    The metadata, the JSON and the tensor references in the header are checked before
+    any tensor is read, and each tensor is read once. A PyTorch archive or a pickle
+    (EQUINE 0.1.x files, and format 2 and 3 files) is refused; ``python -m
+    equine.upgrade`` rewrites it.
 
     The file contains no executable code: the embedding model is stored as a recipe and
     weights.
@@ -236,48 +145,32 @@ def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any
     ------
     ValueError
         If ``map_location`` names a device this machine cannot build on, or an
-        accelerator without a dtype the file holds (float64 on MPS). If torch
-        is older than 2.6, if the file is not in the current format (not a zip
-        archive, pickled objects, or no ``equine_format_version``), if it
-        declares a format version this EQUINE does not know, or if its layout
-        could exhaust memory (compressed or oversized entries, a pickle global
-        ``save`` does not write, no dictionary at the top level, a set, a tensor
-        whose storage is smaller than its shape, storages that overlap in the
-        file, aliased support/KDE tensors).
+        accelerator without a dtype the file holds (float64 on MPS). If the file is
+        not a safetensors file, declares a format version this EQUINE does not know,
+        or its header is malformed. A file that starts like a PyTorch archive, or
+        like a pickle with first 8 bytes that safetensors cannot take for a header
+        length, raises ``LegacyFormatError``, a ``ValueError``.
     """
     if map_location is not None:
         # Checked before the file is opened.
         _require_device({"device": map_location}, what="The requested device")
-    if _torch_version() < _MIN_SAFE_TORCH:
-        raise ValueError(_OLD_TORCH_ERROR.format(version=torch.__version__))
-    if not _check_zip_archive(path):
-        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
-    _check_pickle_globals(path)
+    with open(path, "rb") as file:
+        start = file.read(8)
     try:
-        # torch reopens the file; a swapped file skips the zip and pickle pre-checks.
-        checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
-    except pickle.UnpicklingError as err:
-        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path)) from err
-    except Exception as err:  # malformed archive: report it as a ValueError
-        if "resiz" in str(err):  # torch refusing a tensor larger than its storage
-            raise ValueError(_STORAGE_SIZE_ERROR) from err
-        raise ValueError(
-            f"Model file could not be read as a PyTorch archive "
-            f"({_truncate(str(err), 200)}); refusing to load."
-        ) from err
-    _require_dict(checkpoint, path)
-    _validate_format_version(checkpoint)
-    tensors = _unique_tensors(checkpoint)
-    _reject_storage_tricks(tensors)
-    _reject_overlapping_storages(tensors)
-    # Checked before the copy below.
-    if _support_is_aliased(checkpoint):
-        raise ValueError(_ALIASED_SUPPORT_ERROR)
-    if "equine_format_version" not in checkpoint:
-        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
+        checkpoint = _model_file.read(path)
+    except _model_file.NotSafetensorsError as err:
+        if start.startswith(_ZIP_SIGNATURE) or (
+            start.startswith(_PICKLE_SIGNATURE)
+            and int.from_bytes(start, "little") > _SAFETENSORS_MAX_HEADER
+        ):
+            raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path)) from err
+        raise
     if map_location is not None:
-        _require_supported_dtypes(tensors, torch.device(map_location))
-    _copy_off_the_file(tensors, map_location)
+        device = torch.device(map_location)
+        tensors = _unique_tensors(checkpoint)
+        _require_supported_dtypes(tensors, device)
+        for tensor in tensors:
+            tensor.data = tensor.to(device)
     return checkpoint
 
 
@@ -298,35 +191,12 @@ def _load_checkpoint_for_device(path: str, device: str | None) -> dict[str, Any]
     return checkpoint
 
 
-def _validate_format_version(checkpoint: Any) -> None:
-    """
-    Raise if a loaded checkpoint declares a format version newer than this
-    EQUINE build understands.
-
-    A missing key is reported by the caller. A present key must be an ``int``
-    (not a ``bool``); a huge one is not formatted into the message.
-    """
-    if isinstance(checkpoint, dict) and "equine_format_version" in checkpoint:
-        version = checkpoint["equine_format_version"]
-        if type(version) is not int:
-            raise ValueError(
-                "Model file's equine_format_version is malformed (expected an int; "
-                f"got {_shown(version)})."
-            )
-        if version > EQUINE_FORMAT_VERSION:
-            shown = version if version < 10**6 else "a much newer one"
-            raise ValueError(
-                f"Unsupported EQUINE model format version {shown}; this "
-                f"EQUINE supports up to {EQUINE_FORMAT_VERSION}. Upgrade EQUINE."
-            )
-
-
 def _plain_names(names: list[str] | None) -> list[str] | None:
     """
     ``feature_names`` / ``label_names`` as plain ``str`` for a checkpoint.
 
     Names often come from numpy (``LabelEncoder.inverse_transform`` returns
-    ``numpy.str_``), which ``torch.load(weights_only=True)`` refuses to unpickle.
+    ``numpy.str_``), which a model file does not store.
     """
     return None if names is None else [str(name) for name in names]
 
@@ -351,206 +221,11 @@ def _plain_train_summary(summary: Any) -> Any:
     return summary
 
 
-def _require_dict(checkpoint: Any, path: str) -> None:
-    if not isinstance(checkpoint, dict):
-        raise ValueError(
-            f"'{path}' is not an EQUINE model file (expected a dictionary at the "
-            "top level)."
-        )
-
-
-def _check_zip_archive(path: str) -> bool:
-    """
-    Refuse a zip archive that ``torch.load`` could inflate beyond the file's size.
-
-    DEFLATE entries are refused here, before ``torch.load`` runs, and so is an archive
-    whose entries add up to more than the file. A file that torch would read as a zip
-    but the ``zipfile`` module cannot parse is refused too.
-
-    Returns whether the file is a zip archive at all. The caller refuses a non-zip file
-    (torch's pre-1.6 format); ``python -m equine.upgrade`` rewrites such files.
-    """
-    with open(path, "rb") as file:
-        if file.read(len(_ZIP_SIGNATURE)) != _ZIP_SIGNATURE:
-            return False
-        try:
-            with zipfile.ZipFile(file) as archive:
-                entries = archive.infolist()
-        except Exception as err:  # any parse failure of a hostile file
-            raise ValueError(_NOT_PLAIN_ARCHIVE_ERROR) from err
-        file_size = os.fstat(file.fileno()).st_size
-    compressed = any(info.compress_type != zipfile.ZIP_STORED for info in entries)
-    if compressed or sum(info.file_size for info in entries) > file_size:
-        raise ValueError(_NOT_PLAIN_ARCHIVE_ERROR)
-    return True
-
-
-class _PickleRefusal(ValueError):
-    """A global or call the dry run of a model file's pickle refuses."""
-
-
-class _Placeholder:
-    """What the dry run of a model file's pickle builds for a tensor or storage."""
-
-
-class _StorageClass:
-    """A storage class named by the pickle; only a storage reference may hold it."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def __call__(self, *args: Any) -> None:
-        raise _PickleRefusal(_PICKLE_STORAGE_CALL_ERROR.format(name=self.name))
-
-
-def _sizes(args: tuple[Any, ...]) -> int:
-    """The number of arguments plus the lengths of those that have one."""
-    return len(args) + sum(len(arg) for arg in args if hasattr(arg, "__len__"))
-
-
-class _DryRunUnpickler(pickle._Unpickler):
-    """
-    Unpickle with placeholders for tensors and storages, refusing other globals.
-
-    The calls it allows and the state ``BUILD`` sets are charged their number of
-    arguments plus the lengths of those arguments; together they may use at most
-    ``budget`` items. ``NEWOBJ`` is refused.
-    """
-
-    dispatch = dict(pickle._Unpickler.dispatch)
-    stack: list[Any]
-
-    def __init__(self, file: Any, budget: int) -> None:
-        super().__init__(file)
-        self.budget = budget
-
-    def _spend(self, items: int) -> None:
-        self.budget -= items
-        if self.budget < 0:
-            raise _PickleRefusal(_PICKLE_SIZE_ERROR)
-
-    def _counted(self, build: Any) -> Any:
-        def call(*args: Any) -> Any:
-            self._spend(_sizes(args))
-            return build(*args)
-
-        return call
-
-    def _rebuild(self, source: Any, *args: Any) -> _Placeholder:
-        if not isinstance(source, _Placeholder):
-            raise _PickleRefusal(
-                _PICKLE_CALL_ERROR.format(name="a tensor without a storage")
-            )
-        self._spend(_sizes((source, *args)))
-        return _Placeholder()
-
-    def load_build(self) -> None:
-        state = self.stack[-1]
-        self._spend(_sizes(state if isinstance(state, tuple) else (state,)))
-        pickle._Unpickler.load_build(self)  # type: ignore
-
-    dispatch[pickle.BUILD[0]] = load_build  # type: ignore
-
-    def load_newobj(self) -> None:
-        raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name="NEWOBJ"))
-
-    dispatch[pickle.NEWOBJ[0]] = load_newobj  # type: ignore
-
-    def find_class(self, module: str, name: str) -> Any:
-        full_name = f"{module}.{name}"
-        if full_name == "collections.OrderedDict":
-            return self._counted(OrderedDict)
-        if full_name == "torch.Size":
-            return self._counted(tuple)
-        if full_name in ("__builtin__.set", "builtins.set"):
-            return self._counted(set)
-        if full_name in _PICKLE_DTYPES:
-            return _PICKLE_DTYPES[full_name]
-        if full_name in _PICKLE_FUNCTIONS:
-            return self._rebuild
-        if full_name in _PICKLE_STORAGE_CLASSES:
-            return _StorageClass(full_name)
-        raise _PickleRefusal(_PICKLE_CALL_ERROR.format(name=_truncate(full_name, 100)))
-
-    def persistent_load(self, pid: Any) -> _Placeholder:
-        if not (
-            type(pid) is tuple
-            and len(pid) == 5
-            and pid[0] == "storage"
-            and isinstance(pid[1], _StorageClass)
-        ):
-            raise _PickleRefusal(
-                _PICKLE_CALL_ERROR.format(name="a malformed storage reference")
-            )
-        return _Placeholder()
-
-
-def _check_pickle_globals(path: str) -> None:
-    """
-    Refuse a pickle that names a global ``save`` does not write, before ``torch.load``.
-
-    The pickle checked is the record ``torch.load`` reads. A global outside torch's
-    default ``weights_only`` allowlist marks a file from an earlier release
-    (``LegacyFormatError``). Of the globals torch allows, a model file may name only
-    ``OrderedDict``, ``torch.Size``, ``set``, torch dtypes, the tensor and parameter
-    rebuild functions, and the storage classes, which only a storage reference may
-    hold. The pickle is then unpickled with placeholders for tensors and storages; that
-    dry run calls no torch function, and the arguments of the calls it allows, counted
-    with their lengths, add up to at most as many items as the pickle has bytes.
-    """
-    try:
-        with (
-            open(path, "rb") as file,
-            torch.serialization._open_zipfile_reader(file) as archive,
-        ):
-            pickled = archive.get_record("data.pkl")
-        names = _weights_only_unpickler.get_globals_in_pkl(io.BytesIO(pickled))
-    except Exception as err:  # malformed pickle or archive
-        raise ValueError(
-            f"Model file could not be read as a PyTorch archive "
-            f"({_truncate(str(err), 200)}); refusing to load."
-        ) from err
-    if not names <= _weights_only_unpickler._get_allowed_globals().keys():
-        raise LegacyFormatError(_LEGACY_FILE_ERROR.format(path=path))
-    try:
-        _DryRunUnpickler(io.BytesIO(pickled), budget=len(pickled)).load()
-    except _PickleRefusal:
-        raise
-    except Exception as err:  # malformed pickle
-        raise ValueError(
-            f"Model file could not be read as a PyTorch archive "
-            f"({_truncate(str(err), 200)}); refusing to load."
-        ) from err
-
-
-def _has_honest_storage(tensor: torch.Tensor) -> bool:
-    """Whether every element of a dense tensor has its own bytes in its storage."""
-    if tensor.numel() == 0:
-        return True
-    if tensor.untyped_storage().nbytes() < tensor.numel() * tensor.element_size():
-        return False
-    # No two elements may share an address: with the dimensions sorted by stride, each
-    # stride must step past everything the smaller strides can reach. Size-1 dimensions
-    # are skipped.
-    reach = 0
-    steps = sorted(
-        (stride, size)
-        for size, stride in zip(tensor.shape, tensor.stride())
-        if size > 1
-    )
-    for stride, size in steps:
-        if stride <= reach:
-            return False
-        reach += stride * (size - 1)
-    return True
-
-
 def _unique_tensors(obj: Any) -> list[torch.Tensor]:
     """
     Every distinct tensor reachable from ``obj`` through dicts, lists and tuples.
 
-    Walks without recursion and tolerates cycles; other objects are not inspected. A set
-    or frozenset is refused.
+    Walks without recursion and tolerates cycles; other objects are not inspected.
     """
     tensors: list[torch.Tensor] = []
     pending = [obj]
@@ -567,108 +242,7 @@ def _unique_tensors(obj: Any) -> list[torch.Tensor]:
             pending.extend(item.values())
         elif isinstance(item, (list, tuple)):
             pending.extend(item)
-        elif isinstance(item, (set, frozenset)):
-            raise ValueError(_SET_ERROR)
     return tensors
-
-
-def _reject_storage_tricks(tensors: list[torch.Tensor]) -> None:
-    """
-    Refuse any tensor whose shape is not backed by its own storage.
-
-    Meta tensors (a shape with no data), non-strided tensors, and expanded or
-    overlapping views (a huge shape over a few bytes) are refused.
-    """
-    for tensor in tensors:
-        try:
-            dense = tensor.layout == torch.strided and not tensor.is_meta
-            honest = dense and _has_honest_storage(tensor)
-        except (RuntimeError, NotImplementedError):
-            dense = honest = False
-        if not dense:
-            raise ValueError(_NO_STORAGE_ERROR)
-        if not honest:
-            raise ValueError(_STORAGE_TRICK_ERROR)
-
-
-def _reject_overlapping_storages(tensors: list[torch.Tensor]) -> None:
-    """
-    Refuse tensors whose storages overlap in the file without being the same slice.
-
-    With ``mmap=True`` every storage is a slice of one mapping of the file: as long as
-    the pickle claims, cut at the end of the file. torch refuses a tensor whose shape
-    needs bytes past that cut. Overlapping slices are refused here, except identical
-    ones: storages with the same slice count as one, and ``_copy_off_the_file`` copies
-    it once. A slice that runs past its own record into bytes no other storage of
-    ``tensors`` uses (zip headers, padding, other records, trailing metadata) is not
-    detected; it is bounded by the file's size.
-    """
-    spans = sorted(
-        {(s.data_ptr(), s.nbytes()) for s in (t.untyped_storage() for t in tensors)}
-    )
-    end = 0
-    for start, nbytes in spans:
-        if nbytes == 0:
-            continue
-        if start < end:
-            raise ValueError(_STORAGE_SIZE_ERROR)
-        end = max(end, start + nbytes)
-
-
-def _support_is_aliased(checkpoint: dict[str, Any]) -> bool:
-    """
-    Whether support or KDE data is stored once and referenced several times.
-
-    An untrusted file must keep every container and tensor under ``support`` and
-    ``outlier_kde`` distinct, with no two of those tensors sharing a storage. Runs
-    before ``_copy_off_the_file``.
-    """
-    seen_objects: set[int] = set()
-    seen_storages: set[tuple[int, int]] = set()
-    pending = [checkpoint.get("support"), checkpoint.get("outlier_kde")]
-    while pending:
-        item = pending.pop()
-        if not isinstance(item, (torch.Tensor, dict, list, tuple)):
-            continue
-        if id(item) in seen_objects:
-            return True
-        seen_objects.add(id(item))
-        if isinstance(item, torch.Tensor):
-            storage = item.untyped_storage()
-            key = (storage.data_ptr(), storage.nbytes())
-            if storage.nbytes() and key in seen_storages:
-                return True
-            seen_storages.add(key)
-        elif isinstance(item, dict):
-            pending.extend(item.values())
-        else:
-            pending.extend(item)
-    return False
-
-
-def _unalias_support(checkpoint: dict[str, Any]) -> None:
-    """
-    Give each label its own copy of its support and KDE data (used by
-    ``equine.upgrade``).
-
-    ``support`` maps labels to tensors, and ``outlier_kde`` maps labels to ``{"dataset":
-    tensor, ...}`` states. The per-label containers are rebuilt too. No container is
-    shared between labels.
-    """
-    for key in ("support", "outlier_kde"):
-        per_label = checkpoint.get(key)
-        if not isinstance(per_label, dict):
-            continue
-        copied = copy.copy(per_label)  # keeps an OrderedDict an OrderedDict
-        for label, value in per_label.items():
-            if isinstance(value, torch.Tensor):
-                copied[label] = value.clone()
-            elif isinstance(value, dict):
-                copied[label] = {
-                    k: v.clone() if isinstance(v, torch.Tensor) else v
-                    for k, v in value.items()
-                }
-        checkpoint[key] = copied
 
 
 def _require_supported_dtypes(
@@ -690,42 +264,6 @@ def _require_supported_dtypes(
             ) from err
 
 
-def _copy_off_the_file(tensors: list[torch.Tensor], map_location: str | None) -> None:
-    """
-    Give every tensor its own copy of its storage, on ``map_location``.
-
-    Tensors loaded by the safe path (``mmap=True``) first view a mapping of the file.
-    After the copy they stay valid if the file later changes or shrinks. Each storage is
-    copied once and its tensors are re-pointed in place. Views and tied tensors keep
-    sharing, containers are untouched, and the copies add up to no more than the
-    storages already checked.
-    """
-    device = torch.device(map_location if map_location is not None else "cpu")
-    copies: dict[tuple[int, int], torch.UntypedStorage] = {}
-    with torch.no_grad():
-        for tensor in tensors:
-            storage = tensor.untyped_storage()
-            key = (storage.data_ptr(), storage.nbytes())
-            if key not in copies:
-                # Copied through a uint8 view of the storage.
-                raw = torch.empty(0, dtype=torch.uint8).set_(storage)
-                copies[key] = (
-                    raw.clone() if device.type == "cpu" else raw.to(device)
-                ).untyped_storage()
-            layout = (
-                copies[key],
-                tensor.storage_offset(),
-                tensor.size(),
-                tensor.stride(),
-            )
-            if device.type == "cpu":
-                tensor.set_(*layout)
-            else:
-                tensor.data = torch.empty(0, dtype=tensor.dtype, device=device).set_(
-                    *layout
-                )
-
-
 def _is_extra_state_key(key: str) -> bool:
     """Whether ``key`` is a module's ``get_extra_state`` entry in a state_dict."""
     return key == "_extra_state" or key.endswith("._extra_state")
@@ -738,9 +276,7 @@ def _state_dict_mismatch(
     Check that ``actual`` (weights from a file) can fill ``expected`` (a module).
 
     ``expected`` should come from ``state_dict(keep_vars=True)``. Parameter names and
-    shapes must agree, and the distinct storages behind ``actual`` must hold at least
-    one byte per element of ``expected``. Extra-state entries are skipped and left to
-    ``load_state_dict``.
+    shapes must agree. Extra-state entries are skipped and left to ``load_state_dict``.
     Returns None when the weights fit, otherwise a short description whose
     length does not depend on the (possibly file-supplied) key names.
     """
@@ -758,23 +294,6 @@ def _state_dict_mismatch(
     if differing:
         examples = ", ".join(_truncate(repr(k), 80) for k in differing[:3])
         return f"{len(differing)} parameter(s) differ in name or shape, e.g. {examples}"
-
-    unique_expected = {
-        id(v): v for k, v in expected.items() if not _is_extra_state_key(k)
-    }
-    needed = sum(tensor.numel() for tensor in unique_expected.values())
-    storages = {
-        (storage.data_ptr(), storage.nbytes())
-        for storage in (
-            v.untyped_storage() for k, v in actual.items() if not _is_extra_state_key(k)
-        )
-    }
-    stored = sum(nbytes for _, nbytes in storages)
-    if stored < needed:
-        return (
-            f"the weights occupy {stored} bytes of storage, too small for the "
-            f"architecture they claim to describe ({needed} elements)"
-        )
     return None
 
 
@@ -1196,12 +715,6 @@ def _outlier_kde_from_file(value: Any) -> OrderedDict[int, gaussian_kde]:
                 "Model file's outlier_kde is malformed (its labels must be distinct "
                 "integers)."
             )
-        if isinstance(state, gaussian_kde):
-            raise ValueError(
-                "Model file's outlier_kde holds a pickled gaussian_kde object, as "
-                f"files from earlier EQUINE releases do; rewrite the file with "
-                f"`{_UPGRADE_HINT}`."
-            )
         kdes[key] = _kde_from_state(state)
     return kdes
 
@@ -1356,9 +869,8 @@ def _recipe_problem(
     Returns None when it can. The recipe is built on the meta device (no memory) and
     checked before anything is allocated: the constructor must leave every tensor on the
     meta device, ``state_dict()`` (including ``get_extra_state``) must run there,
-    and the stored weights must match it in names, shapes and dtype kinds
-    with enough storage behind them (see ``_state_dict_mismatch`` and
-    ``_dtype_kind_mismatch``). With ``live``, the module being saved, its submodules
+    and the stored weights must match it in names, shapes and dtype kinds (see
+    ``_state_dict_mismatch`` and ``_dtype_kind_mismatch``). With ``live``, the module being saved, its submodules
     must also match the rebuild. A recipe that cannot be built at all raises
     ``build_from_recipe``'s ValueError.
     """

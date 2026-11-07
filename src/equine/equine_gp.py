@@ -24,6 +24,7 @@ from torch.utils.data import (
 from torchmetrics.metric import Metric
 from tqdm import tqdm
 
+from . import _model_file
 from .equine import Equine, EquineOutput, _eval_mode
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
@@ -1232,7 +1233,8 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If the embedding model is not a registered architecture.
+            If the embedding model is not a registered architecture, or the model
+            holds a value a model file does not store (see ``equine._model_file``).
         RuntimeError
             If the model has not been trained with ``train_model``.
         """
@@ -1240,7 +1242,7 @@ class EquineGP(Equine):
             raise RuntimeError(
                 "The model has not been trained; call train_model before save."
             )
-        torch.save(self._to_checkpoint(), path)
+        _model_file.write(path, self._to_checkpoint())
 
     def _to_checkpoint(self) -> dict[str, Any]:
         """Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""
@@ -1257,7 +1259,6 @@ class EquineGP(Equine):
             for key, value in self.model.state_dict().items()
             if "feature_extractor" not in key
         }
-        # Plain values only, so load_checkpoint can read it with weights_only=True.
         save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
             **_embedding_checkpoint(self.embedding_model),
@@ -1285,9 +1286,9 @@ class EquineGP(Equine):
         """
         Load a previously saved EquineGP model.
 
-        Loading runs no code from the file: it is read with
-        ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its
-        recipe through the architecture registry.
+        Loading runs no code from the file: it is a safetensors file (see
+        ``utils.load_checkpoint``) and the embedding model is rebuilt from its recipe
+        through the architecture registry.
 
         Parameters
         ----------

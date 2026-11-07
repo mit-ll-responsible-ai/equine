@@ -23,7 +23,6 @@ import torch
 from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
     BasicEmbeddingModel,
-    _rewrite_zip,
     archive_tensor,
     assert_on_device,
     available_devices,
@@ -34,6 +33,7 @@ import equine as eq
 import equine.equine_gp
 import equine.equine_protonet
 import equine.utils
+from equine import _model_file
 from equine.equine_protonet import _kde_to_state
 from equine.registry import embedding_recipe
 
@@ -102,13 +102,13 @@ def recipe_builds(monkeypatch) -> list[set[str]]:
 
 def _rewrite(path: str, **changes) -> dict:
     """Load a saved file, apply ``changes`` (a value of ``...`` deletes the key), save it back."""
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     for key, value in changes.items():
         if value is ...:
             del ckpt[key]
         else:
             ckpt[key] = value
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     return ckpt
 
 
@@ -130,7 +130,7 @@ def test_registered_embedding_saves_data_only_and_round_trips(
     path = str(tmp_path / "m.eq")
     model.save(path)
 
-    ckpt = torch.load(path, weights_only=True)  # must not raise
+    ckpt = _model_file.read(path)  # must not raise
     assert ckpt["equine_format_version"] == equine.utils.EQUINE_FORMAT_VERSION
     assert "contains_executable" not in ckpt and "embed_jit_save" not in ckpt
     assert "embed_jit_save" not in ckpt
@@ -156,7 +156,7 @@ def test_spectral_residual_mlp_saves_data_only_and_round_trips(
     model, X = train(eq.SpectralResidualMLP(6, 8, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)  # must not raise
+    ckpt = _model_file.read(path)  # must not raise
     assert ckpt["embedding_recipe"]["builder"] == "equine.spectral_residual_mlp"
     for reloaded in (cls.load(path), eq.load_equine_model(path)):
         assert isinstance(reloaded.embedding_model, eq.SpectralResidualMLP)
@@ -165,14 +165,14 @@ def test_spectral_residual_mlp_saves_data_only_and_round_trips(
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
 def test_numpy_string_names_are_saved_as_plain_strings(tmp_path, train, cls) -> None:
-    """LabelEncoder.inverse_transform yields numpy strings, which the
-    weights-only unpickler refuses; save() must write plain str."""
+    """LabelEncoder.inverse_transform yields numpy strings, which a model file
+    does not store; save() must write plain str."""
     model, X = train(BasicEmbeddingModel(6, 3))
     model.label_names = [np.str_(name) for name in ("a", "b", "c")]
     model.feature_names = [np.str_(f"f{i}") for i in range(6)]
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)  # must not raise
+    ckpt = _model_file.read(path)  # must not raise
     assert ckpt["label_names"] == ["a", "b", "c"]
     for loader in (cls.load, eq.load_equine_model):
         reloaded = loader(path)
@@ -564,10 +564,10 @@ def test_weights_of_another_dtype_kind_are_refused(
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     stored = ckpt[key][name]
     ckpt[key][name] = stored.long() if stored.is_floating_point() else stored.double()
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="in the file but") as err:
             loader(path)
@@ -599,7 +599,7 @@ def test_save_writes_no_executable_entries(tmp_path, train, cls) -> None:
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     assert "embed_jit_save" not in ckpt and "contains_executable" not in ckpt
 
 
@@ -641,7 +641,7 @@ def test_file_with_torchscript_is_refused_without_running_it(
             load(path, embedding_model=BasicEmbeddingModel(6, 3))
     # Callers that pass a checkpoint read elsewhere are refused too.
     with pytest.raises(ValueError, match="stores its embedding model as TorchScript"):
-        cls._from_checkpoint(torch.load(path, weights_only=True))
+        cls._from_checkpoint(_model_file.read(path))
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
@@ -699,9 +699,9 @@ def test_recipe_that_disagrees_with_weights_is_refused_before_allocation(
     model, _ = train(eq.MLP(6, [16], 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["embedding_recipe"]["kwargs"]["hidden_sizes"] = [10**6]  # ~10M params if built
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
 
     recipe_builds.clear()  # save() checks its recipe on the meta device too
     with pytest.raises(ValueError, match="does not match the weights"):
@@ -826,7 +826,7 @@ def test_weights_that_fail_to_load_raise_value_error(tmp_path, train, cls) -> No
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
 def test_tied_weights_round_trip(tmp_path, train, cls) -> None:
-    """Shared parameters are one tensor in the file; that is not a storage trick."""
+    """Tied parameters load as one parameter."""
 
     @eq.embedding_architecture("equine.tests.tied")
     class Tied(torch.nn.Module):
@@ -869,7 +869,7 @@ def test_constructor_that_mutates_its_arguments_round_trips(
     model, X = train(MutatesArguments(6, [8, 3]))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    stored = torch.load(path, weights_only=True)["embedding_recipe"]
+    stored = _model_file.read(path)["embedding_recipe"]
     assert stored == {
         "builder": "equine.tests.mutates_arguments",
         "kwargs": {"in_features": 6, "hidden": [8, 3]},
@@ -882,80 +882,6 @@ def test_constructor_that_mutates_its_arguments_round_trips(
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
-def test_expanded_weights_are_refused_before_any_build(
-    tmp_path, train, cls, recipe_builds
-) -> None:
-    """Weights that are expanded views of one element, matching a huge recipe's shapes
-    in a tiny file, are refused before any build."""
-    model, _ = train(eq.MLP(6, [16], 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    with torch.device("meta"):
-        huge = eq.MLP(6, [50_000_000], 3)  # ~500M parameters, ~2 GB if built
-    _rewrite(
-        path,
-        embedding_recipe=eq.embedding_recipe(huge),
-        embedding_state_dict={
-            k: torch.zeros(1).expand(v.shape) for k, v in huge.state_dict().items()
-        },
-    )
-    recipe_builds.clear()  # save() checks its recipe on the meta device too
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="storage is smaller than its shape"):
-            loader(path)
-    assert recipe_builds == [], f"recipe was built before the refusal: {recipe_builds}"
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_expanded_support_tensor_is_refused(tmp_path, train, cls) -> None:
-    model, _ = train(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    ckpt = torch.load(path, weights_only=True)
-    label = next(iter(ckpt["support"]))
-    ckpt["support"][label] = torch.zeros(1).expand(1_000_000, 6)
-    torch.save(ckpt, path)
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="storage is smaller than its shape"):
-            loader(path)
-
-
-def _views_of_one_storage(module: torch.nn.Module) -> dict[str, torch.Tensor]:
-    """The module's state_dict shapes, each a distinct view of one shared storage
-    that is only as large as the biggest tensor."""
-    shapes = {k: v.shape for k, v in module.state_dict().items()}
-    base = torch.zeros(max(shape.numel() for shape in shapes.values()))
-    return {k: base[: shape.numel()].view(shape) for k, shape in shapes.items()}
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-@pytest.mark.parametrize("override", [False, True], ids=["recipe", "override"])
-def test_weights_sharing_one_storage_are_refused(
-    tmp_path, train, cls, override, recipe_builds
-) -> None:
-    """Weights that are each honestly stored but together view one small storage are
-    refused."""
-    model, _ = train(eq.MLP(6, [16], 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    with torch.device("meta"):
-        deep = eq.MLP(6, [64] * 8, 3)  # ~30K parameters over one 16 KB storage
-    _rewrite(
-        path,
-        embedding_recipe=eq.embedding_recipe(deep),
-        embedding_state_dict=_views_of_one_storage(deep),
-    )
-    kwargs: dict[str, Any] = (
-        {"embedding_model": eq.MLP(6, [64] * 8, 3)} if override else {}
-    )
-    recipe_builds.clear()  # save() checks its recipe on the meta device too
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="too small for the architecture"):
-            loader(path, **kwargs)
-    assert all(devices == {"meta"} for devices in recipe_builds), recipe_builds
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
 def test_non_zip_file_is_refused_before_any_build(
     tmp_path, train, cls, recipe_builds
 ) -> None:
@@ -963,47 +889,10 @@ def test_non_zip_file_is_refused_before_any_build(
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    torch.save(
-        torch.load(path, weights_only=True), path, _use_new_zipfile_serialization=False
-    )
+    torch.save(_model_file.read(path), path, _use_new_zipfile_serialization=False)
     recipe_builds.clear()  # save() checks its recipe on the meta device too
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="python -m equine.upgrade"):
-            loader(path)
-    assert recipe_builds == []
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_truncated_weight_records_are_refused_before_any_build(
-    tmp_path, train, cls, recipe_builds
-) -> None:
-    """Records shorter than the storages the pickle declares: a small file that
-    claims the weights of a ~10M-parameter network."""
-    model, _ = train(eq.MLP(6, [16], 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    with torch.device("meta"):
-        huge = eq.MLP(6, [1_000_000], 3)
-    ckpt = torch.load(path, weights_only=True)
-    ckpt["embedding_recipe"] = eq.embedding_recipe(huge)
-    ckpt["embedding_state_dict"] = {
-        k: torch.zeros(v.shape, dtype=torch.uint8) for k, v in huge.state_dict().items()
-    }
-    full = str(tmp_path / "full.eq")
-    torch.save(ckpt, full)
-    _rewrite_zip(
-        full,
-        path,
-        lambda name, data: (
-            data[:4] if "/data/" in name and len(data) > 100_000 else data
-        ),
-    )
-    assert os.path.getsize(path) < 100_000
-    recipe_builds.clear()
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(
-            ValueError, match="storage larger than the data it contains"
-        ):
             loader(path)
     assert recipe_builds == []
 
@@ -1019,20 +908,6 @@ def test_loaded_model_does_not_depend_on_its_file(tmp_path, train, cls) -> None:
     assert all(tensor.untyped_storage().resizable() for tensor in stored)
     os.truncate(path, 0)
     assert_same(model, reloaded, X)
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_support_shared_across_labels_is_refused(tmp_path, train, cls) -> None:
-    """One stored tensor referenced by every label: a small file, per-label work."""
-    model, _ = train(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    ckpt = torch.load(path, weights_only=True)
-    shared = next(iter(ckpt["support"].values()))
-    _rewrite(path, support={label: shared for label in ckpt["support"]})
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="alias one another"):
-            loader(path)
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
@@ -1071,55 +946,27 @@ def _with_options(options: Any) -> torch.nn.Module:
     return WithOptions(options=options)
 
 
-def _splice_into_pickle(path: str, marker: str, opcodes: bytes) -> None:
-    """Replace the string ``marker`` pickled in a saved file with raw pickle opcodes."""
-    encoded = marker.encode()
-    pickled = b"X" + len(encoded).to_bytes(4, "little") + encoded  # BINUNICODE
-
-    def edit(name: str, data: bytes) -> bytes:
-        if name.endswith("data.pkl"):
-            assert data.count(pickled) == 1
-            return data.replace(pickled, opcodes)
-        return data
-
-    _rewrite_zip(path, path + ".tmp", edit)
-    os.replace(path + ".tmp", path)
-
-
 @pytest.mark.parametrize("train, cls", TRAINERS)
-def test_recipe_nested_too_deeply_is_refused_quickly(tmp_path, train, cls) -> None:
-    """A recipe nested too deeply is refused quickly, before anything recurses through
-    it."""
-    model, _ = train(_with_options("__options__"))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    depth = 10_000
-    # EMPTY_LIST `depth` times, then APPEND each list to the one below it.
-    _splice_into_pickle(path, "__options__", b"]" * depth + b"a" * (depth - 1))
-    assert os.path.getsize(path) < 300_000
-    for loader in (cls.load, eq.load_equine_model):
-        start = time.perf_counter()
-        with pytest.raises(ValueError, match="more than 100 levels deep") as err:
-            loader(path)
-        assert time.perf_counter() - start < 30.0
-        assert len(str(err.value)) < 1000
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_recipe_that_shares_containers_loads_quickly(tmp_path, train, cls) -> None:
-    """Each level holds the level below twice: a small file whose recipe has
-    2**25 paths to walk."""
+def test_recipe_that_shares_containers_is_refused_at_save_quickly(
+    tmp_path, train, cls
+) -> None:
+    """Each level holds the level below twice: a recipe whose 2**25 paths the file
+    would hold one by one is refused at save, and no file is created."""
     options: Any = [1]
     for _ in range(24):
         options = [options, options]
-    model, X = train(_with_options(options))
+    model, _ = train(_with_options(options))
     path = str(tmp_path / "m.eq")
-    model.save(path)
-    assert os.path.getsize(path) < 100_000
     start = time.perf_counter()
-    reloaded = cls.load(path)
+    with pytest.raises(
+        ValueError,
+        match=r"^Cannot save: the model's settings, recipe, feature and label names and "
+        r"train summary need "
+        rf"more than {_model_file.MAX_JSON_BYTES} bytes of JSON; store less",
+    ):
+        model.save(path)
     assert time.perf_counter() - start < 2.0
-    assert_same(model, reloaded, X)
+    assert not os.path.exists(path)
 
 
 # --- support storage ------------------------------------------------------------------
@@ -1143,7 +990,7 @@ def test_protonet_saves_only_the_support_rows(tmp_path) -> None:
     path = str(tmp_path / "m.eq")
     model.save(path)
 
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     stored = list(ckpt["support"].values())
     stored += [kde["dataset"] for kde in ckpt["outlier_kde"].values()]
     for tensor in stored:
@@ -1178,7 +1025,7 @@ def test_gp_saves_only_the_support_rows(tmp_path) -> None:
     path = str(tmp_path / "m.eq")
     model.save(path)
 
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     for tensor in ckpt["support"].values():
         assert (
             tensor.untyped_storage().nbytes() == tensor.numel() * tensor.element_size()
@@ -1810,9 +1657,9 @@ def test_gp_settings_larger_than_the_stored_head_are_refused_before_construction
     model, _ = train_gp(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"].update(change)
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     assert os.path.getsize(path) < 100_000
     monkeypatch.setattr(eq.EquineGP, "__init__", _refuse_construction)
     for loader in (eq.EquineGP.load, eq.load_equine_model):
@@ -1835,9 +1682,9 @@ def test_gp_head_weights_must_match_the_settings_exactly(
     model, _ = train_gp(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     edit(ckpt["laplace_model_save"])
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     monkeypatch.setattr(eq.EquineGP, "__init__", _refuse_construction)
     with pytest.raises(ValueError, match="laplace_model_save does not match") as err:
         eq.EquineGP.load(path)
@@ -1862,13 +1709,13 @@ def test_gp_malformed_settings_are_refused_before_construction(
     model, _ = train_gp(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     for key, value in changes.items():
         if isinstance(value, dict):
             ckpt[key].update(value)
         else:
             ckpt[key] = value
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     monkeypatch.setattr(eq.EquineGP, "__init__", _refuse_construction)
     with pytest.raises(ValueError, match=message):
         eq.EquineGP.load(path)
@@ -1896,9 +1743,9 @@ def test_protonet_emb_out_dim_is_bounded_by_the_embedding_output(
     model, X = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"]["emb_out_dim"] = emb_out_dim
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
 
     def refuse(self, support) -> None:
         raise AssertionError("update_support ran before emb_out_dim was checked")
@@ -1910,7 +1757,7 @@ def test_protonet_emb_out_dim_is_bounded_by_the_embedding_output(
                 loader(path)
 
     ckpt["settings"]["emb_out_dim"] = 3
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     assert_same(model, eq.EquineProtonet.load(path), X)
 
 
@@ -1923,9 +1770,9 @@ def test_protonet_emb_out_dim_must_be_an_integer(
     model, _ = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"]["emb_out_dim"] = emb_out_dim
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     monkeypatch.setattr(eq.EquineProtonet, "__init__", _refuse_construction)
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
         with pytest.raises(ValueError, match=r"settings\['emb_out_dim'\] must be"):
@@ -1940,9 +1787,9 @@ def test_unknown_settings_keys_are_refused(tmp_path, train, cls) -> None:
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"].update({"k" * 10_000: 1, "bogus": 2, "other": 3, "more": 4})
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="does not accept") as err:
             loader(path)
@@ -1980,7 +1827,7 @@ def test_gp_use_temperature_from_0_1_5_is_dropped_by_the_upgrade(
     path = str(tmp_path / "m.eq")
     model.save(path)
     without_key = eq.EquineGP.load(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"]["use_temperature"] = use_temperature
     del ckpt["equine_format_version"]
     del ckpt["embedding_recipe"], ckpt["embedding_state_dict"]
@@ -1993,7 +1840,7 @@ def test_gp_use_temperature_from_0_1_5_is_dropped_by_the_upgrade(
             loader(old)
 
     upgrade_model_file(old, BasicEmbeddingModel(6, 3))
-    upgraded = torch.load(old, weights_only=True)
+    upgraded = _model_file.read(old)
     assert "use_temperature" not in upgraded["settings"]
     assert "embed_jit_save" not in upgraded and "embedding_recipe" in upgraded
     assert_same(without_key, eq.load_equine_model(old), X)
@@ -2040,9 +1887,9 @@ def test_file_supplied_settings_give_bounded_errors(
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"].update(settings)
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     monkeypatch.setattr(cls, "__init__", _refuse_construction)
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match=message) as err:
@@ -2108,9 +1955,9 @@ def test_protonet_support_the_embedding_cannot_read_is_a_value_error(
     model, _ = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["support"] = {label: torch.zeros(10, 7) for label in ckpt["support"]}
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="support") as err:
             loader(path)
@@ -2124,7 +1971,6 @@ def test_protonet_support_the_embedding_cannot_read_is_a_value_error(
         [torch.zeros(10, 6)],
         {"0": torch.zeros(10, 6)},
         {0: [1.0, 2.0]},
-        {(0, 1): torch.zeros(10, 6)},
         {True: torch.zeros(10, 6)},
         {1.5: torch.zeros(10, 6)},
         {float("inf"): torch.zeros(10, 6)},
@@ -2136,7 +1982,6 @@ def test_protonet_support_the_embedding_cannot_read_is_a_value_error(
         "list",
         "str-key",
         "not-a-tensor",
-        "tuple-key",
         "bool-key",
         "fraction",
         "inf",
@@ -2309,20 +2154,17 @@ def test_outlier_kde_accepts_a_1d_dataset(tmp_path) -> None:
     model, _ = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     for state in ckpt["outlier_kde"].values():
         state["dataset"] = state["dataset"].reshape(-1).clone()
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     eq.EquineProtonet.load(path)
 
 
-def test_outlier_kde_objects_are_refused_and_name_the_upgrade() -> None:
-    from scipy.stats import gaussian_kde
-
-    kde = gaussian_kde(np.random.default_rng(0).random(20))
-    with pytest.raises(ValueError, match="python -m equine.upgrade"):
-        equine.utils._outlier_kde_from_file({0: kde})
-    with pytest.raises(ValueError, match="outlier_kde"):
+def test_outlier_kde_labels_that_collide_are_refused() -> None:
+    with pytest.raises(
+        ValueError, match=r"outlier_kde is malformed \(its labels must be distinct"
+    ):
         equine.utils._outlier_kde_from_file(
             {0: _kde_state(), torch.tensor(0): _kde_state()}
         )
@@ -2417,9 +2259,9 @@ def test_file_supplied_setting_values_are_type_checked(
     model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["settings"].update(settings)
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     monkeypatch.setattr(cls, "__init__", _refuse_construction)
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match=message) as err:
@@ -2447,7 +2289,7 @@ def test_a_device_this_machine_lacks_is_refused(tmp_path, train, cls) -> None:
     model.save(path)
     _rewrite(
         path,
-        settings={**torch.load(path, weights_only=True)["settings"], "device": "cuda"},
+        settings={**_model_file.read(path)["settings"], "device": "cuda"},
     )
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="not available on this machine"):
@@ -2482,9 +2324,9 @@ def test_gp_support_the_embedding_cannot_read_is_a_value_error(tmp_path) -> None
     model, _ = train_gp(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     ckpt["support"] = {label: torch.zeros(10, 7) for label in ckpt["support"]}
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     for loader in (eq.EquineGP.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="support") as err:
             loader(path)
@@ -2577,18 +2419,24 @@ def _write_v2_protonet_file(model, path: str, label_order=None) -> None:
 
 @pytest.mark.parametrize("labels", [(0, 1, 2), (0, 2, 5)])
 def test_v2_file_loads_with_the_saved_models_outputs(tmp_path, labels) -> None:
+    from equine.upgrade import upgrade_model_file
+
     model, X = _protonet_on_labels(labels)
     path = str(tmp_path / "v2.eq")
     _write_v2_protonet_file(model, path)
+    upgrade_model_file(path)
     loaded = eq.load_equine_model(path)
     assert list(loaded.get_support()) == list(labels)
     assert_same(model, loaded, X)
 
 
 def test_v2_file_columns_follow_the_stored_support_order(tmp_path) -> None:
+    from equine.upgrade import upgrade_model_file
+
     model, X = _protonet_on_labels((0, 1, 2))
     path = str(tmp_path / "v2.eq")
     _write_v2_protonet_file(model, path, label_order=[2, 0, 1])
+    upgrade_model_file(path)
     loaded = eq.load_equine_model(path)
     assert list(loaded.get_support()) == [2, 0, 1]
     expected = model.predict(X[:8]).classes[:, [2, 0, 1]]
@@ -2600,9 +2448,12 @@ def test_v2_file_columns_follow_the_stored_support_order(tmp_path) -> None:
 def test_v2_file_with_reordered_support_scores_ood_like_the_saved_model(
     tmp_path,
 ) -> None:
+    from equine.upgrade import upgrade_model_file
+
     model, X = _protonet_on_labels((0, 1, 2))
     path = str(tmp_path / "v2.eq")
     _write_v2_protonet_file(model, path, label_order=[2, 0, 1])
+    upgrade_model_file(path)
     loaded = eq.load_equine_model(path)
     torch.testing.assert_close(
         loaded.predict(X[:8]).ood_scores,
@@ -2616,7 +2467,7 @@ def test_save_load_round_trip_keeps_non_contiguous_labels(tmp_path) -> None:
     model, X = _protonet_on_labels((0, 2, 5))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     assert list(ckpt["support"]) == [0, 2, 5]
     assert list(ckpt["outlier_kde"]) == [0, 2, 5]
     loaded = eq.load_equine_model(path)
@@ -2632,7 +2483,7 @@ def test_ood_distance_is_saved_and_loaded(tmp_path, ood_distance) -> None:
     model.temperature.fill_(0.5)
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     assert ckpt["settings"]["ood_distance"] == ood_distance
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
         loaded = loader(path)
@@ -2644,9 +2495,9 @@ def test_protonet_file_without_ood_distance_loads_as_rmd_sqrt(tmp_path) -> None:
     model, X = train_protonet(BasicEmbeddingModel(6, 3), ood_distance="rmd_sqrt")
     path = str(tmp_path / "m.eq")
     model.save(path)
-    ckpt = torch.load(path, weights_only=True)
+    ckpt = _model_file.read(path)
     del ckpt["settings"]["ood_distance"]
-    torch.save(ckpt, path)
+    _model_file.write(path, ckpt)
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
         loaded = loader(path)
         assert loaded.ood_distance == "rmd_sqrt"
@@ -2675,7 +2526,7 @@ def _one_class_gp_checkpoint(model) -> dict:
 def test_gp_file_with_one_class_is_refused(tmp_path) -> None:
     model, _ = train_gp(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "one_class.eq")
-    torch.save(_one_class_gp_checkpoint(model), path)
+    _model_file.write(path, _one_class_gp_checkpoint(model))
     for loader in (eq.EquineGP.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="num_classes must be at least 2, got 1"):
             loader(path)

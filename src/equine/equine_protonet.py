@@ -20,6 +20,7 @@ from scipy.stats import gaussian_kde
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
+from . import _model_file
 from .equine import Equine, EquineOutput, _apply_to_stored_tensors, _eval_mode
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
@@ -1577,7 +1578,8 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If the embedding model is not a registered architecture.
+            If the embedding model is not a registered architecture, or the model
+            holds a value a model file does not store (see ``equine._model_file``).
         RuntimeError
             If the model has no support examples (neither ``train_model`` nor
             ``update_support`` has run).
@@ -1587,7 +1589,7 @@ class EquineProtonet(Equine):
                 "The model has no support examples to save; call train_model or "
                 "update_support first."
             )
-        torch.save(self._to_checkpoint(), path)
+        _model_file.write(path, self._to_checkpoint())
 
     def _to_checkpoint(self) -> dict[str, Any]:
         """Build the checkpoint dictionary that ``save`` writes and ``_from_checkpoint`` reads."""
@@ -1600,7 +1602,6 @@ class EquineProtonet(Equine):
             "ood_distance": self.ood_distance,
             "device": self.device,
         }
-        # Plain values only, so load_checkpoint can read it with weights_only=True.
         save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
             **_embedding_checkpoint(self.model.embedding_model),
@@ -1631,9 +1632,9 @@ class EquineProtonet(Equine):
         """
         Load a previously saved EquineProtonet model.
 
-        Loading runs no code from the file: it is read with
-        ``torch.load(weights_only=True)`` and the embedding model is rebuilt from its
-        recipe through the architecture registry.
+        Loading runs no code from the file: it is a safetensors file (see
+        ``utils.load_checkpoint``) and the embedding model is rebuilt from its recipe
+        through the architecture registry.
 
         Parameters
         ----------
@@ -1722,12 +1723,6 @@ class EquineProtonet(Equine):
         for key in ("feature_names", "label_names"):
             _require_names(model_save.get(key), key)
         head_save = model_save["model_head_save"]
-        if isinstance(head_save, dict) and set(head_save) == {"weight", "bias"}:
-            raise ValueError(
-                "Model file's model_head_save holds the weights of a Linear head, "
-                "which EQUINE <= 0.1.6 saved; the head is now an Identity. Rewrite "
-                "the file with `python -m equine.upgrade`, which drops those weights."
-            )
 
         settings = _checked_settings(cls, model_save["settings"])
         # The model is built from the file's settings and then gets the file's

@@ -2754,7 +2754,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">1358</span>
 <span class="normal">1359</span>
 <span class="normal">1360</span>
-<span class="normal">1361</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">1361</span>
+<span class="normal">1362</span>
+<span class="normal">1363</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
@@ -2972,9 +2974,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="n">selected_labels</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span>
-            <span class="n">full_support</span>
-        <span class="p">)</span>  <span class="c1"># update support with final selected examples</span>
+        <span class="c1"># Embedded without autograd: the result carries no graph.</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span>
+                <span class="n">full_support</span>
+            <span class="p">)</span>  <span class="c1"># update support with final selected examples</span>
 
         <span class="c1"># The OOD-calibration pass records no autograd graph.</span>
         <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
@@ -3259,10 +3263,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
                     <span class="p">)</span>
                     <span class="n">support</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">class_support</span><span class="p">)</span>
 
-                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
-
-                <span class="c1"># The calibration pass records no autograd graph.</span>
+                <span class="c1"># The support and the calibration pass record no autograd graph.</span>
                 <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
                     <span class="n">preds</span><span class="p">,</span> <span class="n">dists</span><span class="p">,</span> <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_forward_with_embeddings</span><span class="p">(</span><span class="n">calib_x</span><span class="p">)</span>
                     <span class="n">ood_dists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_ood_dist</span><span class="p">(</span><span class="n">X_embed</span><span class="p">,</span> <span class="n">preds</span><span class="p">,</span> <span class="n">dists</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">_fit_outlier_scores</span><span class="p">(</span><span class="n">ood_dists</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">)</span>
@@ -3513,7 +3516,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
                 <span class="s2">"inconsistent or was tampered with."</span>
             <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="n">support_error</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">_truncate</span><span class="p">(</span><span class="n">_describe_error</span><span class="p">(</span><span class="n">err</span><span class="p">),</span> <span class="mi">200</span><span class="p">))</span>
@@ -3993,9 +3997,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">836</span>
-<span class="normal">837</span>
-<span class="normal">838</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">838</span>
 <span class="normal">839</span>
 <span class="normal">840</span>
 <span class="normal">841</span>
@@ -4036,7 +4038,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">876</span>
 <span class="normal">877</span>
 <span class="normal">878</span>
-<span class="normal">879</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
+<span class="normal">879</span>
+<span class="normal">880</span>
+<span class="normal">881</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">calib_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">calib_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -4268,8 +4272,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1122</span>
-<span class="normal">1123</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1123</span>
 <span class="normal">1124</span>
 <span class="normal">1125</span>
 <span class="normal">1126</span>
@@ -4278,7 +4281,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">1129</span>
 <span class="normal">1130</span>
 <span class="normal">1131</span>
-<span class="normal">1132</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the prototypes for the model (the class means of the support embeddings).</span>
@@ -4334,8 +4338,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1110</span>
-<span class="normal">1111</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1111</span>
 <span class="normal">1112</span>
 <span class="normal">1113</span>
 <span class="normal">1114</span>
@@ -4344,7 +4347,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">1117</span>
 <span class="normal">1118</span>
 <span class="normal">1119</span>
-<span class="normal">1120</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the support examples for the model.</span>
@@ -4502,8 +4506,7 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1193</span>
-<span class="normal">1194</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1194</span>
 <span class="normal">1195</span>
 <span class="normal">1196</span>
 <span class="normal">1197</span>
@@ -4547,7 +4550,8 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="normal">1235</span>
 <span class="normal">1236</span>
 <span class="normal">1237</span>
-<span class="normal">1238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1238</span>
+<span class="normal">1239</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -4705,9 +4709,7 @@ tensors), which a caller can use in autograd.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 997</span>
 <span class="normal"> 998</span>
 <span class="normal"> 999</span>
 <span class="normal">1000</span>
@@ -4744,7 +4746,9 @@ tensors), which a caller can use in autograd.</p>
 <span class="normal">1031</span>
 <span class="normal">1032</span>
 <span class="normal">1033</span>
-<span class="normal">1034</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Predict function for EquineProtonet, inherited and implemented from Equine.</span>
 
 <span class="sd">    Computes in eval mode and leaves the model in the mode the caller had it in (via</span>
@@ -4874,8 +4878,7 @@ only data.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1134</span>
-<span class="normal">1135</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1135</span>
 <span class="normal">1136</span>
 <span class="normal">1137</span>
 <span class="normal">1138</span>
@@ -4900,7 +4903,8 @@ only data.</p>
 <span class="normal">1157</span>
 <span class="normal">1158</span>
 <span class="normal">1159</span>
-<span class="normal">1160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1160</span>
+<span class="normal">1161</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
@@ -5327,7 +5331,9 @@ scores are not refitted.</p>
 <span class="normal">831</span>
 <span class="normal">832</span>
 <span class="normal">833</span>
-<span class="normal">834</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="n">TensorDataset</span><span class="p">,</span>
@@ -5448,9 +5454,11 @@ scores are not refitted.</p>
         <span class="n">selected_labels</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
     <span class="p">)</span>
 
-    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span>
-        <span class="n">full_support</span>
-    <span class="p">)</span>  <span class="c1"># update support with final selected examples</span>
+    <span class="c1"># Embedded without autograd: the result carries no graph.</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span>
+            <span class="n">full_support</span>
+        <span class="p">)</span>  <span class="c1"># update support with final selected examples</span>
 
     <span class="c1"># The OOD-calibration pass records no autograd graph.</span>
     <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
@@ -5606,9 +5614,7 @@ model as it was.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1036</span>
-<span class="normal">1037</span>
-<span class="normal">1038</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1038</span>
 <span class="normal">1039</span>
 <span class="normal">1040</span>
 <span class="normal">1041</span>
@@ -5678,7 +5684,8 @@ model as it was.</p>
 <span class="normal">1105</span>
 <span class="normal">1106</span>
 <span class="normal">1107</span>
-<span class="normal">1108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="p">(</span><span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="p">(</span><span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">update_support</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">support_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -5738,10 +5745,9 @@ model as it was.</p>
                 <span class="p">)</span>
                 <span class="n">support</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">class_support</span><span class="p">)</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
-
-            <span class="c1"># The calibration pass records no autograd graph.</span>
+            <span class="c1"># The support and the calibration pass record no autograd graph.</span>
             <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">update_support</span><span class="p">(</span><span class="n">support</span><span class="p">)</span>
                 <span class="n">preds</span><span class="p">,</span> <span class="n">dists</span><span class="p">,</span> <span class="n">X_embed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">_forward_with_embeddings</span><span class="p">(</span><span class="n">calib_x</span><span class="p">)</span>
                 <span class="n">ood_dists</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_ood_dist</span><span class="p">(</span><span class="n">X_embed</span><span class="p">,</span> <span class="n">preds</span><span class="p">,</span> <span class="n">dists</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_fit_outlier_scores</span><span class="p">(</span><span class="n">ood_dists</span><span class="p">,</span> <span class="n">calib_y</span><span class="p">)</span>

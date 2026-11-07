@@ -2767,14 +2767,22 @@ def test_archive_bytes_is_fast_for_large_tensors() -> None:
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_refuses_a_flagged_file_without_an_archive(tmp_path) -> None:
-    model, _ = _trained_protonet()
+    """The refusal's repair, followed, gives a file that loads."""
+    model, X = _trained_protonet()
     path = str(tmp_path / "m.eq")
     model.save(path)
     checkpoint = torch.load(path, weights_only=True)
     checkpoint["contains_executable"] = True
     torch.save(checkpoint, path)
-    with pytest.raises(ValueError, match="holds no TorchScript archive"):
+    with pytest.raises(ValueError, match="holds no TorchScript archive") as err:
         _upgrade(path)
+    assert "was not written by an EQUINE version the upgrade converts" in str(err.value)
+    assert "remove its contains_executable entry" in str(err.value)
+
+    repaired = torch.load(path, map_location="cpu", weights_only=True)
+    del repaired["contains_executable"]
+    torch.save(repaired, path)
+    _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
 @pytest.mark.parametrize(
@@ -3009,8 +3017,8 @@ def test_safe_loader_refusal_reads_as_one_sentence(tmp_path) -> None:
 
 
 def test_upgrade_reads_every_stored_archive_form() -> None:
-    """The archive loader reads the uint8 tensor of a current-format file and the
-    bytes and BytesIO forms found in legacy files."""
+    """The archive loader reads the uint8 tensor that format-2 files store, the
+    BytesIO that legacy files store, and bytes."""
     from equine.upgrade import _load_archive
 
     module = BasicEmbeddingModel(6, 3)
@@ -3134,3 +3142,14 @@ def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
     upgraded = eq.load_equine_model(path)
     assert upgraded.ood_distance == "rmd_sqrt"
     _assert_same_predictions(model, upgraded, X)
+
+
+def test_upgrade_names_what_a_file_without_a_train_summary_lacks(tmp_path) -> None:
+    path = str(tmp_path / "x.pt")
+    torch.save({"embed_jit_save": torch.zeros(3, dtype=torch.uint8)}, path)
+    with pytest.raises(
+        ValueError,
+        match="is not an EQUINE model file: every EQUINE model file is a dictionary "
+        "with a train_summary",
+    ):
+        _upgrade(path)

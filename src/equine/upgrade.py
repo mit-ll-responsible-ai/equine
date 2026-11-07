@@ -127,8 +127,8 @@ def _load_archive(archive: Any) -> torch.nn.Module:
     """
     The TorchScript module stored in a checkpoint, loaded on the CPU.
 
-    Accepts the ``uint8`` tensor of a current-format file and the ``bytes`` and
-    ``io.BytesIO`` forms of files from earlier releases.
+    Accepts a ``uint8`` tensor (as format-2 files store it), an ``io.BytesIO`` (as files
+    from EQUINE 0.1.8 and earlier store it), and ``bytes`` or ``bytearray``.
     """
     load = getattr(getattr(torch, "jit", None), "load", None)
     if load is None:
@@ -398,7 +398,10 @@ def _read_legacy(path: str) -> dict[str, Any]:
             f"'{path}' could not be read as a PyTorch file ({_describe_error(err)})."
         ) from err
     if not isinstance(checkpoint, dict) or "train_summary" not in checkpoint:
-        raise ValueError(f"'{path}' is not an EQUINE model file.")
+        raise ValueError(
+            f"'{path}' is not an EQUINE model file: every EQUINE model file is a "
+            "dictionary with a train_summary."
+        )
     return checkpoint
 
 
@@ -575,7 +578,15 @@ def _upgrade(
 ) -> tuple[str, list[str]]:
     """Write the upgraded file and return where, plus the notes to report."""
     if "embed_jit_save" not in checkpoint:
-        raise ValueError(f"'{path}' holds no TorchScript archive to upgrade from.")
+        raise ValueError(
+            f"'{path}' holds no TorchScript archive to upgrade from: files from EQUINE "
+            "0.1.8 and earlier, and format-2 files, store one in embed_jit_save, so "
+            "this file was not written by an EQUINE version the upgrade converts. If "
+            "it holds its embedding as a recipe and weights, remove its "
+            "contains_executable entry: read it with torch.load(path, "
+            "map_location='cpu', weights_only=True), delete the entry, and write it "
+            "back with torch.save."
+        )
     current, notes = _current_layout(checkpoint)
     blocks = _comparison_blocks(current, check_inputs)
     if not blocks:

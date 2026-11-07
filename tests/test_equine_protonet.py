@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: MIT
 
 import copy
+import math
 from collections import OrderedDict
 
 import pytest
 import torch
+from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
     BasicEmbeddingModel,
     assert_valid_prediction,
@@ -16,11 +18,11 @@ from conftest import (
     use_basic_embedding_model,
     use_save_load_model_tests,
 )
-from golden_data import CLASSES, FEATURES, separable_dataset
+from golden_data import CLASSES, FEATURES, golden_dtype, separable_dataset
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
-from equine.equine_protonet import Protonet
+from equine.equine_protonet import DEFAULT_EPSILON, Protonet
 
 
 @given(
@@ -861,3 +863,90 @@ def test_calibrate_temperature_needs_a_support() -> None:
     )
     with pytest.raises(ValueError, match="No support examples found"):
         model.calibrate_temperature(x[:10], y[:10].float())
+
+
+def _hand_ood_distances(**kwargs) -> list[float]:
+    """``_compute_ood_dist`` in float64 with unit diagonal covariances: class
+    prototypes [0, 0] and [10, 10], global mean [0, 4]; the query [3, 4] is
+    predicted as class 0 and [10, 0] as class 1. Their squared Mahalanobis
+    distances are 25 and 100 to the predicted class and 9 and 116 to the
+    global mean."""
+    with golden_dtype():
+        model = eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, **kwargs)
+        model.model.global_mean = torch.tensor([0.0, 4.0])
+        model.model.global_covariance = torch.ones(1, 2)
+        queries = torch.tensor([[3.0, 4.0], [10.0, 0.0]])
+        distances = model.model.compute_distance(
+            queries, torch.tensor([[0.0, 0.0], [10.0, 10.0]]), torch.ones(2, 2)
+        )
+        predictions = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+        return model._compute_ood_dist(queries, predictions, distances).tolist()
+
+
+def _distance(squared: float) -> float:
+    """The distance ``compute_distance`` returns for a squared Mahalanobis distance."""
+    return math.sqrt(squared + DEFAULT_EPSILON)
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        pytest.param({}, [16.0, -16.0], id="default"),
+        pytest.param({"ood_distance": "rmd_sq"}, [16.0, -16.0], id="rmd_sq"),
+        pytest.param(
+            {"ood_distance": "rmd_sqrt"},
+            [_distance(25) - _distance(9), _distance(100) - _distance(116)],
+            id="rmd_sqrt",
+        ),
+        pytest.param(
+            {"relative_mahal": False},
+            [_distance(25), _distance(100)],
+            id="absolute",
+        ),
+        pytest.param(
+            {"relative_mahal": False, "ood_distance": "rmd_sqrt"},
+            [_distance(25), _distance(100)],
+            id="absolute-rmd_sqrt",
+        ),
+    ],
+)
+def test_ood_distance_of_hand_computed_queries(kwargs, expected) -> None:
+    assert _hand_ood_distances(**kwargs) == pytest.approx(expected, abs=1e-9, rel=0)
+
+
+@pytest.mark.parametrize(
+    "kwargs, scaled_ood",
+    [
+        pytest.param({}, False, id="rmd_sq"),
+        pytest.param({"ood_distance": "rmd_sqrt"}, True, id="rmd_sqrt"),
+        pytest.param({"relative_mahal": False}, True, id="absolute"),
+    ],
+)
+def test_temperature_reaches_the_ood_scores_except_with_rmd_sq(
+    kwargs, scaled_ood
+) -> None:
+    """The temperature scales the class probabilities of every model, and the
+    OOD scores of all but the relative ``"rmd_sq"`` statistic."""
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True, **kwargs
+    )
+    model.train_model(
+        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
+    )
+    model.temperature.fill_(0.5)
+    halved = model.predict(x)
+    model.temperature.fill_(1.0)
+    plain = model.predict(x)
+    assert not torch.equal(halved.classes, plain.classes)
+    assert torch.equal(halved.ood_scores, plain.ood_scores) is not scaled_ood
+
+
+def test_ood_distance_is_checked_at_construction() -> None:
+    with pytest.raises(
+        ValueError, match=r"ood_distance must be one of \['rmd_sq', 'rmd_sqrt'\]"
+    ):
+        eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance="rmd")
+    with pytest.raises(BeartypeCallHintParamViolation):
+        eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance=1)

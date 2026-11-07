@@ -488,6 +488,19 @@ def test_gp_train_model_accepts_float64_dataset(device):
 
 
 @pytest.mark.parametrize("device", devices())
+@pytest.mark.parametrize(
+    "dtype", [torch.uint8, torch.uint16, torch.uint32, torch.uint64, torch.int64]
+)
+def test_gp_calibrate_model_accepts_integer_labels_on_the_device(device, dtype):
+    model, x, y = _gp(device)
+    model.calibrate_model(
+        torch.utils.data.TensorDataset(x.to(device), y.to(device=device, dtype=dtype))
+    )
+    assert model.temperature.item() != 1.0
+    assert not model.temperature.requires_grad
+
+
+@pytest.mark.parametrize("device", devices())
 def test_protonet_train_model_accepts_float64_dataset(device):
     """Episodes, support and the calibration split all cross the model boundary."""
     torch.manual_seed(0)

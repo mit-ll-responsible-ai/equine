@@ -203,7 +203,7 @@ description = Ensure that the equine source code under `src/` scans clean
 usedevelop = true
 basepython = python3.11
 extras =
-deps = pyright
+deps = pyright==1.1.414
 
 commands = pyright src/ --level=error
            pyright --ignoreexternal --level=warning --verifytypes equine

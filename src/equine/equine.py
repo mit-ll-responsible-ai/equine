@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Callable
 from itertools import chain
-from typing import Any, TypeVar
+from typing import Any, Self, TypeVar
 
 import icontract
 import torch
@@ -302,8 +302,8 @@ class Equine(torch.nn.Module, ABC):
         """
         raise NotImplementedError
 
-    @classmethod  # type: ignore
-    def load(cls: AnyEquine, path: str) -> AnyEquine:  # noqa: F821 # type: ignore
+    @classmethod
+    def load(cls, path: str) -> Self:
         """
         Upon implementation, load the model from the given file path.
 

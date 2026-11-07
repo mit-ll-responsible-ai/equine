@@ -1724,7 +1724,8 @@ def generate_model_metrics(
     Returns
     -------
     dict[str, Any]
-        Dictionary of model metrics.
+        Dictionary of model metrics. ``"confusionMatrix"`` has one row per true
+        class and one column per predicted class.
     """
     device = eq_preds.classes.device
     true_y = true_y.to(device)
@@ -1737,9 +1738,9 @@ def generate_model_metrics(
         num_classes=eq_preds.classes.shape[1]
     ).to(device)
     metrics = {
-        "accuracy": accuracy(true_y, pred_y),
-        "microF1Score": f1_score(true_y, pred_y),
-        "confusionMatrix": confusion_matrix(true_y, pred_y).tolist(),
+        "accuracy": accuracy(pred_y, true_y),
+        "microF1Score": f1_score(pred_y, true_y),
+        "confusionMatrix": confusion_matrix(pred_y, true_y).tolist(),
         "brierScore": brier_score(eq_preds.classes, true_y),
         "brierSkillScore": brier_skill_score(eq_preds.classes, true_y),
         "expectedCalibrationError": expected_calibration_error(

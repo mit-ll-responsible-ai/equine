@@ -65,7 +65,7 @@ def _briefly_trained_protonet_with_data():
 def test_update_support_sets_label_names() -> None:
     model, x, y = _briefly_trained_protonet_with_data()
     assert model.get_label_names() is None
-    model.update_support(x, y, 0.5, label_names=["a", "b", "c"])
+    model.update_support(x, y, calib_frac=0.5, label_names=["a", "b", "c"])
     assert model.get_label_names() == ["a", "b", "c"]
 
 
@@ -75,7 +75,7 @@ def test_update_support_rejects_wrong_label_names_length() -> None:
         ValueError,
         match=r"The length of label_names \(2\) does not match the number of classes \(3\)",
     ):
-        model.update_support(x, y, 0.5, label_names=["only", "two"])
+        model.update_support(x, y, calib_frac=0.5, label_names=["only", "two"])
 
 
 @given(random_dataset=random_dataset())
@@ -153,7 +153,7 @@ def test_train_episodes_shared_reg(random_dataset):
     assert support is not None and len(support) == num_classes, (
         "Support set is correct size"
     )
-    model.update_support(X, Y, 0.5)
+    model.update_support(X, Y, calib_frac=0.5)
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
@@ -191,7 +191,7 @@ def test_train_episodes_full_cov(random_dataset):
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
-    model.update_support(X, Y, 0.5)
+    model.update_support(X, Y, calib_frac=0.5)
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
@@ -714,7 +714,7 @@ def test_equine_protonet_loaded_from_a_file_keeps_no_autograd_history(
 def test_equine_protonet_deepcopy_after_update_support() -> None:
     """A Protonet's public ``update_support`` keeps no autograd history."""
     model, x, y = _briefly_trained_protonet_with_data()
-    model.update_support(x, y, 0.2)
+    model.update_support(x, y, calib_frac=0.2)
     for name, t in stored_tensors(model).items():
         assert t.grad_fn is None, f"{name} still has a grad_fn"
     copy.deepcopy(model)

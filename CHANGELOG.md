@@ -219,3 +219,38 @@
   model's device, and computed nothing when `val_metrics` was a generator. Each
   metric is now moved to the model's device in place and reset before each
   epoch's validation pass (#171).
+- `update_support` failed with `IndexError` when a class had a single example.
+  `EquineGP.update_support` now accepts it. `EquineProtonet.update_support`
+  raises `ValueError` naming the class when the `calib_frac` split leaves a
+  class with fewer than 2 support or 2 calibration examples, and
+  `EquineProtonet.train_model` does so when a class has too few training
+  examples for `support_size` (one more when episodes run, for a query
+  example) or fewer than 2 calibration examples, before training starts. Both failed inside scipy or partway through training, or silently
+  dropped a class with no training examples (#184, #176).
+- A failed `EquineProtonet.update_support` leaves the model as it was.
+- A Protonet class with a single support example got a NaN variance that
+  prediction treated as zero distance, so every query was assigned to that
+  class. A diagonal or full covariance now needs at least 2 examples per class,
+  and loading a file whose support has a class with fewer than 2 examples
+  raises `ValueError`. EQUINE 0.1.8 wrote such a file only when training with
+  `support_size=1` and `num_episodes=0`, or under `python -O`; that model
+  predicted uniform probabilities. `train_model` now refuses a `support_size`
+  below 2 (#193).
+- Fitting a Protonet's outlier scores raises `ValueError` naming the class when
+  all its calibration examples have the same OOD distance, instead of a scipy
+  `LinAlgError`.
+- `save` on a model that was never trained wrote a file that `load` refused; it
+  now raises `RuntimeError` and writes nothing (#218).
+- `predict` on an empty batch raised an icontract error (Protonet) or returned
+  an empty result (GP), and on input whose embeddings hold NaN or infinite
+  values raised an icontract error (GP) or returned finite-looking scores
+  (Protonet). Both models now raise `ValueError` in both cases; an embedding
+  that maps NaN input to finite values keeps working. The same `ValueError`
+  comes from `EquineProtonet.forward` and `calibrate_temperature` in eval mode,
+  and from the calibration pass of `EquineProtonet.train_model` and
+  `update_support`; `EquineGP.forward` is unchanged (#219).
+- Checks written as `assert` were skipped under `python -O`. The GP's precision
+  matrix checks raise `RuntimeError` (a failed inversion raises
+  `torch.linalg.LinAlgError`), and support and episode sampling raise
+  `ValueError`; an episode now needs more than `support_size` examples of each
+  class, which was checked only by an `assert` (#217).

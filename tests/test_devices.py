@@ -389,7 +389,9 @@ def test_gp_inverse_helper_stays_on_the_device(device):
     inverse = _inverse_via_cholesky(a)
     assert inverse.device == a.device
     torch.testing.assert_close((a @ inverse).cpu(), torch.eye(2))
-    with pytest.raises(AssertionError, match="Precision matrix inversion failed"):
+    with pytest.raises(
+        torch.linalg.LinAlgError, match="Precision matrix inversion failed"
+    ):
         _inverse_via_cholesky(-a)
 
 

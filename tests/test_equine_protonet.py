@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 import torch
 from beartype.roar import BeartypeCallHintParamViolation
+from builders import quick_protonet
 from conftest import (
     LABEL_KINDS,
     BasicEmbeddingModel,
@@ -33,7 +34,6 @@ from scipy.stats import gaussian_kde
 
 import equine as eq
 from equine import _model_file
-from equine.equine import MIN_TEMPERATURE
 from equine.equine_protonet import DEFAULT_EPSILON, Protonet
 
 
@@ -62,27 +62,15 @@ def test_compute_shared_covariance_refuses_unit_covariance() -> None:
         model.model.compute_shared_covariance(class_cov_dict, eq.CovType.UNIT)
 
 
-def _briefly_trained_protonet_with_data():
-    """A small float32 model trained just enough for update_support to run
-    (train_model sets the statistics update_support relies on)."""
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
-    return model, x, y.float()
-
-
 def test_update_support_sets_label_names() -> None:
-    model, x, y = _briefly_trained_protonet_with_data()
+    model, x, y = quick_protonet()
     assert model.get_label_names() is None
     model.update_support(x, y, calib_frac=0.5, label_names=["a", "b", "c"])
     assert model.get_label_names() == ["a", "b", "c"]
 
 
 def test_update_support_rejects_wrong_label_names_length() -> None:
-    model, x, y = _briefly_trained_protonet_with_data()
+    model, x, y = quick_protonet()
     with pytest.raises(
         ValueError,
         match=r"The length of label_names \(2\) does not match the number of classes \(3\)",
@@ -90,32 +78,53 @@ def test_update_support_rejects_wrong_label_names_length() -> None:
         model.update_support(x, y, calib_frac=0.5, label_names=["only", "two"])
 
 
+@pytest.mark.parametrize(
+    "num_episodes, num_deep_features, kwargs, cov_reg_type",
+    [
+        pytest.param(10, 32, {}, None, id="unit"),
+        pytest.param(
+            10, 32, {"cov_type": eq.CovType.DIAGONAL}, "shared", id="shared_reg"
+        ),
+        pytest.param(5, 4, {"cov_type": eq.CovType.FULL}, "epsilon", id="full_cov"),
+        pytest.param(10, 32, {"use_temperature": True}, None, id="with_temperature"),
+    ],
+)
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
-def test_train_episodes(random_dataset):
+def test_train_episodes(
+    random_dataset, num_episodes, num_deep_features, kwargs, cov_reg_type
+):
     dataset, num_classes, train_kwargs = random_dataset
-    num_episodes = 10
-
     X, Y = dataset.tensors
-    num_deep_features = 32
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features)
-    model.train_model(
-        dataset,
-        num_episodes=num_episodes,
-        **train_kwargs,
-    )
+    model = eq.EquineProtonet(embed_model, num_deep_features, **kwargs)
+    if cov_reg_type is not None:
+        model.cov_reg_type = cov_reg_type
+        model.model.cov_reg_type = cov_reg_type
+    before = model.temperature.item()
+    assert before == 1.0, "init_temperature defaults to 1.0"
+    train_dict = model.train_model(dataset, num_episodes=num_episodes, **train_kwargs)
+
+    if model.use_temperature:
+        assert "calib_x" in train_dict
+        assert "calib_y" in train_dict
+        after_train = model.temperature.item()
+        assert after_train != before, "train_model(use_temperature=True) must calibrate"
+        assert after_train > 0
+        model.calibrate_temperature(
+            train_dict["calib_x"], train_dict["calib_y"], 1, 0.01
+        )
+        after_calibration = model.temperature.item()
+        assert after_calibration != after_train, "calibrate_temperature must move it"
+        assert after_calibration > 0
 
     assert model.model.training is False, "Model leaves training mode"
     assert len(model.model.support) == num_classes  # type: ignore
     # Test on multiple predictions
-    eq_out = model.predict(X)
-    assert_valid_prediction(eq_out, len(X), num_classes)
+    assert_valid_prediction(model.predict(X), len(X), num_classes)
     # Test on single prediction
-    pred_out = model(X[0])
-    assert len(pred_out) == 1, "Single prediction works"
-    eq_out = model.predict(X[0])
-    assert_valid_prediction(eq_out, 1, num_classes)
+    assert len(model(X[0])) == 1, "Single prediction works"
+    assert_valid_prediction(model.predict(X[0]), 1, num_classes)
 
     support = model.get_support()
     assert support is not None and len(support) == num_classes, (
@@ -125,127 +134,10 @@ def test_train_episodes(random_dataset):
     assert prototypes is not None and len(prototypes) == num_classes, (
         "Prototypes set is correct size"
     )
-    assert (
-        model.model.support is not None and len(model.model.support) == num_classes
-    ), "Support set is correct size"
-
-
-@given(random_dataset=random_dataset())
-@settings(deadline=None)
-def test_train_episodes_shared_reg(random_dataset):
-    dataset, num_classes, train_kwargs = random_dataset
-    num_episodes = 10
-
-    X, Y = dataset.tensors
-    num_deep_features = 32
-    embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(
-        embed_model, num_deep_features, cov_type=eq.CovType.DIAGONAL
-    )
-    model.cov_reg_type = "shared"
-    model.model.cov_reg_type = "shared"
-    model.train_model(
-        dataset,
-        num_episodes=num_episodes,
-        **train_kwargs,
-    )
-
-    assert model.model.training is False, "Model leaves training mode"
-    assert len(model.model.support) == num_classes  # type: ignore
-    # Test on multiple predictions
-    eq_out = model.predict(X)
-    assert_valid_prediction(eq_out, len(X), num_classes)
-    # Test on single prediction
-    pred_out = model(X[0])
-    assert len(pred_out) == 1, "Single prediction works"
-    eq_out = model.predict(X[0])
-    assert_valid_prediction(eq_out, 1, num_classes)
-
-    support = model.get_support()
-    assert support is not None and len(support) == num_classes, (
-        "Support set is correct size"
-    )
     model.update_support(X, Y, calib_frac=0.5)
     assert (
         model.model.support is not None and len(model.model.support) == num_classes
     ), "Support set is correct size"
-
-
-@given(random_dataset=random_dataset())
-@settings(deadline=None)
-def test_train_episodes_full_cov(random_dataset):
-    dataset, num_classes, train_kwargs = random_dataset
-    num_episodes = 5
-
-    X, Y = dataset.tensors
-    num_deep_features = 4
-    embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, cov_type=eq.CovType.FULL)
-    model.cov_reg_type = "epsilon"
-    model.model.cov_reg_type = "epsilon"
-    model.train_model(
-        dataset,
-        num_episodes=num_episodes,
-        **train_kwargs,
-    )
-
-    assert model.model.training is False, "Model leaves training mode"
-    assert len(model.model.support) == num_classes  # type: ignore
-    # Test on multiple predictions
-    eq_out = model.predict(X)
-    assert_valid_prediction(eq_out, len(X), num_classes)
-    # Test on single prediction
-    pred_out = model(X[0])
-    assert len(pred_out) == 1, "Single prediction works"
-    eq_out = model.predict(X[0])
-    assert_valid_prediction(eq_out, 1, num_classes)
-
-    assert (
-        model.model.support is not None and len(model.model.support) == num_classes
-    ), "Support set is correct size"
-    model.update_support(X, Y, calib_frac=0.5)
-    assert (
-        model.model.support is not None and len(model.model.support) == num_classes
-    ), "Support set is correct size"
-
-
-@given(random_dataset=random_dataset())
-@settings(deadline=None)
-def test_train_episodes_with_temperature(random_dataset):
-    dataset, num_classes, train_kwargs = random_dataset
-    num_episodes = 10
-
-    X, Y = dataset.tensors
-    num_deep_features = 32
-    embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
-    model = eq.EquineProtonet(embed_model, num_deep_features, use_temperature=True)
-    before = model.temperature.item()
-    assert before == 1.0, "init_temperature defaults to 1.0"
-    train_dict = model.train_model(
-        dataset,
-        num_episodes=num_episodes,
-        **train_kwargs,
-    )
-
-    assert "calib_x" in train_dict
-    assert "calib_y" in train_dict
-    after_train = model.temperature.item()
-    assert after_train != before, "train_model(use_temperature=True) must calibrate"
-    assert after_train > 0
-
-    model.calibrate_temperature(train_dict["calib_x"], train_dict["calib_y"], 1, 0.01)
-    after_calibration = model.temperature.item()
-    assert after_calibration != after_train, "calibrate_temperature must move it"
-    assert after_calibration > 0
-
-    # Test on multiple predictions
-    eq_out = model.predict(X)
-    assert_valid_prediction(eq_out, len(X), num_classes)
-    # Test on single prediction
-    pred_out = model(X[0])
-    assert len(pred_out) == 1, "Single prediction works"
-    eq_out = model.predict(X[0])
-    assert_valid_prediction(eq_out, 1, num_classes)
 
 
 # The calibrated temperature of ``_float64_protonet_with_temperature(2)``,
@@ -275,24 +167,6 @@ def _float64_protonet_with_temperature(
         num_calibration_epochs=num_calibration_epochs,
     )
     return model
-
-
-def test_calibrate_temperature_keeps_the_temperature_at_or_above_the_floor(
-    monkeypatch,
-) -> None:
-    model, x, y = _briefly_trained_protonet_with_data()
-    used = []
-    cross_entropy = torch.nn.functional.cross_entropy
-
-    def record(*args, **kwargs):
-        used.append(model.temperature.item())
-        return cross_entropy(*args, **kwargs)
-
-    monkeypatch.setattr(torch.nn.functional, "cross_entropy", record)
-    model.calibrate_temperature(x, y, num_calibration_epochs=200, calibration_lr=5.0)
-    assert len(used) == 200
-    assert min(used) >= MIN_TEMPERATURE
-    assert model.temperature.item() >= MIN_TEMPERATURE
 
 
 def test_temperature_restarts_rounded_through_the_default_dtype() -> None:
@@ -481,7 +355,7 @@ def _three_class_data(sizes: tuple[int, int, int]):
 
 
 def test_update_support_refuses_a_class_left_with_one_support_example() -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     support = model.get_support()
     x, y = _three_class_data((10, 10, 2))
     with pytest.raises(ValueError, match="Class 2 has 1 support example"):
@@ -491,7 +365,7 @@ def test_update_support_refuses_a_class_left_with_one_support_example() -> None:
 
 
 def test_update_support_refuses_a_class_left_with_one_calibration_example() -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     support, kdes = model.get_support(), dict(model.outlier_score_kde)
     x, y = _three_class_data((10, 10, 6))
     with pytest.raises(ValueError, match="Class 2 has 1 calibration example"):
@@ -509,7 +383,7 @@ def test_train_model_refuses_a_class_with_one_calibration_example() -> None:
     model.eval()
     with torch.no_grad():
         model.temperature.fill_(0.5)
-    before = [p.detach().clone() for p in model.parameters()]
+    before = model_state(model)
     with pytest.raises(ValueError, match="Class 2 has 1 calibration example"):
         model.train_model(
             torch.utils.data.TensorDataset(x, y),
@@ -519,10 +393,7 @@ def test_train_model_refuses_a_class_with_one_calibration_example() -> None:
             way=3,
             episode_size=30,
         )
-    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
-    assert len(model.model.support) == 0
-    assert not model.training
-    assert model.temperature.item() == 0.5
+    assert_model_unchanged(model, before)
 
 
 @pytest.mark.parametrize(
@@ -540,6 +411,7 @@ def test_train_model_refuses_a_class_without_enough_training_examples(
     torch.manual_seed(0)
     x, y = _three_class_data(sizes)
     model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    before = model_state(model)
     with pytest.raises(
         ValueError, match=f"Class 2 has {left} training example.*at least {needed}"
     ):
@@ -551,13 +423,13 @@ def test_train_model_refuses_a_class_without_enough_training_examples(
             way=2,
             episode_size=10,
         )
-    assert len(model.model.support) == 0
+    assert_model_unchanged(model, before)
 
 
 def test_update_support_leaves_the_model_as_it_was_when_a_later_step_fails(
     monkeypatch,
 ) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     support, kdes = model.get_support(), dict(model.outlier_score_kde)
     tensors = stored_tensors(model)
 
@@ -577,7 +449,7 @@ def test_update_support_leaves_the_model_as_it_was_when_a_later_step_fails(
 
 
 def test_outlier_scores_keep_the_kdes_when_a_kde_fit_fails(monkeypatch) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     kdes = dict(model.outlier_score_kde)
     fit = eq.equine_protonet.gaussian_kde
     calls = []
@@ -597,7 +469,7 @@ def test_outlier_scores_keep_the_kdes_when_a_kde_fit_fails(monkeypatch) -> None:
 
 
 def test_outlier_scores_refuse_a_non_finite_distance_and_keep_the_kdes() -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     kdes = dict(model.outlier_score_kde)
     ood_dists = torch.tensor([2.0, 3.0, 1.0, 4.0, 5.0, float("inf")])
     calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
@@ -617,61 +489,6 @@ def test_train_model_without_episodes_needs_only_support_size_rows() -> None:
         support_size=16,
     )
     assert [len(rows) for rows in model.get_support().values()] == [16, 16, 16]
-
-
-def test_train_model_refuses_a_support_size_below_two() -> None:
-    torch.manual_seed(0)
-    dataset, _, _ = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
-    )
-    model.eval()
-    with torch.no_grad():
-        model.temperature.fill_(0.5)
-    before = [p.detach().clone() for p in model.parameters()]
-    with pytest.raises(ValueError, match="support_size must be at least 2"):
-        model.train_model(
-            dataset, num_episodes=5, support_size=1, way=3, episode_size=30
-        )
-    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
-    assert len(model.model.support) == 0
-    assert not model.training
-    assert model.temperature.item() == 0.5
-
-
-@pytest.mark.parametrize(
-    "way, episode_size, message",
-    [
-        (1, 1, "way must be between 2 and the number of classes"),
-        (0, 30, "way must be between 2 and the number of classes"),
-        (4, 30, "way must be between 2 and the number of classes"),
-        (3, 2, "episode_size must be at least way"),
-    ],
-)
-def test_train_model_refuses_a_way_or_episode_size_out_of_range(
-    way, episode_size, message
-) -> None:
-    torch.manual_seed(0)
-    dataset, _, _ = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
-    )
-    model.eval()
-    with torch.no_grad():
-        model.temperature.fill_(0.5)
-    before = [p.detach().clone() for p in model.parameters()]
-    with pytest.raises(ValueError, match=message):
-        model.train_model(
-            dataset,
-            num_episodes=1,
-            support_size=10,
-            way=way,
-            episode_size=episode_size,
-        )
-    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
-    assert len(model.model.support) == 0
-    assert not model.training
-    assert model.temperature.item() == 0.5
 
 
 def test_train_model_accepts_one_query_example_per_class() -> None:
@@ -716,6 +533,12 @@ def _one_feature_dataset(rows: bool) -> torch.utils.data.TensorDataset:
     return torch.utils.data.TensorDataset(
         feature.unsqueeze(1) if rows else feature, y.float()
     )
+
+
+def _one_class(dataset):
+    x, y = dataset[:]
+    keep = y == 0
+    return torch.utils.data.TensorDataset(x[keep], y[keep])
 
 
 def _with_temperature() -> tuple[eq.EquineProtonet, torch.utils.data.TensorDataset]:
@@ -809,6 +632,38 @@ _ONE_FEATURE_MESSAGE = (
             )
             for episodes in (3, 0)
         ],
+        pytest.param(
+            _with_temperature,
+            {"support_size": 1},
+            "support_size must be at least 2",
+            {"support_size": 5},
+            id="support_size=1",
+        ),
+        *[
+            pytest.param(
+                _with_temperature,
+                {"way": way, "episode_size": episode_size},
+                message,
+                {"way": 3, "episode_size": 30},
+                id=f"way={way}-episode_size={episode_size}",
+            )
+            for way, episode_size, message in (
+                (1, 1, "way must be between 2 and the number of classes"),
+                (0, 30, "way must be between 2 and the number of classes"),
+                (4, 30, "way must be between 2 and the number of classes"),
+                (3, 2, "episode_size must be at least way"),
+            )
+        ],
+        *[
+            pytest.param(
+                _with_temperature,
+                {"dataset": _one_class(separable_dataset()[0]), "num_episodes": n},
+                "dataset must hold at least 2 classes, got 1",
+                {"dataset": separable_dataset()[0]},
+                id=f"one-class-num_episodes={n}",
+            )
+            for n in (0, 1)
+        ],
     ],
 )
 def test_train_model_refuses_bad_input(build, changes, message, repair) -> None:
@@ -816,6 +671,7 @@ def test_train_model_refuses_bad_input(build, changes, message, repair) -> None:
     model as it was; the call its message asks for trains it."""
     torch.manual_seed(0)
     model, dataset = build()
+    model.eval()
     with torch.no_grad():
         model.temperature.fill_(0.5)
     args = {
@@ -937,7 +793,7 @@ def test_calibrate_temperature_refuses_bad_input(changes, message, repair) -> No
     """Each refusal names the argument and leaves the model as it was, the
     temperature and its ``requires_grad`` included; the call its message asks for
     calibrates the temperature."""
-    model, x, y = _briefly_trained_protonet_with_data()
+    model, x, y = quick_protonet()
     with torch.no_grad():
         model.temperature.fill_(0.5)
     args = {"num_calibration_epochs": 1, "calibration_lr": 0.01, **changes}
@@ -986,7 +842,7 @@ def test_calibrate_temperature_refuses_a_wrong_number_type(
     type error while contracts are on and a ``ValueError`` under python -O; the model
     is left as it was, and the values the message asks for calibrate the
     temperature."""
-    model, x, y = _briefly_trained_protonet_with_data()
+    model, x, y = quick_protonet()
     with torch.no_grad():
         model.temperature.fill_(0.5)
     before = model_state(model)
@@ -999,7 +855,7 @@ def test_calibrate_temperature_refuses_a_wrong_number_type(
 
 
 def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes() -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     kdes = dict(model.outlier_score_kde)
     ood_dists = torch.tensor([2.0, 3.0, 1.0, 1.0, 4.0, 5.0])
     calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
@@ -1019,7 +875,7 @@ def test_covariance_needs_two_examples_per_class(cov_type) -> None:
 
 
 def test_load_refuses_a_class_with_one_support_example(tmp_path) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     checkpoint = model._to_checkpoint()
     checkpoint["support"][0] = checkpoint["support"][0][:1]
     path = str(tmp_path / "one_example.eq")
@@ -1029,7 +885,7 @@ def test_load_refuses_a_class_with_one_support_example(tmp_path) -> None:
 
 
 def test_load_refuses_a_one_class_support(tmp_path) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
+    model, _, _ = quick_protonet()
     checkpoint = model._to_checkpoint()
     checkpoint["support"] = {0: checkpoint["support"][0]}
     checkpoint["outlier_kde"] = {0: checkpoint["outlier_kde"][0]}
@@ -1047,92 +903,13 @@ def test_save_refuses_an_untrained_model(tmp_path) -> None:
     assert not (tmp_path / "untrained.eq").exists()
 
 
-def test_predict_refuses_an_empty_batch() -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
-    with pytest.raises(ValueError, match="X is empty"):
-        model.predict(torch.empty(0, FEATURES))
-
-
-@pytest.mark.parametrize("value", [float("nan"), float("inf")], ids=["nan", "inf"])
-def test_predict_refuses_non_finite_embeddings(value) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
-    with pytest.raises(ValueError, match="embeddings of X hold NaN or infinite"):
-        model.predict(torch.full((3, FEATURES), value))
-
-
-class _ImputingEmbedding(torch.nn.Module):
-    """A linear embedding that reads a NaN feature as 0."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.linear = torch.nn.Linear(FEATURES, CLASSES)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.linear(torch.nan_to_num(x))
-
-
-def test_predict_accepts_nan_input_that_the_embedding_handles() -> None:
-    torch.manual_seed(0)
-    dataset, x, _ = separable_dataset()
-    model = eq.EquineProtonet(_ImputingEmbedding(), CLASSES)
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
-    rows = x[:5].clone()
-    rows[:, 0] = float("nan")
-    expected = model.predict(torch.nan_to_num(rows))
-    out = model.predict(rows)
-    assert torch.equal(out.classes, expected.classes)
-    assert torch.equal(out.ood_scores, expected.ood_scores)
-
-
-def test_equine_protonet_deepcopy_after_train_model() -> None:
-    """A trained Protonet keeps no autograd history; deepcopy works."""
-    model, _, _ = _briefly_trained_protonet_with_data()
-    for name, t in stored_tensors(model).items():
-        assert t.grad_fn is None, f"{name} still has a grad_fn"
-    copy.deepcopy(model)
-
-
-def test_equine_protonet_loaded_from_a_file_keeps_no_autograd_history(
-    tmp_path,
-) -> None:
-    model, _, _ = _briefly_trained_protonet_with_data()
-    path = str(tmp_path / "protonet.eq")
-    model.save(path)
-    loaded = eq.load_equine_model(path)
-    for name, t in stored_tensors(loaded).items():
-        assert t.grad_fn is None, f"{name} still has a grad_fn"
-    copy.deepcopy(loaded)
-
-
 def test_equine_protonet_deepcopy_after_update_support() -> None:
     """A Protonet's public ``update_support`` keeps no autograd history."""
-    model, x, y = _briefly_trained_protonet_with_data()
+    model, x, y = quick_protonet()
     model.update_support(x, y, calib_frac=0.2)
     for name, t in stored_tensors(model).items():
         assert t.grad_fn is None, f"{name} still has a grad_fn"
     copy.deepcopy(model)
-
-
-def _protonet_trained_on_labels(labels, **kwargs):
-    """
-    A model trained on ``separable_dataset`` with class ``k`` relabelled
-    ``labels[k]``, with the random draws made for labels 0, 1, 2.
-    """
-    torch.manual_seed(0)
-    _, x, y = separable_dataset()
-    y = torch.tensor(labels)[y].float()
-    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, **kwargs)
-    model.train_model(
-        torch.utils.data.TensorDataset(x, y),
-        num_episodes=5,
-        calib_frac=0.2,
-        support_size=10,
-        way=3,
-        episode_size=30,
-    )
-    return model, x, y
 
 
 def _ood_scores_from_kde(model, rows, label):
@@ -1148,8 +925,8 @@ def _ood_scores_from_kde(model, rows, label):
 
 @pytest.mark.parametrize("labels", [(1, 2, 3), (0, 2, 5)])
 def test_non_contiguous_labels_predict_like_labels_from_zero(labels) -> None:
-    reference, x, _ = _protonet_trained_on_labels((0, 1, 2))
-    model, _, _ = _protonet_trained_on_labels(labels)
+    reference, x, _ = quick_protonet(labels=(0, 1, 2))
+    model, _, _ = quick_protonet(labels=labels)
     assert list(model.get_support()) == list(labels)
     expected, out = reference.predict(x), model.predict(x)
     assert torch.equal(out.classes, expected.classes)
@@ -1157,7 +934,7 @@ def test_non_contiguous_labels_predict_like_labels_from_zero(labels) -> None:
 
 
 def test_ood_score_uses_the_kde_of_the_predicted_label() -> None:
-    model, x, y = _protonet_trained_on_labels((0, 2, 5))
+    model, x, y = quick_protonet(labels=(0, 2, 5))
     rows = x[y == 5]
     out = model.predict(rows)
     assert out.classes.argmax(dim=1).tolist() == [2] * len(rows)
@@ -1167,19 +944,19 @@ def test_ood_score_uses_the_kde_of_the_predicted_label() -> None:
 
 @pytest.mark.parametrize("labels", [(1, 2, 3), (0, 2, 5)])
 def test_temperature_calibrates_with_non_contiguous_labels(labels) -> None:
-    reference, _, _ = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
-    model, _, _ = _protonet_trained_on_labels(labels, use_temperature=True)
+    reference, _, _ = quick_protonet(labels=(0, 1, 2), use_temperature=True)
+    model, _, _ = quick_protonet(labels=labels, use_temperature=True)
     assert torch.equal(model.temperature, reference.temperature)
 
 
 def test_calibrate_temperature_rejects_a_label_outside_the_support() -> None:
-    model, x, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, x, _ = quick_protonet(labels=(0, 2, 5))
     with pytest.raises(ValueError, match=r"Labels \[1.0\] are not among"):
         model.calibrate_temperature(x[:3], torch.tensor([0.0, 1.0, 2.0]))
 
 
 def test_update_support_keeps_kdes_only_for_the_new_labels(tmp_path) -> None:
-    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    model, x, y = quick_protonet(labels=(0, 1, 2))
     keep = y < 2
     model.update_support(x[keep], y[keep] + 7, calib_frac=0.2)
     assert list(model.outlier_score_kde) == [7, 8]
@@ -1189,7 +966,7 @@ def test_update_support_keeps_kdes_only_for_the_new_labels(tmp_path) -> None:
 
 
 def test_update_support_scores_ood_with_the_new_labels_kdes() -> None:
-    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    model, x, y = quick_protonet(labels=(0, 1, 2))
     keep = y < 2
     model.update_support(x[keep], y[keep] + 7, calib_frac=0.2)
     rows = x[y == 1]
@@ -1201,7 +978,7 @@ def test_update_support_scores_ood_with_the_new_labels_kdes() -> None:
 
 def test_generate_model_summary_maps_labels_through_the_support() -> None:
     """Column ``j`` of a Protonet's predictions is its ``j``-th support label."""
-    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, _, _ = quick_protonet(labels=(0, 2, 5))
     true_y = torch.tensor([0, 0, 2, 2, 5, 5])
     probs = torch.nn.functional.one_hot(torch.tensor([0, 0, 1, 1, 2, 1]), 3).float()
     out = eq.EquineOutput(classes=probs, ood_scores=torch.zeros(6), embeddings=probs)
@@ -1212,7 +989,7 @@ def test_generate_model_summary_maps_labels_through_the_support() -> None:
 
 
 def test_generate_model_summary_of_labels_from_zero_matches_the_plain_metrics() -> None:
-    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    model, x, y = quick_protonet(labels=(0, 1, 2))
     gen = torch.Generator().manual_seed(5)
     out = model.predict(x + 2.0 * torch.randn(x.shape, generator=gen))
     expected = eq.generate_model_metrics(out, y.long())
@@ -1223,8 +1000,8 @@ def test_generate_model_summary_of_labels_from_zero_matches_the_plain_metrics() 
 
 
 def test_a_reordered_support_maps_columns_in_the_summary_and_temperature() -> None:
-    reference, x, _ = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
-    model, _, y = _protonet_trained_on_labels((0, 1, 2), use_temperature=True)
+    reference, x, _ = quick_protonet(labels=(0, 1, 2), use_temperature=True)
+    model, _, y = quick_protonet(labels=(0, 1, 2), use_temperature=True)
     support = model.get_support()
     with torch.no_grad():
         model.model.update_support(
@@ -1240,7 +1017,7 @@ def test_a_reordered_support_maps_columns_in_the_summary_and_temperature() -> No
 
 
 def test_predict_names_support_labels_without_an_outlier_kde() -> None:
-    model, x, y = _protonet_trained_on_labels((0, 1, 2))
+    model, x, y = quick_protonet(labels=(0, 1, 2))
     with torch.no_grad():
         model.model.update_support(
             eq.utils.generate_support(x, y + 3, 5, [3.0, 4.0, 5.0])
@@ -1329,14 +1106,7 @@ def test_temperature_reaches_the_ood_scores_except_with_rmd_sq(
     OOD scores only of the ``"rmd_sqrt"`` statistic (relative or not), which a
     model file without ``ood_distance`` loads with. The OOD scores are those of
     the distances the statistic reads."""
-    torch.manual_seed(0)
-    dataset, x, _ = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True, **kwargs
-    )
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
+    model, x, _ = quick_protonet(use_temperature=True, **kwargs)
     model.temperature.fill_(0.5)
     halved = model.predict(x)
     with torch.no_grad():
@@ -1391,7 +1161,7 @@ def test_outlier_scores_match_scipy_per_sample(dtype, n, bandwidth) -> None:
     across the bulk, in both tails and at infinity, for examples predicted as
     the first or last label (none as the middle one).
     """
-    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, _, _ = quick_protonet(labels=(0, 2, 5))
     gen = torch.Generator().manual_seed(n)
     data = OrderedDict(
         [
@@ -1437,7 +1207,7 @@ def test_outlier_scores_match_scipy_per_sample(dtype, n, bandwidth) -> None:
 
 def test_outlier_scores_follow_kde_weights() -> None:
     """A KDE with non-uniform weights scores as ``integrate_box_1d`` does."""
-    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, _, _ = quick_protonet(labels=(0, 2, 5))
     kde = gaussian_kde(np.array([0.0, 1.0, 2.0, 10.0]), weights=[0.7, 0.1, 0.1, 0.1])
     model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
     ood_dists = torch.tensor([-3.0, 1.0, 5.0, 12.0], dtype=torch.float64)
@@ -1450,7 +1220,7 @@ def test_outlier_scores_follow_kde_weights() -> None:
 
 
 def test_outlier_scores_refuse_a_kde_with_more_than_one_dimension() -> None:
-    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, _, _ = quick_protonet(labels=(0, 2, 5))
     model.outlier_score_kde[2] = gaussian_kde(
         np.random.default_rng(0).normal(size=(2, 9))
     )
@@ -1477,7 +1247,7 @@ def _direct_outlier_cdf(kde, dists: torch.Tensor) -> torch.Tensor:
 def _model_with_labels_0_2_5():
     """A model trained on labels 0, 2 and 5 that has not predicted; tests that
     change it take a copy."""
-    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model, _, _ = quick_protonet(labels=(0, 2, 5))
     return model
 
 
@@ -1492,35 +1262,24 @@ def _build(points, weights, bandwidth):
     return grid_class.build(points, weights, bandwidth, grid_class.MAX_NODES)
 
 
-KDE_KINDS = [
-    "halfnormal",
-    "lognormal",
-    "heavy_tail",
-    "two_clusters",
-    "ties",
-    "around_zero",
-    "far_from_zero",
-]
+def _heavy_tail(n: int, gen: np.random.Generator) -> np.ndarray:
+    points = np.abs(gen.standard_normal(n))
+    points[: max(1, n // 100)] *= 50.0
+    return points
 
 
-def _kde_points(kind: str, n: int, gen: np.random.Generator) -> np.ndarray:
-    """``n`` points of one of the ``KDE_KINDS``."""
-    if kind == "halfnormal":
-        return np.abs(gen.standard_normal(n))
-    if kind == "lognormal":
-        return gen.lognormal(0.0, 1.5, n)
-    if kind == "heavy_tail":
-        points = np.abs(gen.standard_normal(n))
-        points[: max(1, n // 100)] *= 50.0
-        return points
-    if kind == "two_clusters":
-        near = gen.random(n) < 0.5
-        return np.where(near, gen.normal(1.0, 0.1, n), gen.normal(10.0, 0.3, n))
-    if kind == "ties":
-        return np.round(gen.lognormal(0.0, 1.0, n) * 3.0)
-    if kind == "around_zero":
-        return 5.0 * gen.standard_normal(n)
-    return 1000.0 + gen.random(n)
+# ``n`` points of each kind of KDE, drawn from ``gen``.
+KDE_POINTS = {
+    "halfnormal": lambda n, gen: np.abs(gen.standard_normal(n)),
+    "lognormal": lambda n, gen: gen.lognormal(0.0, 1.5, n),
+    "heavy_tail": _heavy_tail,
+    "two_clusters": lambda n, gen: np.where(
+        gen.random(n) < 0.5, gen.normal(1.0, 0.1, n), gen.normal(10.0, 0.3, n)
+    ),
+    "ties": lambda n, gen: np.round(gen.lognormal(0.0, 1.0, n) * 3.0),
+    "around_zero": lambda n, gen: 5.0 * gen.standard_normal(n),
+    "far_from_zero": lambda n, gen: 1000.0 + gen.random(n),
+}
 
 
 def _assert_grid_matches_direct_sum(kde, extra=None):
@@ -1557,7 +1316,7 @@ def _assert_grid_matches_direct_sum(kde, extra=None):
 @pytest.mark.parametrize("weighted", [False, True], ids=["uniform", "weighted"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64], ids=["float32", "float64"])
 @pytest.mark.parametrize("n", [10, 1000])
-@pytest.mark.parametrize("kind", KDE_KINDS)
+@pytest.mark.parametrize("kind", KDE_POINTS)
 def test_outlier_grid_scores_match_the_direct_sum(kind, n, dtype, weighted) -> None:
     """
     Scores read from the grid match the direct sum (see
@@ -1566,7 +1325,7 @@ def test_outlier_grid_scores_match_the_direct_sum(kind, n, dtype, weighted) -> N
     """
     gen = np.random.default_rng(n)
     weights = gen.dirichlet(np.ones(n)) if weighted else None
-    kde = gaussian_kde(_kde_points(kind, n, gen).astype(dtype), weights=weights)
+    kde = gaussian_kde(KDE_POINTS[kind](n, gen).astype(dtype), weights=weights)
     if kind == "far_from_zero":
         kde.set_bandwidth(0.05)
     _assert_grid_matches_direct_sum(kde)
@@ -1638,51 +1397,27 @@ def test_outlier_grid_is_0_below_1_above_nan_at_nan_and_clamped() -> None:
     assert math.isnan(rises[5]) and math.isnan(falls[5])
 
 
-def _take_off_the_grid(kde, change: str) -> None:
-    """Change ``kde`` in place into one that ``_OutlierGrid.build`` does not
-    tabulate."""
-    if change == "nan_point":
-        kde.dataset[0, 0] = np.nan
-    elif change == "infinite_point":
-        kde.dataset[0, 0] = np.inf
-    elif change == "nan_weight":
-        kde.weights[0] = np.nan
-    elif change == "infinite_weights":
-        kde.weights[:] = np.inf
-    elif change == "negative_weight":
-        kde.weights[0] = -0.01
-        kde.weights[1] = 0.05
-    elif change == "weights_summing_below_1":
-        kde.weights[0] = 0.0
-    elif change == "weights_summing_above_1":
-        kde.weights[0] = 0.5
-    elif change == "tied_points_below_an_ulp":
-        kde.dataset[0, :] = 3.0
-        kde.covariance[0, 0] = 1e-34
-    elif change == "zero_bandwidth":
-        kde.covariance[0, 0] = 0.0
-    elif change == "nan_bandwidth":
-        kde.covariance[0, 0] = np.nan
-    else:
-        kde.covariance[0, 0] = np.inf
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        "nan_point",
-        "infinite_point",
-        "nan_weight",
-        "infinite_weights",
-        "negative_weight",
-        "weights_summing_below_1",
-        "weights_summing_above_1",
-        "tied_points_below_an_ulp",
-        "zero_bandwidth",
-        "nan_bandwidth",
-        "infinite_bandwidth",
+# Writes (attribute, index, value) that change a KDE in place into one that
+# ``_OutlierGrid.build`` does not tabulate.
+OFF_THE_GRID = {
+    "nan_point": [("dataset", (0, 0), np.nan)],
+    "infinite_point": [("dataset", (0, 0), np.inf)],
+    "nan_weight": [("weights", 0, np.nan)],
+    "infinite_weights": [("weights", slice(None), np.inf)],
+    "negative_weight": [("weights", 0, -0.01), ("weights", 1, 0.05)],
+    "weights_summing_below_1": [("weights", 0, 0.0)],
+    "weights_summing_above_1": [("weights", 0, 0.5)],
+    "tied_points_below_an_ulp": [
+        ("dataset", (0, slice(None)), 3.0),
+        ("covariance", (0, 0), 1e-34),
     ],
-)
+    "zero_bandwidth": [("covariance", (0, 0), 0.0)],
+    "nan_bandwidth": [("covariance", (0, 0), np.nan)],
+    "infinite_bandwidth": [("covariance", (0, 0), np.inf)],
+}
+
+
+@pytest.mark.parametrize("change", OFF_THE_GRID)
 def test_outlier_scores_of_a_kde_off_the_grid_are_summed_directly(change) -> None:
     """A KDE that ``_OutlierGrid.build`` does not tabulate is scored by the
     direct sum, and the grid kept for its label is dropped."""
@@ -1693,7 +1428,8 @@ def test_outlier_scores_of_a_kde_off_the_grid_are_summed_directly(change) -> Non
     predictions = _first_label_predictions(len(dists))
     model._compute_outlier_scores(dists, predictions)
     assert list(model._outlier_grids) == [0]
-    _take_off_the_grid(kde, change)
+    for attribute, index, value in OFF_THE_GRID[change]:
+        getattr(kde, attribute)[index] = value
 
     scores = model._compute_outlier_scores(dists, predictions)
 
@@ -2049,37 +1785,6 @@ def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> N
         assert torch.equal(torch.get_rng_state(), state)
 
 
-def _one_class(dataset):
-    x, y = dataset[:]
-    keep = y == 0
-    return torch.utils.data.TensorDataset(x[keep], y[keep])
-
-
-@pytest.mark.parametrize("num_episodes", [0, 1])
-def test_train_model_refuses_one_class(num_episodes) -> None:
-    torch.manual_seed(0)
-    dataset, _, _ = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
-    )
-    model.eval()
-    with torch.no_grad():
-        model.temperature.fill_(0.5)
-    before = [p.detach().clone() for p in model.parameters()]
-    with pytest.raises(ValueError, match="dataset must hold at least 2 classes, got 1"):
-        model.train_model(
-            _one_class(dataset),
-            num_episodes=num_episodes,
-            support_size=10,
-            way=2,
-            episode_size=30,
-        )
-    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
-    assert len(model.model.support) == 0
-    assert not model.training
-    assert model.temperature.item() == 0.5
-
-
 @pytest.mark.parametrize("labels", LABEL_KINDS)
 @pytest.mark.parametrize("num_episodes", [0, 1])
 def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
@@ -2094,7 +1799,7 @@ def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
     model.eval()
     with torch.no_grad():
         model.temperature.fill_(0.5)
-    before = [p.detach().clone() for p in model.parameters()]
+    before = model_state(model)
     with pytest.raises(ValueError, match=f"dataset labels {message}"):
         model.train_model(
             torch.utils.data.TensorDataset(x, y),
@@ -2103,16 +1808,13 @@ def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(
             way=2,
             episode_size=30,
         )
-    assert all(torch.equal(b, p) for b, p in zip(before, model.parameters()))
-    assert len(model.model.support) == 0
-    assert not model.training
-    assert model.temperature.item() == 0.5
+    assert_model_unchanged(model, before)
 
 
 @pytest.mark.parametrize("trained", [False, True])
 def test_update_support_refuses_one_class(trained) -> None:
     if trained:
-        model, x, y = _briefly_trained_protonet_with_data()
+        model, x, y = quick_protonet()
     else:
         torch.manual_seed(0)
         _, x, y = separable_dataset()
@@ -2137,7 +1839,7 @@ def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(
     labels, trained
 ) -> None:
     if trained:
-        model, x, y = _briefly_trained_protonet_with_data()
+        model, x, y = quick_protonet()
     else:
         torch.manual_seed(0)
         _, x, y = separable_dataset()

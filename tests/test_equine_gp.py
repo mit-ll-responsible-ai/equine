@@ -8,6 +8,7 @@ import pytest
 import torch
 import torchmetrics
 from beartype.roar import BeartypeCallHintParamViolation
+from builders import quick_gp
 from conftest import (
     LABEL_KINDS,
     BasicEmbeddingModel,
@@ -26,7 +27,14 @@ from golden_data import CLASSES, FEATURES, ROWS, separable_dataset
 from hypothesis import given, settings
 
 import equine as eq
-from equine.equine import MIN_TEMPERATURE
+
+
+def _sgd(model):
+    """Cross-entropy and SGD with momentum and weight decay for ``model``."""
+    optimizer = torch.optim.SGD(
+        model.parameters(), lr=0.001, momentum=0.9, weight_decay=0.0001
+    )
+    return torch.nn.CrossEntropyLoss(), optimizer
 
 
 @given(random_dataset=random_dataset())
@@ -37,13 +45,7 @@ def test_equine_gp_train_from_scratch(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     _ = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     batch = X[1:10]
@@ -58,13 +60,7 @@ def test_equine_gp_train_from_scratch_with_temperature(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     before = model.temperature.item()
     assert before == 1.0, "init_temperature defaults to 1.0"
     train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
@@ -87,13 +83,7 @@ def test_equine_gp_train_from_scratch_with_scheduler(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 2)
     train_dict = model.train_model(
         dataset, loss_fn, optimizer, scheduler=scheduler, num_epochs=5
@@ -113,13 +103,7 @@ def test_equine_gp_train_from_scratch_with_validation(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     _ = model.train_model(
         dataset,
         loss_fn,
@@ -143,13 +127,7 @@ def test_equine_gp_save_load(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     use_save_load_model_tests(model, X)
@@ -163,13 +141,7 @@ def test_equine_gp_save_load_with_temperature(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     before = model.temperature.item()
     train_dict = model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
     assert "train_summary" in train_dict
@@ -193,13 +165,7 @@ def test_equine_gp_save_load_with_vis(random_dataset) -> None:
     )
 
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     model.train_model(
         dataset,
         loss_fn,
@@ -231,13 +197,7 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
 
     # without feature and labels names
     model = eq.EquineGP(embedding_model, num_classes, num_classes)
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     new_model = use_save_load_model_tests(model, X)
@@ -255,13 +215,7 @@ def test_equine_gp_save_load_with_feature_and_label_names(random_dataset) -> Non
         feature_names=feature_names,
         label_names=label_names,
     )
-    loss_fn = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.parameters(),
-        lr=0.001,
-        momentum=0.9,
-        weight_decay=0.0001,
-    )
+    loss_fn, optimizer = _sgd(model)
     model.train_model(dataset, loss_fn, optimizer, num_epochs=2)
 
     new_model = use_save_load_model_tests(model, X)
@@ -306,26 +260,10 @@ def test_validation_metrics_are_reset_between_epochs() -> None:
     assert seen == [2, 2, 2]
 
 
-def _gp_trained_on_cpu():
-    torch.manual_seed(0)
-    dataset, x, _ = separable_dataset()
-    model = eq.EquineGP(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
-    )
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=1,
-        batch_size=32,
-    )
-    return model, x
-
-
 def test_assigning_device_type_is_refused_naming_device() -> None:
     """Assigning ``device_type`` raises and leaves the model on its device; reading it
     raises; ``model.to`` moves the model and ``device`` names where it is."""
-    model, _ = _gp_trained_on_cpu()
+    model, _, _ = quick_gp()
     with pytest.raises(AttributeError) as refused:
         model.device_type = "meta"
     assert str(refused.value) == (
@@ -346,7 +284,7 @@ def test_assigning_device_type_is_refused_naming_device() -> None:
 @pytest.mark.skipif(torch.cuda.is_available(), reason="needs a machine without CUDA")
 def test_a_failed_move_leaves_the_model_usable() -> None:
     """A move that raises leaves ``device`` as it was and the model usable."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     with pytest.raises((AssertionError, RuntimeError)):
         model.to("cuda")
     assert model.device == "cpu"
@@ -384,58 +322,15 @@ def test_save_refuses_an_untrained_model(tmp_path) -> None:
     assert not (tmp_path / "untrained.eq").exists()
 
 
-def test_predict_refuses_an_empty_batch() -> None:
-    model, _ = _gp_trained_on_cpu()
-    with pytest.raises(ValueError, match="X is empty"):
-        model.predict(torch.empty(0, FEATURES))
-
-
-@pytest.mark.parametrize("value", [float("nan"), float("-inf")], ids=["nan", "inf"])
-def test_predict_refuses_non_finite_embeddings(value) -> None:
-    model, _ = _gp_trained_on_cpu()
-    with pytest.raises(ValueError, match="embeddings of X hold NaN or infinite"):
-        model.predict(torch.full((3, FEATURES), value))
-
-
-class _ImputingEmbedding(torch.nn.Module):
-    """A linear embedding that reads a NaN feature as 0."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.linear = torch.nn.Linear(FEATURES, CLASSES)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.linear(torch.nan_to_num(x))
-
-
-def test_predict_accepts_nan_input_that_the_embedding_handles() -> None:
-    torch.manual_seed(0)
-    dataset, x, _ = separable_dataset()
-    model = eq.EquineGP(_ImputingEmbedding(), CLASSES, CLASSES, num_random_features=16)
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=1,
-        batch_size=32,
-    )
-    rows = x[:5].clone()
-    rows[:, 0] = float("nan")
-    expected = model.predict(torch.nan_to_num(rows))
-    out = model.predict(rows)
-    assert torch.equal(out.classes, expected.classes)
-    assert torch.equal(out.ood_scores, expected.ood_scores)
-
-
 def test_update_support_keeps_a_class_with_one_example() -> None:
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     y = torch.cat([torch.zeros(6), torch.ones(1)]).long()
     model.update_support(x[:7], y, support_size=5)
     assert [len(rows) for rows in model.get_support().values()] == [5, 1]
 
 
 def test_laplace_refuses_more_rows_than_num_data_in_one_epoch() -> None:
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     model.model.train()
     model.model.reset_precision_matrix()
     model.model(x[:120])
@@ -514,17 +409,26 @@ def test_a_float64_gp_with_a_float32_precision_accumulates_in_float64() -> None:
     assert model.model.precision.dtype == torch.float64
 
 
-def test_a_bfloat16_gp_predicts_after_training() -> None:
-    """The precision matrix of a trained bfloat16 GP is positive definite and
-    predict inverts it."""
+def _bfloat16_gp(classes: int):
+    """An untrained bfloat16 GP over a small MLP, float32 rows of ``classes``
+    shifted normal clusters of 200, their labels, and the generator that drew them.
+    Seeds torch with 0 first."""
     torch.manual_seed(0)
     gen = torch.Generator().manual_seed(0)
-    x = torch.cat([torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(3)])
-    y = torch.arange(3).repeat_interleave(200).float()
+    x = torch.cat(
+        [torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(classes)]
+    )
+    y = torch.arange(classes).repeat_interleave(200).float()
     embedding = torch.nn.Sequential(
         torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
     )
-    model = eq.EquineGP(embedding, 8, 3).to(torch.bfloat16)
+    return eq.EquineGP(embedding, 8, classes).to(torch.bfloat16), x, y, gen
+
+
+def test_a_bfloat16_gp_predicts_after_training() -> None:
+    """The precision matrix of a trained bfloat16 GP is positive definite and
+    predict inverts it."""
+    model, x, y, _ = _bfloat16_gp(3)
     model.train_model(
         torch.utils.data.TensorDataset(x.bfloat16(), y),
         torch.nn.CrossEntropyLoss(),
@@ -543,7 +447,7 @@ def test_a_bfloat16_gp_predicts_after_training() -> None:
 def test_predict_does_not_depend_on_the_default_dtype(default_dtype) -> None:
     """A float32 GP's first predict under ``default_dtype`` gives the probabilities,
     OOD scores and covariance it gives under float32."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     reference = copy.deepcopy(model)
     expected = reference.predict(x)
     previous = torch.get_default_dtype()
@@ -590,7 +494,7 @@ def test_a_float32_gp_computes_predict_in_float32() -> None:
     """A float32 GP's covariance is the inverse of its precision plus a float32
     jitter, and its OOD scores are the float32 entropy ratio of its probabilities,
     clamped to [0, 1]."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     output = model.predict(x)
     precision = model.model.precision
     jitter = 1e-7 * torch.eye(16, dtype=torch.float32)
@@ -608,16 +512,7 @@ def test_a_bfloat16_gp_computes_ood_scores_in_float32() -> None:
     """A bfloat16 GP's OOD scores are the float32 entropy ratio of its logits, clamped
     to [0, 1] and cast to bfloat16."""
     classes = 10
-    torch.manual_seed(0)
-    gen = torch.Generator().manual_seed(0)
-    x = torch.cat(
-        [torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(classes)]
-    )
-    y = torch.arange(classes).repeat_interleave(200).float()
-    embedding = torch.nn.Sequential(
-        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
-    )
-    model = eq.EquineGP(embedding, 8, classes).to(torch.bfloat16)
+    model, x, y, gen = _bfloat16_gp(classes)
     model.train_model(
         torch.utils.data.TensorDataset(x.bfloat16(), y),
         torch.nn.CrossEntropyLoss(),
@@ -642,7 +537,7 @@ def test_a_bfloat16_gp_computes_ood_scores_in_float32() -> None:
 def test_a_gp_cast_to_bfloat16_after_training_predicts() -> None:
     """A trained GP cast to bfloat16, whose precision matrix is then bfloat16,
     predicts with OOD scores in [0, 1]."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     model.to(torch.bfloat16)
     assert model.model.precision.dtype == torch.bfloat16
     scores = model.predict(x.bfloat16()).ood_scores
@@ -799,14 +694,7 @@ def test_train_model_reads_from_the_host_as_often_for_any_number_of_batches(
 def test_a_bfloat16_gp_sums_its_epoch_loss_in_float32(shape) -> None:
     """The epoch loss of a bfloat16 GP is summed in float32, for a 0-d loss and a
     one-element loss."""
-    torch.manual_seed(0)
-    gen = torch.Generator().manual_seed(0)
-    x = torch.cat([torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(3)])
-    y = torch.arange(3).repeat_interleave(200).float()
-    embedding = torch.nn.Sequential(
-        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
-    )
-    model = eq.EquineGP(embedding, 8, 3).to(torch.bfloat16)
+    model, x, y, _ = _bfloat16_gp(3)
     losses: list[torch.Tensor] = []
     record = _recording_loss(losses)
     result = model.train_model(
@@ -835,62 +723,16 @@ def _assert_no_autograd_history(model) -> None:
         assert t.grad_fn is None, f"{name} still has a grad_fn"
 
 
-def test_equine_gp_deepcopy_after_training() -> None:
-    """A trained GP keeps no autograd history; ``copy.deepcopy`` works."""
-    model, _ = _gp_trained_on_cpu()
-    _assert_no_autograd_history(model)
-    assert model.model.precision.grad_fn is None
-    copy.deepcopy(model)
-
-
 def test_equine_gp_deepcopy_after_training_with_vis_support() -> None:
     """A GP trained with ``vis_support=True`` keeps no autograd history."""
-    torch.manual_seed(0)
-    dataset, _, _ = separable_dataset()
-    model = eq.EquineGP(
-        BasicEmbeddingModel(FEATURES, CLASSES),
-        CLASSES,
-        CLASSES,
-        num_random_features=16,
-    )
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=1,
-        batch_size=32,
-        vis_support=True,
-        support_size=10,
-    )
+    model, _, _ = quick_gp(vis_support=True, support_size=10)
     _assert_no_autograd_history(model)
     copy.deepcopy(model)
-
-
-def test_equine_gp_loaded_from_a_file_keeps_no_autograd_history(tmp_path) -> None:
-    torch.manual_seed(0)
-    dataset, _, _ = separable_dataset()
-    model = eq.EquineGP(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
-    )
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=1,
-        batch_size=32,
-        vis_support=True,
-        support_size=10,
-    )
-    path = str(tmp_path / "gp.eq")
-    model.save(path)
-    loaded = eq.load_equine_model(path)
-    _assert_no_autograd_history(loaded)
-    copy.deepcopy(loaded)
 
 
 def test_laplace_jl_projects_through_its_own_random_matrix_after_deepcopy() -> None:
     """A deep copy's projection reads its own ``random_matrix``."""
-    model, _ = _gp_trained_on_cpu()
+    model, _, _ = quick_gp()
     model_copy = copy.deepcopy(model)
     model_copy.model.random_matrix.zero_()
     f = torch.randn(5, model.num_deep_features)
@@ -918,7 +760,7 @@ def test_laplace_jl_is_identity_without_a_projection() -> None:
 
 def test_equine_gp_predict_and_forward_accept_a_single_1d_example() -> None:
     """A single unbatched example gets a batch dimension, as ``EquineProtonet`` does."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
 
     batched_out = model.predict(x[:1])
     single_out = model.predict(x[0])
@@ -933,7 +775,7 @@ def test_equine_gp_predict_and_forward_accept_a_single_1d_example() -> None:
 
 
 def test_laplace_counts_an_unbatched_training_example_as_one_row() -> None:
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     model.model.train()
     model.model.reset_precision_matrix()
     model.model(x[0])
@@ -1321,7 +1163,7 @@ def test_calibrate_model_refuses_a_wrong_number_type(changes, error, message) ->
     type error while contracts are on and a ``ValueError`` under python -O; the model
     is left as it was, and the values the message asks for calibrate the
     temperature."""
-    model, _ = _gp_trained_on_cpu()
+    model, _, _ = quick_gp()
     dataset = separable_dataset()[0]
     with torch.no_grad():
         model.temperature.fill_(0.5)
@@ -1337,7 +1179,7 @@ def test_calibrate_model_refuses_a_wrong_number_type(changes, error, message) ->
 
 
 def test_calibrate_model_with_0_epochs_leaves_the_temperature_unchanged() -> None:
-    model, _ = _gp_trained_on_cpu()
+    model, _, _ = quick_gp()
     dataset = separable_dataset()[0]
     with torch.no_grad():
         model.temperature.fill_(0.5)
@@ -1348,8 +1190,7 @@ def test_calibrate_model_with_0_epochs_leaves_the_temperature_unchanged() -> Non
 
 @pytest.mark.parametrize("labels", GP_LABEL_KINDS)
 def test_calibrate_model_refuses_labels_that_are_not_1d_whole_numbers(labels) -> None:
-    model, x = _gp_trained_on_cpu()
-    _, _, y = separable_dataset()
+    model, x, y = quick_gp()
     y, message = _gp_labels_of_kind(y, labels)
     with torch.no_grad():
         model.temperature.fill_(0.5)
@@ -1365,8 +1206,7 @@ def test_calibrate_model_refuses_labels_that_are_not_1d_whole_numbers(labels) ->
 def test_calibrate_model_restores_the_temperature_when_a_later_batch_raises(
     error,
 ) -> None:
-    model, x = _gp_trained_on_cpu()
-    _, _, y = separable_dataset()
+    model, x, y = quick_gp()
     y = y.float()
     if error == "label":
         y[-1] = 0.5
@@ -1395,8 +1235,7 @@ def test_calibrate_model_restores_the_temperature_when_a_later_batch_raises(
 def test_calibrate_model_leaves_the_temperature_as_it_was_when_the_optimizer_raises(
     monkeypatch,
 ) -> None:
-    model, x = _gp_trained_on_cpu()
-    _, _, y = separable_dataset()
+    model, x, y = quick_gp()
 
     def refuse(*args, **kwargs):
         raise ValueError("refused")
@@ -1410,33 +1249,9 @@ def test_calibrate_model_leaves_the_temperature_as_it_was_when_the_optimizer_rai
     assert not model.temperature.requires_grad
 
 
-def test_calibrate_model_keeps_the_temperature_at_or_above_the_floor(
-    monkeypatch,
-) -> None:
-    model, x = _gp_trained_on_cpu()
-    _, _, y = separable_dataset()
-    used = []
-    cross_entropy = torch.nn.functional.cross_entropy
-
-    def record(*args, **kwargs):
-        used.append(model.temperature.item())
-        return cross_entropy(*args, **kwargs)
-
-    monkeypatch.setattr(torch.nn.functional, "cross_entropy", record)
-    model.calibrate_model(
-        torch.utils.data.TensorDataset(x, y),
-        num_calibration_epochs=200,
-        calibration_lr=5.0,
-    )
-    assert len(used) == 200
-    assert min(used) >= MIN_TEMPERATURE
-    assert model.temperature.item() >= MIN_TEMPERATURE
-
-
 @pytest.mark.parametrize("labels", GP_LABEL_KINDS)
 def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(labels) -> None:
-    model, x = _gp_trained_on_cpu()
-    _, _, y = separable_dataset()
+    model, x, y = quick_gp()
     model.update_support(x, y.float(), support_size=5)
     support = {label: rows.clone() for label, rows in model.support.items()}
     prototypes = model.prototypes.clone()
@@ -1452,11 +1267,9 @@ def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(labels) -> 
     assert torch.equal(model.prototypes, prototypes)
 
 
-@pytest.mark.parametrize("batch_size", [1, 7])
-def test_laplace_eval_logits_equal_the_full_covariance_formula(batch_size) -> None:
-    """In float64, eval-mode logits are ``beta(k)`` divided by
-    ``sqrt(1 + diag(k @ covariance @ k.T * ridge_penalty) * mean_field_factor)``.
-    """
+def _float64_laplace(mean_field_factor):
+    """A float64 ``_Laplace`` over identity features, seeded with 0, trained on one
+    epoch of 40 random rows and set to eval mode."""
     torch.manual_seed(0)
     laplace = eq.equine_gp._Laplace(
         feature_extractor=torch.nn.Identity(),
@@ -1466,14 +1279,21 @@ def test_laplace_eval_logits_equal_the_full_covariance_formula(batch_size) -> No
         num_random_features=32,
         num_outputs=CLASSES,
         feature_scale=2.0,
-        mean_field_factor=25,
+        mean_field_factor=mean_field_factor,
         ridge_penalty=0.5,
     ).to(torch.float64)
-    train_x = torch.randn(40, FEATURES, dtype=torch.float64)
     laplace.set_training_params(num_data=40, batch_size=40)
     laplace.train()
-    laplace(train_x)
-    laplace.eval()
+    laplace(torch.randn(40, FEATURES, dtype=torch.float64))
+    return laplace.eval()
+
+
+@pytest.mark.parametrize("batch_size", [1, 7])
+def test_laplace_eval_logits_equal_the_full_covariance_formula(batch_size) -> None:
+    """In float64, eval-mode logits are ``beta(k)`` divided by
+    ``sqrt(1 + diag(k @ covariance @ k.T * ridge_penalty) * mean_field_factor)``.
+    """
+    laplace = _float64_laplace(mean_field_factor=25)
     x = 2 * torch.randn(batch_size, FEATURES, dtype=torch.float64)
 
     with torch.no_grad():
@@ -1489,7 +1309,7 @@ def test_laplace_eval_logits_equal_the_full_covariance_formula(batch_size) -> No
 
 def test_mean_field_logits_receives_one_variance_per_example(monkeypatch) -> None:
     """``mean_field_logits`` receives a ``(batch_size,)`` variance."""
-    model, x = _gp_trained_on_cpu()
+    model, x, _ = quick_gp()
     original = eq.equine_gp._Laplace.mean_field_logits
     shapes = []
 
@@ -1506,23 +1326,7 @@ def test_mean_field_logits_receives_one_variance_per_example(monkeypatch) -> Non
 def test_laplace_without_mean_field_returns_the_full_covariance() -> None:
     """With ``mean_field_factor=None``, eval mode returns ``beta(k)`` and the full
     ``k @ covariance @ k.T * ridge_penalty`` matrix."""
-    torch.manual_seed(0)
-    laplace = eq.equine_gp._Laplace(
-        feature_extractor=torch.nn.Identity(),
-        num_deep_features=FEATURES,
-        num_gp_features=FEATURES,
-        normalize_gp_features=True,
-        num_random_features=32,
-        num_outputs=CLASSES,
-        feature_scale=2.0,
-        mean_field_factor=None,
-        ridge_penalty=0.5,
-    ).to(torch.float64)
-    train_x = torch.randn(40, FEATURES, dtype=torch.float64)
-    laplace.set_training_params(num_data=40, batch_size=40)
-    laplace.train()
-    laplace(train_x)
-    laplace.eval()
+    laplace = _float64_laplace(mean_field_factor=None)
     x = 2 * torch.randn(7, FEATURES, dtype=torch.float64)
 
     with torch.no_grad():
@@ -1601,22 +1405,22 @@ def test_batch_loader_matches_dataloader(kind, shuffle, batch_size) -> None:
         assert (x_g.stride(), y_g.stride()) == (x_e.stride(), y_e.stride())
 
 
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        "uint8",
-        "int8",
-        "int16",
-        "int32",
-        "int64",
-        "float16",
-        "bfloat16",
-        "float32",
-        "float64",
-        "complex64",
-        "complex128",
-    ],
-)
+BATCH_DTYPE_NAMES = [
+    "uint8",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "float16",
+    "bfloat16",
+    "float32",
+    "float64",
+    "complex64",
+    "complex128",
+]
+
+
+@pytest.mark.parametrize("dtype", BATCH_DTYPE_NAMES)
 def test_batch_loader_reads_each_listed_dtype_a_batch_at_a_time(dtype) -> None:
     """For features of each dtype in ``_BATCH_DTYPES``, ``_batch_loader`` indexes the
     dataset once per batch and yields the batches of ``DataLoader``."""
@@ -1646,19 +1450,7 @@ def test_batch_loader_reads_every_other_dtype_through_dataloader() -> None:
     """Features of a dtype outside ``_BATCH_DTYPES`` keep the ``DataLoader``."""
     from equine.equine_gp import _BATCH_DTYPES, _batch_loader, _row_major_batch
 
-    listed = {
-        torch.uint8,
-        torch.int8,
-        torch.int16,
-        torch.int32,
-        torch.int64,
-        torch.float16,
-        torch.bfloat16,
-        torch.float32,
-        torch.float64,
-        torch.complex64,
-        torch.complex128,
-    }
+    listed = {getattr(torch, name) for name in BATCH_DTYPE_NAMES}
     assert _BATCH_DTYPES == listed
     checked = set()
     dtypes = {

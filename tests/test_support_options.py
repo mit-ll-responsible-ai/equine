@@ -9,22 +9,13 @@ import pickle
 
 import pytest
 import torch
+from builders import quick_protonet
 from conftest import BasicEmbeddingModel
 from golden_data import CLASSES, FEATURES, separable_dataset
 from torch.utils.data import TensorDataset
 
 import equine as eq
 from equine import CovType, _model_file
-
-
-def _trained_protonet(**kwargs):
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, **kwargs)
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
-    return model, x, y.float()
 
 
 def _identity_embedding():
@@ -59,7 +50,7 @@ def _heads(trained, x, y, option):
     "pred,ood", [(CovType.UNIT, CovType.UNIT), (CovType.DIAGONAL, CovType.UNIT)]
 )
 def test_covariance_types_run_and_round_trip(tmp_path, pred, ood) -> None:
-    model, x, _ = _trained_protonet(
+    model, x, _ = quick_protonet(
         pred_cov_type=pred, ood_cov_type=ood, use_temperature=True
     )
     assert model.pred_cov_type == pred and model.ood_cov_type == ood
@@ -75,7 +66,7 @@ def test_covariance_types_run_and_round_trip(tmp_path, pred, ood) -> None:
 
 
 def test_a_default_model_saves_neither_covariance_type(tmp_path) -> None:
-    model, _, _ = _trained_protonet()
+    model, _, _ = quick_protonet()
     path = str(tmp_path / "m.eq")
     model.save(path)
     settings = _model_file.read(path)["settings"]
@@ -84,7 +75,7 @@ def test_a_default_model_saves_neither_covariance_type(tmp_path) -> None:
 
 
 def test_unit_covariance_changes_predictions() -> None:
-    trained, x, y = _trained_protonet()
+    trained, x, y = quick_protonet()
     heads = _heads(trained, x, y, "pred_cov_type")
     diag, unit = (
         heads[CovType.DIAGONAL].model.covariance,
@@ -98,7 +89,7 @@ def test_unit_covariance_changes_predictions() -> None:
 
 
 def test_ood_covariance_type_sets_the_global_moments() -> None:
-    trained, x, y = _trained_protonet()
+    trained, x, y = quick_protonet()
     heads = _heads(trained, x, y, "ood_cov_type")
     diag, unit = (
         heads[CovType.DIAGONAL].model.global_covariance,
@@ -111,7 +102,7 @@ def test_ood_covariance_type_sets_the_global_moments() -> None:
 
 
 def test_a_pickle_without_covariance_types_restores_the_defaults() -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     del model.model.__dict__["pred_cov_type"], model.model.__dict__["ood_cov_type"]
     restored = pickle.loads(pickle.dumps(model))
     assert restored.pred_cov_type == CovType.DIAGONAL
@@ -121,7 +112,7 @@ def test_a_pickle_without_covariance_types_restores_the_defaults() -> None:
 
 @pytest.mark.parametrize("key", ["cov_type", "pred_cov_type", "ood_cov_type"])
 def test_load_refuses_a_covariance_type_and_says_how_to_repair(tmp_path, key) -> None:
-    model, _, _ = _trained_protonet()
+    model, _, _ = quick_protonet()
     path = str(tmp_path / "m.eq")
     model.save(path)
     saved = _model_file.read(path)
@@ -142,7 +133,7 @@ def _calibration_rows():
 
 
 def test_explicit_calibration_set_keeps_all_support() -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     rows = _calibration_rows()
     model.update_support(x, y, calib_x=x[rows], calib_y=y[rows])
     assert len(model.get_support()[0]) == 40
@@ -151,7 +142,7 @@ def test_explicit_calibration_set_keeps_all_support() -> None:
 
 
 def test_calib_x_without_calib_y_raises() -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     with pytest.raises(ValueError, match="Give both calib_x and calib_y, or neither"):
         model.update_support(x, y, calib_frac=0.2, calib_x=x[:5])
 
@@ -173,7 +164,7 @@ def test_calib_x_without_calib_y_raises() -> None:
     ],
 )
 def test_a_calibration_set_unlike_the_support_is_refused(change, message) -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     rows = _calibration_rows()
     calib_x, calib_y = change(x[rows], y[rows])
     before = model.outlier_score_kde
@@ -183,7 +174,7 @@ def test_a_calibration_set_unlike_the_support_is_refused(change, message) -> Non
 
 
 def test_an_explicit_calibration_set_with_a_sparse_class_is_refused() -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     calib_x = torch.cat([x[0:1], x[40:45], x[80:85]])
     calib_y = torch.cat([y[0:1], y[40:45], y[80:85]])
     before = model.outlier_score_kde
@@ -215,7 +206,7 @@ def test_an_explicit_calibration_set_with_a_sparse_class_is_refused() -> None:
 def test_a_class_with_too_few_examples_is_refused_naming_where(
     support_rows, explicit, message
 ) -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     rows = torch.tensor(list(support_rows))
     calibration = _calibration_rows()
     keywords = (
@@ -435,7 +426,7 @@ def test_the_pooled_kde_names_a_non_finite_distance_first(ood_dists, calib_y) ->
 
 
 def test_a_pickle_without_min_kde_samples_restores_none(tmp_path) -> None:
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     del model.__dict__["min_kde_samples"]
     restored = pickle.loads(pickle.dumps(model))
     assert restored.min_kde_samples is None

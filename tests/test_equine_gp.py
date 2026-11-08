@@ -1,6 +1,5 @@
 import copy
 import warnings
-from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -9,6 +8,7 @@ import torchmetrics
 from conftest import (
     LABEL_KINDS,
     BasicEmbeddingModel,
+    assert_on_device,
     assert_valid_prediction,
     generate_random_string_list,
     labels_of_kind,
@@ -317,46 +317,33 @@ def _gp_trained_on_cpu():
     return model, x
 
 
-def _device_type_warning(record) -> warnings.WarningMessage:
-    """The one device_type DeprecationWarning in ``record``, checked to point at the
-    caller.
-    """
-    found = [w for w in record if "device_type" in str(w.message)]
-    assert len(found) == 1
-    assert found[0].category is DeprecationWarning
-    assert found[0].filename == __file__, "the warning must point at the caller"
-    return found[0]
-
-
-def test_device_type_is_deprecated_alias(monkeypatch) -> None:
-    model, x = _gp_trained_on_cpu()
-    with pytest.warns(DeprecationWarning, match="device_type") as record:
-        assert model.device_type == "cpu"
-    message = str(_device_type_warning(record).message)
-    # The replacement it names moves the model and updates device.
-    assert "call model.to(value)" in message
+def test_assigning_device_type_is_refused_naming_device() -> None:
+    """Assigning ``device_type`` raises and leaves the model on its device; reading it
+    raises; ``model.to`` moves the model and ``device`` names where it is."""
+    model, _ = _gp_trained_on_cpu()
+    with pytest.raises(AttributeError) as refused:
+        model.device_type = "meta"
+    assert str(refused.value) == (
+        "EquineGP.device_type was removed: read EquineGP.device (a str) instead; "
+        "to move the model, call model.to(value)."
+    )
     assert model.device == "cpu"
+    assert_on_device(model, "cpu")
+    with pytest.raises(AttributeError, match="device_type"):
+        model.device_type
+    assert not hasattr(model, "device_type")
 
-    # Assigning a new value moves the module and changes ``device``; predict still
-    # works.
-    monkeypatch.setattr(model, "to", Mock(wraps=model.to))
-    with pytest.warns(DeprecationWarning, match="device_type") as record:
-        model.device_type = "cpu:0"
-    _device_type_warning(record)
-    model.to.assert_called_once_with("cpu:0")
-    assert model.device == "cpu:0"
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
+    model.to("meta")
+    assert model.device == "meta"
+    assert_on_device(model, "meta")
 
 
 @pytest.mark.skipif(torch.cuda.is_available(), reason="needs a machine without CUDA")
-def test_device_type_failed_move_leaves_the_model_usable() -> None:
-    """A move that raises leaves ``device`` as it was and the model usable; the module
-    moves before ``device`` changes.
-    """
+def test_a_failed_move_leaves_the_model_usable() -> None:
+    """A move that raises leaves ``device`` as it was and the model usable."""
     model, x = _gp_trained_on_cpu()
-    with pytest.warns(DeprecationWarning, match="device_type"):
-        with pytest.raises((AssertionError, RuntimeError)):
-            model.device_type = "cuda"
+    with pytest.raises((AssertionError, RuntimeError)):
+        model.to("cuda")
     assert model.device == "cpu"
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
 

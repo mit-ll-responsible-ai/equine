@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import math
-import sys
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable
@@ -1586,9 +1585,8 @@ class EquineProtonet(Equine):
             Tensor containing labels for given support examples, of at least 2
             classes.
         *args : Any
-            Deprecated: ``calib_frac`` and ``label_names`` passed by position, in
-            that order. Emits a ``DeprecationWarning`` and is then handled as the
-            keywords.
+            Options passed by position are refused with a ``TypeError``; pass them
+            by keyword.
         calib_frac : float
             Fraction of given support data to use for OOD calibration. Required,
             keyword-only, unless ``calib_x`` is given.
@@ -1605,9 +1603,8 @@ class EquineProtonet(Equine):
         Raises
         ------
         TypeError
-            If ``calib_frac`` is missing (and no ``calib_x`` is given), an option is
-            passed both by position and by keyword, or more than two options are
-            passed by position.
+            If ``calib_frac`` is missing (and no ``calib_x`` is given), or an option
+            is passed by position.
         ValueError
             If ``support_y`` has fewer than 2 classes, is not 1-D or holds a
             label that is not a whole number; if only one of ``calib_x`` and
@@ -1620,37 +1617,13 @@ class EquineProtonet(Equine):
             value, or a class's calibration examples all have the same OOD
             distance. A failed update leaves the model as it was.
         """
-        if len(args) > 2:
-            raise TypeError(
-                "EquineProtonet.update_support() takes at most 2 options by "
-                f"position (calib_frac, label_names) but {len(args)} were given"
-            )
         if args:
-            if calib_frac is not None or (len(args) == 2 and label_names is not None):
-                name = "calib_frac" if calib_frac is not None else "label_names"
-                raise TypeError(
-                    "EquineProtonet.update_support() got multiple values for "
-                    f"argument '{name}'"
-                )
-            warnings.warn(
-                "Passing calib_frac or label_names to EquineProtonet.update_support "
-                "by position is deprecated and will stop working in the next "
-                "release: pass calib_frac=... and label_names=... by keyword.",
-                DeprecationWarning,
-                # Past the icontract and beartype wrappers (none under -O), to the
-                # caller's line.
-                stacklevel=2 + (0 if sys.flags.optimize else 2),
+            raise TypeError(
+                "EquineProtonet.update_support() takes calib_frac and label_names by "
+                f"keyword only, but {len(args)} option(s) were given by position: "
+                "call update_support(support_x, support_y, calib_frac=...), adding "
+                "label_names=... by keyword."
             )
-            EquineProtonet.update_support(
-                self,
-                support_x,
-                support_y,
-                calib_frac=args[0],
-                label_names=args[1] if len(args) == 2 else label_names,
-                calib_x=calib_x,
-                calib_y=calib_y,
-            )
-            return
         if (calib_x is None) != (calib_y is None):
             raise ValueError("Give both calib_x and calib_y, or neither.")
         if calib_frac is None and calib_x is None:

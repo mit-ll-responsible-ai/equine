@@ -281,3 +281,9 @@
   labels no longer in the support, and `predict` on a model or file whose
   support has a label without a KDE raises `ValueError` naming it (refit with
   `update_support`) instead of using another class's KDE (#169).
+- `EquineGP(..., emb_out_dim=0)` never returned: the random Fourier features
+  loop did not end and memory grew until the process was killed. `EquineGP`
+  now raises `ValueError` unless `emb_out_dim`, `num_classes` and
+  `num_random_features` are positive integers; zero `num_classes` or
+  `num_random_features` built an empty head and a negative size raised a torch
+  `RuntimeError` (#264).

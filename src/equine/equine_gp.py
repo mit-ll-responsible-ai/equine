@@ -3,12 +3,10 @@
 # SPDX-License-Identifier: MIT
 
 import math
-import sys
-import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Sequence, Sized
 from datetime import datetime
-from typing import Any, Self, cast
+from typing import Any, NoReturn, Self, cast
 
 import icontract
 import torch
@@ -539,12 +537,6 @@ def _batch_loader(dataset: Dataset[Any], batch_size: int, shuffle: bool) -> Data
 
 _DEFAULT_NUM_RANDOM_FEATURES = 1024
 
-_DEVICE_TYPE_DEPRECATION = (
-    "EquineGP.device_type is deprecated and will be removed in the next release: "
-    "read EquineGP.device (a str) instead; to move the model, call "
-    "model.to(value)."
-)
-
 
 def _expected_laplace_state(settings: dict[str, Any]) -> dict[str, torch.Tensor]:
     """
@@ -688,30 +680,23 @@ class EquineGP(Equine):
         self.to(self.device)
 
     @property
-    def device_type(self) -> str:
-        """Deprecated alias of ``device``."""
-        warnings.warn(
-            _DEVICE_TYPE_DEPRECATION,
-            DeprecationWarning,
-            # Past the beartype wrapper (none under -O), to the caller's line.
-            stacklevel=2 + (0 if sys.flags.optimize else 1),
-        )
-        return self.device
+    def device_type(self) -> NoReturn:
+        """
+        Reading it raises ``AttributeError``; assigning it raises one that names
+        ``device`` and ``model.to(value)``.
+        """
+        raise AttributeError("device_type")
 
     @device_type.setter
-    def device_type(self, value: str) -> None:
+    def device_type(self, value: object) -> NoReturn:
         """
-        Deprecated: moves the model with ``model.to(value)``, then assigns ``device``.
+        Raises ``AttributeError`` naming ``device`` and ``model.to(value)``; the model
+        stays where it is.
         """
-        warnings.warn(
-            _DEVICE_TYPE_DEPRECATION,
-            DeprecationWarning,
-            # Past nn.Module.__setattr__ and the beartype wrapper (none under -O).
-            stacklevel=3 + (0 if sys.flags.optimize else 1),
+        raise AttributeError(
+            "EquineGP.device_type was removed: read EquineGP.device (a str) instead; "
+            "to move the model, call model.to(value)."
         )
-        # The module moves before ``device`` changes.
-        self.to(value)
-        self.device = value
 
     def train_model(
         self,
@@ -884,8 +869,8 @@ class EquineGP(Equine):
         support_y : torch.Tensor
             Tensor containing the label of each example in ``support_x``.
         *args : Any
-            Deprecated: ``support_size`` passed by position. Emits a
-            ``DeprecationWarning`` and is then handled as the keyword.
+            Options passed by position are refused with a ``TypeError``; pass them
+            by keyword.
         support_size : int
             Maximum number of support examples to keep per class. Required,
             keyword-only.
@@ -897,34 +882,18 @@ class EquineGP(Equine):
         Raises
         ------
         TypeError
-            If ``support_size`` is missing, is passed both by position and by
-            keyword, or more than one option is passed by position.
+            If ``support_size`` is missing or an option is passed by position.
         ValueError
             If ``support_x`` and ``support_y`` hold different numbers of examples,
             or ``support_y`` is not 1-D or holds a label that is not a whole number
             or not a class index (0 to ``num_classes - 1``).
         """
-        if len(args) > 1:
-            raise TypeError(
-                "EquineGP.update_support() takes at most 1 option by position "
-                f"(support_size) but {len(args)} were given"
-            )
         if args:
-            if support_size is not None:
-                raise TypeError(
-                    "EquineGP.update_support() got multiple values for argument "
-                    "'support_size'"
-                )
-            warnings.warn(
-                "Passing support_size to EquineGP.update_support by position is "
-                "deprecated and will stop working in the next release: pass "
-                "support_size=... by keyword.",
-                DeprecationWarning,
-                # Past the beartype wrapper (none under -O), to the caller's line.
-                stacklevel=2 + (0 if sys.flags.optimize else 1),
+            raise TypeError(
+                "EquineGP.update_support() takes support_size by keyword only, but "
+                f"{len(args)} option(s) were given by position: call "
+                "update_support(support_x, support_y, support_size=...)."
             )
-            EquineGP.update_support(self, support_x, support_y, support_size=args[0])
-            return
         if support_size is None:
             raise TypeError(
                 "EquineGP.update_support() missing required keyword argument: "

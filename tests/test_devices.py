@@ -253,17 +253,6 @@ def test_gp_save_load_round_trip(device, tmp_path):
 
 
 @pytest.mark.parametrize("device", devices())
-def test_gp_deprecated_device_type_setter_moves_the_module(device):
-    """Assigning the deprecated ``device_type`` moves the model, support included, along with ``device``."""
-    model, x, _ = _gp("cpu", vis_support=True, support_size=10)
-    with pytest.warns(DeprecationWarning, match="device_type"):
-        model.device_type = device
-    assert model.device == device
-    assert_on_device(model, device)
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
 def test_gp_load_onto_device(device, tmp_path):
     model, x, _ = _gp("cpu")
     before = model.predict(x[:5])

@@ -5,26 +5,19 @@
 
 ``Equine`` declares ``get_support`` and ``update_support`` as abstract methods.
 ``update_support`` takes its options by keyword (``calib_frac`` and ``label_names`` on
-``EquineProtonet``, ``support_size`` on ``EquineGP``). Passing them by position emits a
-``DeprecationWarning`` at the caller's line, then updates the support as the keywords
-do, with the same type and range checks; this is also checked under ``python -O``.
+``EquineProtonet``, ``support_size`` on ``EquineGP``); passing one by position raises
+a ``TypeError`` that names the keywords and leaves the model as it was.
 ``EquineProtonet.support``, ``support_embeddings`` and ``prototypes`` are read-only
 views of the inner model's support.
 """
 
-import copy
-import json
-import os
 import pickle
-import subprocess
-import sys
 import warnings
 from collections import OrderedDict
 
 import icontract
 import pytest
 import torch
-from beartype.roar import BeartypeCallHintParamViolation
 from conftest import BasicEmbeddingModel
 from golden_data import CLASSES, FEATURES, separable_dataset
 
@@ -33,12 +26,12 @@ import equine as eq
 NAMES = ["a", "b", "c"]
 
 
-def _protonet(cls=eq.EquineProtonet):
-    return cls(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+def _protonet():
+    return eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
 
 
-def _gp(cls=eq.EquineGP):
-    return cls(
+def _gp():
+    return eq.EquineGP(
         BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
     )
 
@@ -88,166 +81,138 @@ def test_keyword_options_do_not_warn(build, keywords) -> None:
         model.update_support(x, y, **keywords)
 
 
-# Each positional form, the model it is called on and the keywords it stands for.
-LEGACY_FORMS = {
-    "protonet (x, y, f)": (
-        _trained_protonet,
-        lambda m, x, y: m.update_support(x, y, 0.5),
-        {"calib_frac": 0.5},
-    ),
-    "protonet (x, y, f, names)": (
-        _trained_protonet,
-        lambda m, x, y: m.update_support(x, y, 0.5, NAMES),
-        {"calib_frac": 0.5, "label_names": NAMES},
-    ),
-    "protonet (x, y, f, label_names=names)": (
-        _trained_protonet,
-        lambda m, x, y: m.update_support(x, y, 0.5, label_names=NAMES),
-        {"calib_frac": 0.5, "label_names": NAMES},
-    ),
-    "gp (x, y, n)": (
-        _trained_gp,
-        lambda m, x, y: m.update_support(x, y, 10),
-        {"support_size": 10},
-    ),
-}
+_PROTONET_BY_POSITION = (
+    "EquineProtonet.update_support() takes calib_frac and label_names by keyword "
+    "only, but {} option(s) were given by position: call update_support(support_x, "
+    "support_y, calib_frac=...), adding label_names=... by keyword."
+)
+_GP_BY_POSITION = (
+    "EquineGP.update_support() takes support_size by keyword only, but {} option(s) "
+    "were given by position: call update_support(support_x, support_y, "
+    "support_size=...)."
+)
 
 
-def legacy_forms_report() -> list[dict]:
-    """
-    Run each positional form and its keyword form on two copies of one trained model,
-    both after ``torch.manual_seed(1)``, the keyword form with warnings raised as
-    errors. Per form, return the ``update_support`` warnings of the positional call
-    (category name, whether it points at this file, whether it points at the line of
-    the call), whether the two copies hold the same support and prototypes, and their
-    label names. The result is JSON-serializable.
-    """
-    report = []
-    trained = {}
-    for form, (build, legacy, keywords) in LEGACY_FORMS.items():
-        if build not in trained:
-            trained[build] = build()
-        model, x, y = trained[build]
-        by_position, by_keyword = copy.deepcopy(model), copy.deepcopy(model)
-        torch.manual_seed(1)
-        with warnings.catch_warnings(record=True) as record:
-            warnings.simplefilter("always")
-            legacy(by_position, x, y)
-        torch.manual_seed(1)
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            by_keyword.update_support(x, y, **keywords)
-        support, expected = by_position.get_support(), by_keyword.get_support()
-        report.append(
-            {
-                "form": form,
-                "warnings": [
-                    [
-                        w.category.__name__,
-                        w.filename == __file__,
-                        w.lineno == legacy.__code__.co_firstlineno,
-                    ]
-                    for w in record
-                    if "update_support" in str(w.message)
-                ],
-                "same_support": list(support) == list(expected)
-                and all(torch.equal(support[k], expected[k]) for k in expected),
-                "same_prototypes": torch.equal(
-                    by_position.get_prototypes(), by_keyword.get_prototypes()
-                ),
-                "support_rows": sum(len(rows) for rows in support.values()),
-                "label_names": [by_position.label_names, by_keyword.label_names],
-            }
-        )
-    return report
+def _trained_gp_with_support():
+    return _trained_gp(vis_support=True)
 
 
-def _assert_like_the_keywords(report: list[dict]) -> None:
-    assert [row["form"] for row in report] == list(LEGACY_FORMS)
-    for row in report:
-        assert row["warnings"] == [["DeprecationWarning", True, True]], row
-        assert row["same_support"] and row["same_prototypes"], row
-        # f = 0.5 keeps half of the 120 rows; n = 10 keeps 10 rows of each class.
-        assert row["support_rows"] == (30 if row["form"].startswith("gp") else 60), row
-        names = NAMES if "names" in row["form"] else None
-        assert row["label_names"] == [names, names], row
-
-
-def test_positional_options_warn_and_update_like_the_keywords() -> None:
-    _assert_like_the_keywords(legacy_forms_report())
-
-
-def test_positional_options_warn_and_update_like_the_keywords_under_python_O() -> None:
-    tests = os.path.dirname(os.path.abspath(__file__))
-    package_root = os.path.dirname(os.path.dirname(os.path.abspath(eq.__file__)))
-    path = [package_root, tests, os.environ.get("PYTHONPATH", "")]
-    code = (
-        "import json, sys\n"
-        "import test_support_api as t\n"
-        "print(json.dumps({'optimize': sys.flags.optimize, "
-        "'report': t.legacy_forms_report()}))\n"
-    )
-    proc = subprocess.run(
-        [sys.executable, "-O", "-c", code],
-        capture_output=True,
-        text=True,
-        env=dict(os.environ, PYTHONPATH=os.pathsep.join(path)),
-    )
-    assert proc.returncode == 0, proc.stderr
-    result = json.loads(proc.stdout.splitlines()[-1])
-    assert result["optimize"] == 1
-    _assert_like_the_keywords(result["report"])
-
-
-@pytest.mark.contracts
 @pytest.mark.parametrize(
-    "call, match",
+    "build, call, repair, message",
     [
-        (lambda m, x, y: m.update_support(x, y, calib_frac=1.5), "calib_frac"),
-        (lambda m, x, y: m.update_support(x, y, 1.5), None),
-        (lambda m, x, y: m.update_support(x, y, 1.5, NAMES), None),
-        (lambda m, x, y: m.update_support(x, y, 0.0, label_names=NAMES), None),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2),
+            lambda m, x, y: m.update_support(x, y, calib_frac=0.2),
+            _PROTONET_BY_POSITION.format(1),
+        ),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2, NAMES),
+            lambda m, x, y: m.update_support(x, y, calib_frac=0.2, label_names=NAMES),
+            _PROTONET_BY_POSITION.format(2),
+        ),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2, label_names=NAMES),
+            lambda m, x, y: m.update_support(x, y, calib_frac=0.2, label_names=NAMES),
+            _PROTONET_BY_POSITION.format(1),
+        ),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2, calib_frac=0.2),
+            lambda m, x, y: m.update_support(x, y, calib_frac=0.2),
+            _PROTONET_BY_POSITION.format(1),
+        ),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2, calib_x=x[::4], calib_y=y[::4]),
+            lambda m, x, y: m.update_support(
+                x, y, calib_frac=0.2, calib_x=x[::4], calib_y=y[::4]
+            ),
+            _PROTONET_BY_POSITION.format(1),
+        ),
+        (
+            _trained_protonet,
+            lambda m, x, y: m.update_support(x, y, 0.2, calib_x=x[::4]),
+            lambda m, x, y: m.update_support(
+                x, y, calib_frac=0.2, calib_x=x[::4], calib_y=y[::4]
+            ),
+            _PROTONET_BY_POSITION.format(1),
+        ),
+        (
+            _trained_gp_with_support,
+            lambda m, x, y: m.update_support(x, y, 10),
+            lambda m, x, y: m.update_support(x, y, support_size=10),
+            _GP_BY_POSITION.format(1),
+        ),
+        (
+            _trained_gp_with_support,
+            lambda m, x, y: m.update_support(x, y, 10, 10),
+            lambda m, x, y: m.update_support(x, y, support_size=10),
+            _GP_BY_POSITION.format(2),
+        ),
+        (
+            _trained_gp_with_support,
+            lambda m, x, y: m.update_support(x, y, 10, support_size=10),
+            lambda m, x, y: m.update_support(x, y, support_size=10),
+            _GP_BY_POSITION.format(1),
+        ),
     ],
     ids=[
-        "calib_frac=f",
-        "(x, y, f)",
-        "(x, y, f, names)",
-        "(x, y, f, label_names=names)",
+        "protonet (x, y, f)",
+        "protonet (x, y, f, names)",
+        "protonet (x, y, f, label_names=names)",
+        "protonet (x, y, f, calib_frac=f)",
+        "protonet (x, y, f, calib_x=, calib_y=)",
+        "protonet (x, y, f, calib_x=)",
+        "gp (x, y, n)",
+        "gp (x, y, n, n)",
+        "gp (x, y, n, support_size=n)",
     ],
 )
-def test_out_of_range_calib_frac_violates_a_contract(call, match) -> None:
-    model, x, y = _trained_protonet()
+def test_options_passed_by_position_are_refused_naming_the_keywords(
+    build, call, repair, message
+) -> None:
+    """The refusal names the keywords and leaves the support, its KDEs (Protonet) or
+    embeddings (GP) and the state dict as they were; the keyword call then updates
+    the support."""
+    model, x, y = build()
+    kept = (
+        "outlier_score_kde"
+        if isinstance(model, eq.EquineProtonet)
+        else "support_embeddings"
+    )
+    before = getattr(model, kept)
+    state = {name: t.clone() for name, t in model.state_dict().items()}
     support = {label: rows.clone() for label, rows in model.get_support().items()}
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises(icontract.ViolationError, match=match):
-            call(model, x, y)
+    with pytest.raises(TypeError) as refused:
+        call(model, x, y)
+    assert str(refused.value) == message
+    assert getattr(model, kept) is before
+    assert list(model.state_dict()) == list(state)
+    for name, t in state.items():
+        assert torch.equal(model.state_dict()[name], t)
     assert list(model.get_support()) == list(support)
     for label, rows in support.items():
         assert torch.equal(model.get_support()[label], rows)
     assert model.label_names is None
 
+    repair(model, x, y)
+    assert getattr(model, kept) is not before
+    assert list(model.get_support()) == list(range(CLASSES))
+
 
 @pytest.mark.contracts
-@pytest.mark.parametrize(
-    "build, call",
-    [
-        (_trained_protonet, lambda m, x, y: m.update_support(x, y, 10)),
-        (_trained_protonet, lambda m, x, y: m.update_support(x, y, 0.5, "a")),
-        (_trained_gp, lambda m, x, y: m.update_support(x, y, 0.5)),
-    ],
-    ids=["protonet-int-calib-frac", "protonet-str-label-names", "gp-float-size"],
-)
-def test_positional_option_of_the_wrong_type_is_refused_by_beartype(
-    build, call
-) -> None:
-    model, x, y = build()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises(
-            BeartypeCallHintParamViolation, match=r"update_support\(\) parameter"
-        ):
-            call(model, x, y)
+def test_out_of_range_calib_frac_violates_a_contract() -> None:
+    model, x, y = _trained_protonet()
+    support = {label: rows.clone() for label, rows in model.get_support().items()}
+    with pytest.raises(icontract.ViolationError, match="calib_frac"):
+        model.update_support(x, y, calib_frac=1.5)
+    assert list(model.get_support()) == list(support)
+    for label, rows in support.items():
+        assert torch.equal(model.get_support()[label], rows)
+    assert model.label_names is None
 
 
 @pytest.mark.parametrize(
@@ -270,94 +235,17 @@ def test_the_other_class_option_is_refused(build, option) -> None:
             "missing required keyword argument: 'calib_frac'",
         ),
         (
-            _protonet,
-            lambda m, x, y: m.update_support(x, y, 0.5, calib_frac=0.5),
-            "multiple values for argument 'calib_frac'",
-        ),
-        (
-            _protonet,
-            lambda m, x, y: m.update_support(x, y, 0.5, NAMES, label_names=NAMES),
-            "multiple values for argument 'label_names'",
-        ),
-        (
-            _protonet,
-            lambda m, x, y: m.update_support(x, y, 0.5, NAMES, NAMES),
-            "at most 2 options by position",
-        ),
-        (
             _gp,
             lambda m, x, y: m.update_support(x, y),
             "missing required keyword argument: 'support_size'",
         ),
-        (
-            _gp,
-            lambda m, x, y: m.update_support(x, y, 10, support_size=10),
-            "multiple values for argument 'support_size'",
-        ),
-        (
-            _gp,
-            lambda m, x, y: m.update_support(x, y, 10, 10),
-            "at most 1 option by position",
-        ),
     ],
-    ids=[
-        "protonet-missing",
-        "protonet-calib-frac-twice",
-        "protonet-label-names-twice",
-        "protonet-too-many",
-        "gp-missing",
-        "gp-support-size-twice",
-        "gp-too-many",
-    ],
+    ids=["protonet-missing", "gp-missing"],
 )
-def test_a_missing_or_repeated_option_is_refused_without_a_warning(
-    build, call, message
-) -> None:
+def test_a_missing_option_is_refused(build, call, message) -> None:
     _, x, y = separable_dataset()
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        with pytest.raises(TypeError, match=message):
-            call(build(), x, y.float())
-
-
-class _ProtonetPassingOptionsByPosition(eq.EquineProtonet):
-    """Counts the calls of its ``update_support`` and passes the options on by
-    position."""
-
-    def update_support(self, support_x, support_y, calib_frac, label_names=None):
-        self.calls = getattr(self, "calls", 0) + 1
-        super().update_support(support_x, support_y, calib_frac, label_names)
-
-
-class _GPPassingSizeByPosition(eq.EquineGP):
-    """Counts the calls of its ``update_support`` and passes ``support_size`` on by
-    position."""
-
-    def update_support(self, support_x, support_y, support_size):
-        self.calls = getattr(self, "calls", 0) + 1
-        super().update_support(support_x, support_y, support_size)
-
-
-@pytest.mark.parametrize(
-    "build, option, y_dtype",
-    [
-        (lambda: _protonet(_ProtonetPassingOptionsByPosition), 0.5, torch.float),
-        (lambda: _gp(_GPPassingSizeByPosition), 10, torch.long),
-    ],
-    ids=["protonet", "gp"],
-)
-def test_an_override_passing_options_by_position_is_called_once(
-    build, option, y_dtype
-) -> None:
-    model = build()
-    _, x, y = separable_dataset()
-    with pytest.warns(DeprecationWarning, match="update_support") as record:
-        model.update_support(x, y.to(y_dtype), option)
-    found = [w for w in record if "update_support" in str(w.message)]
-    assert len(found) == 1
-    assert found[0].filename == __file__
-    assert model.calls == 1
-    assert list(model.get_support()) == list(range(CLASSES))
+    with pytest.raises(TypeError, match=message):
+        call(build(), x, y.float())
 
 
 def test_untrained_protonet_support_attributes_are_empty() -> None:
@@ -420,9 +308,7 @@ def test_protonet_support_attributes_follow_a_dtype_cast() -> None:
 
 
 def test_gp_load_keeps_the_support_embeddings(tmp_path) -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
-        model, _, _ = _trained_gp(vis_support=True)
+    model, _, _ = _trained_gp(vis_support=True)
     path = str(tmp_path / "gp.eq")
     model.save(path)
     loaded = eq.EquineGP.load(path)

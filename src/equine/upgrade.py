@@ -7,18 +7,18 @@ Rewrite model files from earlier EQUINE versions in the current format (format 4
     python -m equine.upgrade MODEL.eq [-o OUT.eq] [--recipe JSON] [--import MODULE]
                              [--check-inputs FILE | --no-check]
 
-A PyTorch archive whose embedding is stored as a recipe and weights (formats 2 and 3,
-written by development builds) is read with ``torch.load(weights_only=True)`` and
-rewritten with the same contents. The written file must load back to an equal
-checkpoint before it replaces the original.
-
 Files saved by EQUINE 0.1.x hold pickled Python objects, which
 ``torch.load(weights_only=True)`` refuses, and store the embedding model as
 TorchScript, which EQUINE does not load. The upgrade reads such a file with
 unrestricted unpickling and loads its TorchScript archive; both run code
 embedded in the file, so only upgrade files you trust. A file is unpickled
-without restrictions only after ``torch.load(weights_only=True)`` refused it and
-every argument that does not need the file has been checked.
+without restrictions only after ``torch.load(weights_only=True)`` refused it or
+found no ``equine_format_version`` in it, and every argument that does not need the
+file has been checked. A format-4 file that holds a TorchScript archive is converted
+the same way, without unpickling.
+
+A PyTorch archive of format 2 or 3, written by a development build of EQUINE before
+format 4, is refused: save the model again with this EQUINE, or retrain it.
 
 For a TorchScript embedding the caller supplies the architecture: an instance of a
 registered architecture (``@equine.embedding_architecture``), or on the command line
@@ -73,8 +73,9 @@ from .utils import (
 )
 
 _DEPRECATION = (
-    "Reading model files that store the embedding model as TorchScript is "
-    "deprecated and will be removed in a later release; upgrade your files now."
+    "Converting files whose embedding is TorchScript (files from EQUINE 0.1.x) is "
+    "deprecated: equine.upgrade is removed in the next release. Convert your files "
+    "with this release."
 )
 
 _HEAD_NOTE = (
@@ -142,8 +143,8 @@ def _load_archive(archive: Any) -> torch.nn.Module:
     """
     The TorchScript module stored in a checkpoint, loaded on the CPU.
 
-    Accepts a ``uint8`` tensor (as format-2 files store it), an ``io.BytesIO`` (as files
-    from EQUINE 0.1.8 and earlier store it), and ``bytes`` or ``bytearray``.
+    Accepts a ``uint8`` tensor, an ``io.BytesIO`` (as files from EQUINE 0.1.8 and
+    earlier store it), and ``bytes`` or ``bytearray``.
     """
     load = getattr(getattr(torch, "jit", None), "load", None)
     if load is None:
@@ -404,10 +405,11 @@ def _require_arguments(
 
 def _read_safely(path: str) -> dict[str, Any] | None:
     """
-    ``path`` read without running code from it: a current-format file with
-    ``load_checkpoint``, a PyTorch archive with ``torch.load(weights_only=True)``. None
-    for a file that read refuses, or that is not a dictionary with an
-    ``equine_format_version``; only the unrestricted read in ``_read_legacy`` opens it.
+    ``path`` read without running code from it: the checkpoint of a current-format file,
+    read with ``load_checkpoint``, or None for a file that only the unrestricted read in
+    ``_read_legacy`` opens: one that ``torch.load(weights_only=True)`` refuses, or that
+    is not a dictionary with an ``equine_format_version``. A PyTorch archive with an
+    ``equine_format_version`` is refused.
     """
     try:
         return load_checkpoint(path)
@@ -427,14 +429,19 @@ def _read_safely(path: str) -> dict[str, Any] | None:
         ) from err
     if not isinstance(checkpoint, dict) or "equine_format_version" not in checkpoint:
         return None
-    if checkpoint["equine_format_version"] not in (2, 3):
+    version = checkpoint["equine_format_version"]
+    if type(version) is int and version in (2, 3):
         raise ValueError(
-            f"'{path}' is a PyTorch archive with equine_format_version "
-            f"{_truncate(repr(checkpoint['equine_format_version']), 50)}, which no "
-            "EQUINE version wrote; only formats 2 and 3 were PyTorch archives. "
-            "Upgrade a file that EQUINE saved."
+            f"'{path}' is a format-{version} file, written by a development build of "
+            f"EQUINE before format {EQUINE_FORMAT_VERSION}; the upgrade converts only "
+            "files saved by EQUINE 0.1.x. Save the model again with this EQUINE, or "
+            "retrain it."
         )
-    return checkpoint
+    raise ValueError(
+        f"'{path}' is a PyTorch archive with equine_format_version "
+        f"{_truncate(repr(version), 50)}, which no EQUINE version wrote. Upgrade a "
+        "file that EQUINE saved."
+    )
 
 
 def _read_legacy(path: str) -> dict[str, Any]:
@@ -640,13 +647,13 @@ def _write_checked(
     current: dict[str, Any],
     out_path: str | None,
     notes: list[str],
-    check: Any = None,
+    check: Any,
 ) -> str:
     """
     Write ``current`` as a model file that replaces ``out_path`` (``path`` when it is
     None), once it loads back, the checkpoint read back encodes like ``current``
-    (``_same_encoding``), and ``check(rebuilt)``, when given, passes for the model
-    built from it. Returns where it was written.
+    (``_same_encoding``), and ``check(rebuilt)`` passes for the model built from it.
+    Returns where it was written.
     """
     try:
         data = _model_file.to_bytes(current)
@@ -654,10 +661,9 @@ def _write_checked(
         raise ValueError(
             f"'{path}' holds a value the upgrade does not convert "
             f"({_truncate(str(err), 300)}); it was left unchanged. To convert it, read "
-            "it with torch.load (weights_only=True for a format 2 or 3 file; "
-            "weights_only=False for a file from EQUINE 0.1.x, which runs code from the "
-            "file, so only if you trust it), change that value, write it back with "
-            "torch.save, and upgrade it again."
+            "it with torch.load(weights_only=False), which runs code from the file, so "
+            "only if you trust it, change that value, write it back with torch.save, "
+            "and upgrade it again."
         ) from err
     out_path = _replaced_file(path, out_path)
     descriptor, partial = _create_partial(out_path)
@@ -688,8 +694,7 @@ def _write_checked(
                     "left unchanged. This is a bug in EQUINE: please report it, with "
                     "the file, at https://github.com/mit-ll-responsible-ai/equine/issues."
                 )
-            if check is not None:
-                check(rebuilt)
+            check(rebuilt)
             _move_into_place(file, partial, out_path, notes)
     except BaseException:
         with contextlib.suppress(OSError):  # the upgrade's error is reported
@@ -697,19 +702,6 @@ def _write_checked(
                 os.remove(partial)
         raise
     return out_path
-
-
-def _convert(
-    path: str, checkpoint: dict[str, Any], out_path: str | None
-) -> tuple[str, list[str]]:
-    """
-    Rewrite a format-2 or format-3 file with no TorchScript in the current format,
-    without its ``contains_executable`` entry; return where, plus the notes to report.
-    """
-    current = {k: v for k, v in checkpoint.items() if k != "contains_executable"}
-    current["equine_format_version"] = EQUINE_FORMAT_VERSION
-    notes: list[str] = []
-    return _write_checked(path, current, out_path, notes), notes
 
 
 def _upgrade(
@@ -724,12 +716,9 @@ def _upgrade(
     if "embed_jit_save" not in checkpoint:
         raise ValueError(
             f"'{path}' holds no TorchScript archive to upgrade from: files from EQUINE "
-            "0.1.8 and earlier, and format-2 files, store one in embed_jit_save, so "
-            "this file was not written by an EQUINE version the upgrade converts. If "
-            "it holds its embedding as a recipe and weights, remove its "
-            "contains_executable entry: read it with torch.load(path, "
-            "map_location='cpu', weights_only=True), delete the entry, and write it "
-            "back with torch.save."
+            "0.1.x store one in embed_jit_save, so this file was not saved by an "
+            "EQUINE version the upgrade converts. Save the model again with this "
+            "EQUINE, or retrain it."
         )
     current, notes = _current_layout(checkpoint)
     blocks = _comparison_blocks(current, check_inputs)
@@ -774,12 +763,13 @@ def upgrade_model_file(
     ----------
     path : str
         The file to upgrade. A file that ``load_checkpoint`` reads is current, and
-        nothing is written unless it holds a TorchScript archive. A PyTorch archive
-        is read with ``torch.load(weights_only=True)``; a format-2 or format-3 file
-        with no TorchScript archive is rewritten with the same contents. A file that
-        read refuses (a file saved by EQUINE 0.1.x) is then read with unrestricted
-        unpickling, once the other arguments have been checked: only upgrade such
-        files if you trust them. A TorchScript archive is loaded.
+        nothing is written unless it holds a TorchScript archive. Any other file is
+        read with ``torch.load(weights_only=True)`` first. A file that declares an
+        ``equine_format_version`` is refused: formats 2 and 3, written by development
+        builds before format 4, are not converted. A file that read refuses, or that
+        declares no format (a file saved by EQUINE 0.1.x), is then read with
+        unrestricted unpickling, once the other arguments have been checked: only
+        upgrade such files if you trust them. A TorchScript archive is loaded.
     embedding_model : torch.nn.Module | None
         An instance of the registered architecture the file's embedding was
         built from, needed only for a file whose embedding is TorchScript. The
@@ -813,7 +803,8 @@ def upgrade_model_file(
     ------
     ValueError
         If the file is not an EQUINE model file, if ``load_checkpoint`` refuses
-        it for a reason other than its age, if ``out_path`` names a directory,
+        it for a reason other than its age, if it is a PyTorch archive that declares
+        an ``equine_format_version``, if ``out_path`` names a directory,
         is a symbolic link that cannot be followed, or its directory does not
         exist or no file can be created in it, if the file's embedding is
         TorchScript and ``embedding_model`` is None, is not a registered
@@ -837,20 +828,16 @@ def upgrade_model_file(
     """
     checkpoint = _read_safely(path)
     if checkpoint is not None and not _holds_torchscript(checkpoint):
-        if checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION:
-            return None
-        _require_output(_replaced_file(path, out_path))
-        written, notes = _convert(path, checkpoint, out_path)
-    else:
-        warnings.warn(_DEPRECATION, FutureWarning, stacklevel=2)
-        target = _replaced_file(path, out_path)
-        _require_arguments(embedding_model, check_inputs, target)
-        assert embedding_model is not None
-        if checkpoint is None:
-            checkpoint = _read_legacy(path)
-        written, notes = _upgrade(
-            path, checkpoint, embedding_model, out_path, check_inputs, allow_unchecked
-        )
+        return None
+    warnings.warn(_DEPRECATION, FutureWarning, stacklevel=2)
+    target = _replaced_file(path, out_path)
+    _require_arguments(embedding_model, check_inputs, target)
+    assert embedding_model is not None
+    if checkpoint is None:
+        checkpoint = _read_legacy(path)
+    written, notes = _upgrade(
+        path, checkpoint, embedding_model, out_path, check_inputs, allow_unchecked
+    )
     for note in notes:
         warnings.warn(note, UserWarning, stacklevel=2)
     return written
@@ -966,18 +953,7 @@ def main(argv: list[str] | None = None) -> int:
             warnings.simplefilter("ignore")
             checkpoint = _read_safely(args.path)
             if checkpoint is not None and not _holds_torchscript(checkpoint):
-                if checkpoint["equine_format_version"] == EQUINE_FORMAT_VERSION:
-                    print(
-                        f"{args.path} is already in the current format; nothing "
-                        "written."
-                    )
-                    return 0
-                _import_modules(args.imports)
-                _require_output(_replaced_file(args.path, args.output))
-                written, notes = _convert(args.path, checkpoint, args.output)
-                for note in notes:
-                    print(f"note: {note}", file=sys.stderr)
-                print(_upgraded(args.path, written))
+                print(f"{args.path} is already in the current format; nothing written.")
                 return 0
             if args.recipe is None:
                 raise ValueError(

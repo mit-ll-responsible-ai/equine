@@ -4,7 +4,8 @@
 """
 The file-reading layer (``equine.utils.load_checkpoint``) and ``python -m
 equine.upgrade``: files from earlier releases (PyTorch archives and pickles) are
-refused without being unpickled, and the upgrade rewrites them in the current format.
+refused without being unpickled, and the upgrade rewrites them in the current format;
+it refuses a file from a development build before format 4 without unpickling it.
 The file format itself is tested in test_model_file.py, the model layer on top
 (recipes, save/load) in test_persistence.py.
 """
@@ -16,7 +17,6 @@ import itertools
 import json
 import os
 import re
-import shutil
 import warnings
 from pathlib import Path
 
@@ -59,9 +59,15 @@ def _tiny_dataset(seed: int = 0):
     return torch.utils.data.TensorDataset(X, Y), X
 
 
-def _trained_protonet(cov_type=eq.CovType.UNIT, use_temperature=False):
-    """A Protonet trained on ``_tiny_dataset`` with ``ood_distance="rmd_sqrt"``."""
+def _trained_protonet(
+    cov_type=eq.CovType.UNIT, use_temperature=False, labels=(0, 1, 2)
+):
+    """A Protonet trained on ``_tiny_dataset`` with ``ood_distance="rmd_sqrt"``, and
+    class ``k`` of the dataset labelled ``labels[k]``."""
     dataset, X = _tiny_dataset()
+    dataset = torch.utils.data.TensorDataset(
+        X, torch.tensor(labels)[dataset.tensors[1]]
+    )
     model = eq.EquineProtonet(
         BasicEmbeddingModel(6, 3),
         3,
@@ -313,6 +319,33 @@ def test_upgrade_rewrites_legacy_file_as_a_data_only_file(
     _assert_same_predictions(model, reloaded, X)
 
 
+_DEPRECATION_TEXT = (
+    "Converting files whose embedding is TorchScript (files from EQUINE 0.1.x) is "
+    "deprecated: equine.upgrade is removed in the next release. Convert your files "
+    "with this release."
+)
+
+
+@pytest.mark.parametrize("via", ["api", "cli"])
+def test_upgrade_says_it_is_removed_in_the_next_release(tmp_path, capsys, via) -> None:
+    """The upgrade of a legacy file emits the deprecation as a FutureWarning; the
+    command line prints it."""
+    model, _ = _trained_protonet()
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+    capsys.readouterr()  # training progress
+    if via == "api":
+        with pytest.warns(FutureWarning) as caught:
+            assert _upgrade(path) == path
+        assert _DEPRECATION_TEXT in [str(w.message) for w in caught]
+    else:
+        assert main([path, "--recipe", _RECIPE]) == 0
+        assert capsys.readouterr() == (
+            f"Upgraded {path} in place.\n",
+            f"{_DEPRECATION_TEXT}\n",
+        )
+
+
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_reads_a_legacy_file_when_torch_allows_its_globals(tmp_path) -> None:
     model, _ = _trained_gp()
@@ -369,22 +402,53 @@ def _newer_model_file(path) -> None:
         (_newer_model_file, "Upgrade EQUINE"),
         (
             lambda path: torch.save({"equine_format_version": 5}, path),
-            "is a PyTorch archive with equine_format_version 5, which no EQUINE "
-            "version wrote",
+            r"is a PyTorch archive with equine_format_version 5, which no EQUINE "
+            r"version wrote\. Upgrade a file that EQUINE saved\.",
         ),
+        (
+            lambda path: torch.save({"equine_format_version": 2}, path),
+            r"is a format-2 file, written by a development build of EQUINE before "
+            r"format 4; the upgrade converts only files saved by EQUINE 0\.1\.x\. "
+            r"Save the model again with this EQUINE, or retrain it\.",
+        ),
+        (
+            lambda path: torch.save({"equine_format_version": 3}, path),
+            r"is a format-3 file, written by a development build of EQUINE before "
+            r"format 4; the upgrade converts only files saved by EQUINE 0\.1\.x\. "
+            r"Save the model again with this EQUINE, or retrain it\.",
+        ),
+    ]
+    + [
+        (
+            lambda path, value=value: torch.save(
+                {"equine_format_version": value}, path
+            ),
+            re.escape(
+                f"is a PyTorch archive with equine_format_version {value!r}, which "
+                "no EQUINE version wrote. Upgrade a file that EQUINE saved."
+            ),
+        )
+        for value in (torch.tensor([2, 3]), torch.tensor([2]), 2.0)
     ],
-    ids=["newer-model-file", "archive"],
+    ids=["newer-model-file", "archive", "format-2", "format-3"]
+    + ["tensor-2-3", "tensor-2", "float-2"],
 )
-def test_upgrade_does_not_downgrade_a_newer_format(tmp_path, write, message) -> None:
+def test_upgrade_does_not_downgrade_a_newer_format(
+    tmp_path, capsys, write, message
+) -> None:
     """A model file written by a newer EQUINE is refused by the loader with its own
-    message, and a PyTorch archive declaring a format other than 2 or 3 is refused;
-    the upgrade must not unpickle either and re-stamp it as the current version."""
+    message, and a PyTorch archive declaring a format version is refused, through the
+    API and the command line: format 2 or 3 as a development build's file, any other
+    as a format no EQUINE version wrote. The upgrade must not unpickle any of them and
+    re-stamp it as the current version."""
     path = tmp_path / "newer.eq"
     write(path)
     before = path.read_bytes()
 
     with pytest.raises(ValueError, match=message):
         _upgrade(str(path))
+    assert main([str(path), "--recipe", _RECIPE]) == 1
+    assert re.search(message, capsys.readouterr().err)
 
     assert path.read_bytes() == before
     assert sorted(p.name for p in tmp_path.iterdir()) == ["newer.eq"]
@@ -411,41 +475,34 @@ def test_upgrade_refuses_to_run_on_old_torch(tmp_path, monkeypatch) -> None:
 
 
 @pytest.mark.parametrize(
-    "version, key, value, reason",
+    "key, value, reason",
     [
-        (None, "blob", io.BytesIO(b"opaque"), "['blob'] is a BytesIO"),
-        (None, "blob", b"opaque", "['blob'] is a bytes"),
-        (None, "blob", {1, 2}, "['blob'] is a set"),
-        (None, "label_names", np.array("abc"), "['label_names'] is a ndarray"),
+        ("blob", io.BytesIO(b"opaque"), "['blob'] is a BytesIO"),
+        ("blob", b"opaque", "['blob'] is a bytes"),
+        ("blob", {1, 2}, "['blob'] is a set"),
+        ("label_names", np.array("abc"), "['label_names'] is a ndarray"),
         (
-            None,
             "label_names",
             np.array([["a", "b"], ["c", "d"]]),
             "['label_names'] is a ndarray",
         ),
-        (2, "blob", torch.ones(2).to(torch.complex128), "is a complex128 tensor"),
-        (3, "blob", torch.ones(2).to(torch.complex128), "is a complex128 tensor"),
     ],
-    ids=["bytesio", "bytes", "set", "names-0-d", "names-2-d", "format-2", "format-3"],
+    ids=["bytesio", "bytes", "set", "names-0-d", "names-2-d"],
 )
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_leaves_the_original_when_the_result_is_refused(
-    tmp_path, version, key, value, reason
+    tmp_path, key, value, reason
 ) -> None:
-    """A file holding a value a model file does not store cannot be rewritten: a
-    legacy file (``version`` None) or a format-2 or format-3 file. Names are converted
-    only from a list, a tuple or a one-dimensional array. The original stays, and the
-    error says why. The directory name holds ". ", which the message must not be cut
-    at."""
+    """A legacy file holding a value a model file does not store cannot be rewritten.
+    Names are converted only from a list, a tuple or a one-dimensional array. The
+    original stays, and the error says why. The directory name holds ". ", which the
+    message must not be cut at."""
     model, _ = _trained_protonet()
     tmp_path = tmp_path / "my. models"
     tmp_path.mkdir()
     path = tmp_path / "legacy.eq"
-    if version is None:
-        _write_legacy_protonet_file(model, str(path))
-        checkpoint = torch.load(path, weights_only=False)
-    else:
-        checkpoint = _in_format(model, str(path), version)
+    _write_legacy_protonet_file(model, str(path))
+    checkpoint = torch.load(path, weights_only=False)
     if key == "blob":
         checkpoint["train_summary"]["blob"] = value
     else:
@@ -460,10 +517,9 @@ def test_upgrade_leaves_the_original_when_the_result_is_refused(
         f"'{re.escape(str(path))}' holds a value the upgrade does not convert "
         rf"\(Cannot save: checkpoint.*{re.escape(reason)}, which a model file does "
         r"not store; .*\); it was left unchanged\. To convert it, read it with "
-        r"torch\.load \(weights_only=True for a format 2 or 3 file; weights_only=False "
-        r"for a file from EQUINE 0\.1\.x, which runs code from the file, so only if you "
-        r"trust it\), change that value, write it back with torch\.save, and upgrade it "
-        r"again\.",
+        r"torch\.load\(weights_only=False\), which runs code from the file, so only if "
+        r"you trust it, change that value, write it back with torch\.save, and upgrade "
+        r"it again\.",
         str(err.value),
     ), str(err.value)
     assert path.read_bytes() == before
@@ -963,10 +1019,12 @@ def test_upgrade_refuses_a_target_that_became_a_link(tmp_path, monkeypatch) -> N
     ],
 )
 @pytest.mark.parametrize("fchmod", [True, False], ids=["fchmod", "no-fchmod"])
+@pytest.mark.parametrize("via", ["api", "cli"])
 def test_upgrade_warns_when_the_mode_cannot_be_copied(
-    tmp_path, monkeypatch, folder, fchmod
+    tmp_path, monkeypatch, capsys, folder, fchmod, via
 ) -> None:
-    """A filesystem that rejects mode changes still gets the upgraded file."""
+    """A filesystem that rejects mode changes still gets the upgraded file, with a
+    warning from the API and a note on the command line's stderr."""
     model, X = _trained_protonet()
     (tmp_path / folder).mkdir()
     path = str(tmp_path / folder / "legacy.eq")
@@ -983,9 +1041,19 @@ def test_upgrade_warns_when_the_mode_cannot_be_copied(
         monkeypatch.setattr(os, "fchmod", refuse_descriptor, raising=False)
     else:
         monkeypatch.delattr(os, "fchmod", raising=False)
-    with pytest.warns(UserWarning, match="permission bits of '.*legacy.eq'") as caught:
-        _upgrade(path)
-    assert not any(".upgrading" in str(w.message) for w in caught)
+    capsys.readouterr()  # training progress
+    if via == "api":
+        with pytest.warns(
+            UserWarning, match="permission bits of '.*legacy.eq'"
+        ) as caught:
+            _upgrade(path)
+        assert not any(".upgrading" in str(w.message) for w in caught)
+    else:
+        assert main([path, "--recipe", _RECIPE]) == 0
+        out, err = capsys.readouterr()
+        assert out == f"Upgraded {path} in place.\n"
+        assert err.startswith(f"note: Could not copy the permission bits of '{path}'")
+        assert ".upgrading" not in err
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
     # The warning names the file whose bits were read: the one being replaced.
@@ -993,16 +1061,23 @@ def test_upgrade_warns_when_the_mode_cannot_be_copied(
     _write_legacy_protonet_file(model, other)
     existing = str(tmp_path / "existing.eq")
     _write_legacy_protonet_file(model, existing)
-    with pytest.warns(UserWarning, match="permission bits of '.*existing.eq'"):
-        _upgrade(other, existing)
+    if via == "api":
+        with pytest.warns(UserWarning, match="permission bits of '.*existing.eq'"):
+            _upgrade(other, existing)
+    else:
+        assert main([other, "-o", existing, "--recipe", _RECIPE]) == 0
+        assert capsys.readouterr().err.startswith(
+            f"note: Could not copy the permission bits of '{existing}'"
+        )
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_a_converted_file_that_reads_back_different_is_not_kept(
     tmp_path, monkeypatch
 ) -> None:
     model, _ = _trained_protonet()
     path = str(tmp_path / "m.eq")
-    torch.save(_in_format(model, path, 3), path)
+    _write_legacy_protonet_file(model, path)
     before = Path(path).read_bytes()
 
     def altered(file: str) -> dict:
@@ -1012,90 +1087,28 @@ def test_a_converted_file_that_reads_back_different_is_not_kept(
 
     monkeypatch.setattr(equine.upgrade, "load_checkpoint", altered)
     with pytest.raises(ValueError, match="does not read back as written; '.*m.eq' was"):
-        upgrade_model_file(path)
+        _upgrade(path)
     assert Path(path).read_bytes() == before
     assert os.listdir(tmp_path) == ["m.eq"]
 
 
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_the_repair_a_refused_upgrade_names_lets_the_file_convert(tmp_path) -> None:
     model, X = _trained_protonet()
     path = str(tmp_path / "m.eq")
-    checkpoint = _in_format(model, path, 3)
+    _write_legacy_protonet_file(model, path)
+    checkpoint = torch.load(path, weights_only=False)
     checkpoint["train_summary"]["blob"] = torch.ones(2, dtype=torch.complex128)
     torch.save(checkpoint, path)
-    with pytest.raises(ValueError, match="weights_only=True for a format 2 or 3 file"):
-        upgrade_model_file(path)
+    with pytest.raises(
+        ValueError, match=re.escape("read it with torch.load(weights_only=False)")
+    ):
+        _upgrade(path)
 
-    repaired = torch.load(path, weights_only=True)
+    repaired = torch.load(path, weights_only=False)
     repaired["train_summary"]["blob"] = repaired["train_summary"]["blob"].real
     torch.save(repaired, path)
-    assert upgrade_model_file(path) == path
-    _assert_same_predictions(model, eq.load_equine_model(path), X)
-
-
-def test_converting_a_data_only_file_imports_the_modules_named_on_the_command_line(
-    tmp_path, capsys
-) -> None:
-    model, _ = _trained_protonet()
-    path = str(tmp_path / "m.eq")
-    torch.save(_in_format(model, path, 3), path)
-    capsys.readouterr()  # training progress
-    assert main([path, "--import", "no_such_module_for_this_test"]) == 1
-    assert "Could not import 'no_such_module_for_this_test'" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize("via", ["api", "cli"])
-def test_converting_a_data_only_file_refuses_an_unusable_output(
-    tmp_path, capsys, via
-) -> None:
-    model, _ = _trained_protonet()
-    path = str(tmp_path / "m.eq")
-    torch.save(_in_format(model, path, 3), path)
-    before = Path(path).read_bytes()
-    outputs = {
-        "is not an existing directory": str(tmp_path / "no_such_dir" / "out.eq"),
-        "names a directory": str(tmp_path),
-    }
-    names = ["m.eq"]
-    if os.name != "nt":
-        loop = tmp_path / "loop.eq"
-        loop.symlink_to(loop)
-        outputs["is a symbolic link that cannot be followed"] = str(loop)
-        names.append("loop.eq")
-    capsys.readouterr()  # training progress
-    for message, output in outputs.items():
-        if via == "api":
-            with pytest.raises(ValueError, match=message):
-                upgrade_model_file(path, out_path=output)
-        else:
-            assert main([path, "-o", output]) == 1
-            assert message in capsys.readouterr().err
-    assert Path(path).read_bytes() == before
-    assert sorted(p.name for p in tmp_path.iterdir()) == sorted(names)
-
-
-@pytest.mark.parametrize("via", ["api", "cli"])
-def test_converting_a_data_only_file_warns_when_the_mode_cannot_be_copied(
-    tmp_path, monkeypatch, capsys, via
-) -> None:
-    model, X = _trained_protonet()
-    path = str(tmp_path / "m.eq")
-    torch.save(_in_format(model, path, 3), path)
-
-    def refuse(*args, **kwargs):
-        raise PermissionError(1, "Operation not permitted")
-
-    monkeypatch.setattr(os, "chmod", refuse)
-    monkeypatch.setattr(os, "fchmod", refuse, raising=False)
-    capsys.readouterr()  # training progress
-    if via == "api":
-        with pytest.warns(UserWarning, match="permission bits of '.*m.eq'"):
-            assert upgrade_model_file(path) == path
-    else:
-        assert main([path]) == 0
-        out, err = capsys.readouterr()
-        assert out == f"Upgraded {path} in place.\n"
-        assert err.startswith(f"note: Could not copy the permission bits of '{path}'")
+    assert _upgrade(path) == path
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
@@ -1983,46 +1996,29 @@ def test_upgraded_file_loads_without_torchscript(tmp_path, monkeypatch) -> None:
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
-@pytest.mark.parametrize("flag", [True, False, None], ids=["flag", "false", "no-flag"])
-@pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
+@pytest.mark.parametrize("via", ["api", "cli"])
+@pytest.mark.parametrize(
+    "train", [_trained_protonet, _trained_gp], ids=["protonet", "gp"]
+)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_format_3_file_with_an_archive_is_upgraded(
-    tmp_path, train, write_legacy, flag
+def test_format_4_file_with_an_archive_is_upgraded(
+    tmp_path, capsys, train, via
 ) -> None:
-    """A format-3 file holding a TorchScript archive is upgraded only with the
-    architecture, and the upgrade warns that reading it is deprecated."""
+    """A format-4 file holding a TorchScript archive is upgraded with the
+    architecture, through the API and the command line."""
     model, X = train()
     path = str(tmp_path / "m.eq")
-    checkpoint = _with_archive(model, path, 3)
-    if flag is not None:
-        checkpoint["contains_executable"] = flag
-    torch.save(checkpoint, path)
-    before = Path(path).read_bytes()
-    copy = str(tmp_path / "copy.eq")
-    shutil.copyfile(path, copy)
+    equine._model_file.write(path, _with_archive(model, path, EQUINE_FORMAT_VERSION))
+    capsys.readouterr()  # training progress
 
-    with (
-        pytest.warns(FutureWarning, match="deprecated"),
-        pytest.raises(
-            ValueError,
-            match="embedding is TorchScript, so the upgrade needs the registered "
-            r"architecture to rebuild it: pass embedding_model\.$",
-        ),
-    ):
-        upgrade_model_file(path)
-    assert Path(path).read_bytes() == before
-
-    with pytest.warns(FutureWarning, match="deprecated"):
+    if via == "api":
         assert _upgrade(path) == path
-    assert main([copy, "--recipe", _RECIPE]) == 0
+    else:
+        assert main([path, "--recipe", _RECIPE]) == 0
+        assert capsys.readouterr().out == f"Upgraded {path} in place.\n"
 
-    for upgraded in (path, copy):
-        checkpoint = load_checkpoint(upgraded)
-        assert (
-            "embed_jit_save" not in checkpoint
-            and "contains_executable" not in checkpoint
-        )
-        _assert_same_predictions(model, eq.load_equine_model(upgraded), X)
+    _assert_data_only_layout(path)
+    _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
 def test_upgrade_command_line_recipe_and_import(tmp_path, capsys, monkeypatch) -> None:
@@ -2351,30 +2347,39 @@ def test_archive_bytes_is_fast_for_large_tensors() -> None:
     assert elapsed < 0.5
 
 
+@pytest.mark.parametrize("shape", ["no-version", "format-4"])
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_upgrade_refuses_a_flagged_file_without_an_archive(
-    tmp_path, monkeypatch
+def test_upgrade_refuses_a_file_without_an_archive(
+    tmp_path, monkeypatch, shape
 ) -> None:
-    """A format-3 file flagged as holding TorchScript, without an archive, is
-    refused from the safe read; the refusal's repair, followed, gives a file the
-    upgrade converts."""
+    """A file the upgrade reads that holds no TorchScript archive is refused: one with
+    no format version, and a format-4 file flagged as holding TorchScript, which is
+    refused from the safe read. The refusal's repair, saving the model again, gives a
+    file that loads."""
     model, X = _trained_protonet()
     path = str(tmp_path / "m.eq")
-    checkpoint = _in_format(model, path, 3)
-    checkpoint["contains_executable"] = True
-    torch.save(checkpoint, path)
+    if shape == "no-version":
+        torch.save(_in_format(model, path, None), path)
+    else:
+        model.save(path)
+        checkpoint = equine._model_file.read(path)
+        checkpoint["contains_executable"] = True
+        equine._model_file.write(path, checkpoint)
+        monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
     before = Path(path).read_bytes()
-    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
-    with pytest.raises(ValueError, match="holds no TorchScript archive") as err:
-        _upgrade(path)
-    assert "was not written by an EQUINE version the upgrade converts" in str(err.value)
-    assert "remove its contains_executable entry" in str(err.value)
-    assert Path(path).read_bytes() == before
 
-    repaired = torch.load(path, map_location="cpu", weights_only=True)
-    del repaired["contains_executable"]
-    torch.save(repaired, path)
-    assert upgrade_model_file(path) == path
+    with pytest.raises(ValueError) as err:
+        _upgrade(path)
+    assert str(err.value) == (
+        f"'{path}' holds no TorchScript archive to upgrade from: files from EQUINE "
+        "0.1.x store one in embed_jit_save, so this file was not saved by an EQUINE "
+        "version the upgrade converts. Save the model again with this EQUINE, or "
+        "retrain it."
+    )
+    assert Path(path).read_bytes() == before
+    assert os.listdir(tmp_path) == ["m.eq"]
+
+    model.save(path)
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
@@ -2610,8 +2615,8 @@ def test_upgrade_error_reasons_name_an_escaped_temp_path_both_ways_quoted() -> N
 
 
 def test_upgrade_reads_every_stored_archive_form() -> None:
-    """The archive loader reads the uint8 tensor that format-2 files store, the
-    BytesIO that legacy files store, and bytes."""
+    """The archive loader reads a uint8 tensor, the BytesIO that legacy files store,
+    and bytes."""
     from equine.upgrade import _load_archive
 
     module = BasicEmbeddingModel(6, 3)
@@ -2670,6 +2675,20 @@ def test_upgrade_keeps_the_support_order_of_a_legacy_file(tmp_path) -> None:
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgrade_keeps_the_non_contiguous_labels_of_a_legacy_file(tmp_path) -> None:
+    model, X = _trained_protonet(labels=(0, 2, 5))
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+
+    assert _upgrade(path) == path
+
+    loaded = eq.load_equine_model(path)
+    assert list(loaded.get_support()) == [0, 2, 5]
+    assert list(loaded.outlier_score_kde) == [0, 2, 5]
+    _assert_same_predictions(model, loaded, X)
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
     tmp_path,
 ) -> None:
@@ -2687,7 +2706,7 @@ def test_upgraded_protonet_file_has_no_ood_distance_and_loads_as_rmd_sqrt(
 
 
 # ---------------------------------------------------------------------------
-# Files from development builds: PyTorch archives of format 2 or 3
+# PyTorch archives that torch.load(weights_only=True) reads
 # ---------------------------------------------------------------------------
 
 
@@ -2704,7 +2723,7 @@ def _weights_only_load(real_load):
 
 def _in_format(model, path: str, version: int | None) -> dict:
     """``model``'s saved checkpoint declaring format ``version`` (no version for
-    None), for the caller to write with ``torch.save``."""
+    None), for the caller to write."""
     model.save(path)
     checkpoint = load_checkpoint(path)
     if version is None:
@@ -2726,17 +2745,6 @@ def _with_archive(model, path: str, version: int | None) -> dict:
     return checkpoint
 
 
-def _kde_datasets_of_one_tensor(kdes: dict) -> dict:
-    """Each label's KDE state with its ``dataset`` a view of one shared tensor."""
-    base = torch.cat([kde["dataset"] for kde in kdes.values()], dim=1)
-    out, start = {}, 0
-    for label, kde in kdes.items():
-        width = kde["dataset"].shape[1]
-        out[label] = {**kde, "dataset": base[:, start : start + width]}
-        start += width
-    return out
-
-
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)
 @pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_upgrade_converts_a_file_without_a_version_whose_support_is_aliased(
@@ -2755,91 +2763,40 @@ def test_upgrade_converts_a_file_without_a_version_whose_support_is_aliased(
     _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
-_FORMAT_2_ALIASING = [
-    pytest.param(_trained_protonet, "support", id="protonet-support"),
-    pytest.param(_trained_gp, "support", id="gp-support"),
-    pytest.param(_trained_protonet, "outlier_kde", id="protonet-kde"),
-]
-
-
-@pytest.mark.parametrize("train, aliased", _FORMAT_2_ALIASING)
-@pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_format_2_file_with_aliased_data_is_upgraded_from_the_safe_read(
-    tmp_path, monkeypatch, train, aliased
-) -> None:
-    """A format-2 file holding a TorchScript archive whose support or KDE data are
-    views of one tensor: the upgrade reads the file without unrestricted unpickling
-    and writes each label's data."""
-    model, X = train()
-    path = str(tmp_path / "m.eq")
-    checkpoint = _with_archive(model, path, 2)
-    if aliased == "support":
-        original = dict(checkpoint["support"])
-        checkpoint["support"] = _slices_of_one_tensor(checkpoint["support"])
-    else:
-        original = {k: v["dataset"] for k, v in checkpoint["outlier_kde"].items()}
-        checkpoint["outlier_kde"] = _kde_datasets_of_one_tensor(
-            checkpoint["outlier_kde"]
-        )
-    torch.save(checkpoint, path)
-
-    monkeypatch.setattr(torch, "load", _weights_only_load(torch.load))
-    assert _upgrade(path) == path
-
-    stored = load_checkpoint(path)[aliased]
-    rows = {k: v if aliased == "support" else v["dataset"] for k, v in stored.items()}
-    assert all(torch.equal(rows[k], original[k]) for k in original)
-    _assert_same_predictions(model, eq.load_equine_model(path), X)
-
-
 @pytest.mark.parametrize("via", ["api", "cli"])
+@pytest.mark.parametrize("archive", [False, True], ids=["data-only", "archive"])
 @pytest.mark.parametrize("version", [2, 3])
-@pytest.mark.parametrize(
-    "train", [_trained_protonet, _trained_gp], ids=["protonet", "gp"]
-)
-def test_data_only_file_of_format_2_or_3_is_converted_without_the_architecture(
-    tmp_path, capsys, train, version, via
+def test_upgrade_refuses_a_file_of_format_2_or_3_without_unpickling_it(
+    tmp_path, monkeypatch, capsys, version, archive, via
 ) -> None:
-    """A file whose embedding is a recipe and weights is rewritten with the same
-    contents, without embedding_model or --recipe and without a deprecation warning:
-    in place through the API, to -o through the command line. A format-2 file's
-    ``contains_executable`` entry is dropped."""
-    model, X = train()
+    """A PyTorch archive of format 2 or 3, with or without a TorchScript archive, is
+    refused from the safe read and nothing is written. The refusal's repair, saving
+    the model again with this EQUINE, gives a file that loads."""
+    model, X = _trained_protonet()
     path = str(tmp_path / "m.eq")
-    checkpoint = _in_format(model, path, version)
-    if version == 2:
-        checkpoint["contains_executable"] = False
-    torch.save(checkpoint, path)
+    torch.save((_with_archive if archive else _in_format)(model, path, version), path)
     before = Path(path).read_bytes()
-    out = str(tmp_path / "out.eq")
+    message = (
+        f"'{path}' is a format-{version} file, written by a development build of "
+        "EQUINE before format 4; the upgrade converts only files saved by EQUINE "
+        "0.1.x. Save the model again with this EQUINE, or retrain it."
+    )
     capsys.readouterr()  # training progress
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
+    with monkeypatch.context() as patch:
+        patch.setattr(torch, "load", _weights_only_load(torch.load))
         if via == "api":
-            assert upgrade_model_file(path) == path
-            out = path
+            with pytest.raises(ValueError) as err:
+                _upgrade(path)
+            assert str(err.value) == message
         else:
-            assert main([path, "-o", out]) == 0
-            assert Path(path).read_bytes() == before
-    assert capsys.readouterr() == (
-        "" if via == "api" else f"Upgraded {path} -> {out}\n",
-        "",
-    )
+            assert main([path, "--recipe", _RECIPE]) == 1
+            assert capsys.readouterr() == ("", f"error: {message}\n")
+    assert Path(path).read_bytes() == before
+    assert os.listdir(tmp_path) == ["m.eq"]
 
-    expected = {k: v for k, v in checkpoint.items() if k != "contains_executable"}
-    expected["equine_format_version"] = EQUINE_FORMAT_VERSION
-    tensors, header = equine._model_file.encode(expected)
-    written_tensors, written_header = equine._model_file.encode(load_checkpoint(out))
-    assert written_header == header
-    assert written_tensors.keys() == tensors.keys()
-    for name, tensor in tensors.items():
-        assert written_tensors[name].dtype == tensor.dtype
-        assert torch.equal(written_tensors[name], tensor)
-    expected_output = model.predict(X[1:10])
-    output = eq.load_equine_model(out).predict(X[1:10])
-    assert torch.equal(output.classes, expected_output.classes)
-    assert torch.equal(output.ood_scores, expected_output.ood_scores)
+    model.save(path)
+    _assert_same_predictions(model, eq.load_equine_model(path), X)
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")

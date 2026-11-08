@@ -8,7 +8,8 @@ Everything here is seeded. The golden helpers build, train and query in float64 
 
 The ``fixture_*`` functions build the float32 models stored in tests/fixtures/
 from their own data (``fixture_dataset``) and share no code with the golden
-helpers. tests/test_fixtures.py checks the stored files against
+helpers. ``FIXTURES_0_1_8_SCRIPT`` holds the script that wrote the fixtures saved by
+EQUINE 0.1.8. tests/test_fixtures.py checks the stored files against
 tests/fixtures/expected.json on ``fixture_query_batch()``.
 """
 
@@ -133,7 +134,7 @@ def fixture_query_batch() -> torch.Tensor:
 
 
 def fixture_protonet() -> eq.EquineProtonet:
-    """Builds the float32 model stored in tests/fixtures/protonet_v2.eq."""
+    """Builds the float32 model stored in tests/fixtures/protonet_v4.eq."""
     torch.manual_seed(0)
     model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
@@ -148,7 +149,7 @@ def fixture_protonet() -> eq.EquineProtonet:
 
 
 def fixture_gp() -> eq.EquineGP:
-    """Builds the float32 model stored in tests/fixtures/gp_v2.eq."""
+    """Builds the float32 model stored in tests/fixtures/gp_v4.eq."""
     torch.manual_seed(0)
     model = eq.EquineGP(BasicEmbeddingModel(6, 3), 3, 3, num_random_features=16)
     model.train_model(
@@ -164,7 +165,7 @@ def fixture_gp() -> eq.EquineGP:
 
 
 def fixture_protonet_nondefault() -> eq.EquineProtonet:
-    """Builds the float32 model stored in tests/fixtures/protonet_v2_nondefault.eq.
+    """Builds the float32 model stored in tests/fixtures/protonet_v4_nondefault.eq.
 
     ``fixture_protonet`` with every non-default persisted setting: full
     covariance, absolute Mahalanobis distance, temperature scaling, feature and
@@ -193,7 +194,7 @@ def fixture_protonet_nondefault() -> eq.EquineProtonet:
 
 
 def fixture_gp_nondefault() -> eq.EquineGP:
-    """Builds the float32 model stored in tests/fixtures/gp_v2_nondefault.eq.
+    """Builds the float32 model stored in tests/fixtures/gp_v4_nondefault.eq.
 
     ``fixture_gp`` with feature and label names, then ``calibrate_model``; the persisted
     temperature differs from 1.0.
@@ -219,3 +220,85 @@ def fixture_gp_nondefault() -> eq.EquineGP:
     )
     model.calibrate_model(dataset, num_calibration_epochs=5)
     return model
+
+
+# The script that wrote tests/fixtures/protonet_0_1_8.eq and gp_0_1_8.eq with EQUINE
+# 0.1.8's own save(), and printed their expected.json entries. It runs with EQUINE
+# v0.1.8's src/ on PYTHONPATH and imports ``fixture_dataset`` and
+# ``fixture_query_batch`` from this module.
+FIXTURES_0_1_8_SCRIPT = r'''"""
+Write tests/fixtures/protonet_0_1_8.eq and gp_0_1_8.eq with EQUINE 0.1.8's own save(),
+and print their expected.json entries: each file's SHA-256, and the classes and OOD
+scores the saved model predicts for golden_data's fixture_query_batch().
+
+Run with EQUINE v0.1.8's src/ on PYTHONPATH:
+    python build_fixtures_018.py TESTS_DIR OUT_DIR
+"""
+
+import hashlib
+import json
+import os
+import sys
+import types
+import warnings
+
+import torch
+
+import equine as eq
+
+tests_dir, out_dir = sys.argv[1], sys.argv[2]
+print("equine imported from", eq.__file__, file=sys.stderr)
+sys.path.insert(0, tests_dir)
+# Stands in for the tests' conftest, from which golden_data imports BasicEmbeddingModel.
+sys.modules["conftest"] = types.SimpleNamespace(BasicEmbeddingModel=None)
+from golden_data import fixture_dataset, fixture_query_batch  # noqa: E402
+
+
+class Net(torch.nn.Module):
+    """The layers and state-dict keys of equine.MLP(6, [16], 3)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.Linear(6, 16), torch.nn.ReLU(), torch.nn.Linear(16, 3)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+warnings.simplefilter("ignore")
+dataset = fixture_dataset()
+
+torch.manual_seed(0)
+protonet = eq.EquineProtonet(Net(), 3)
+protonet.train_model(
+    dataset, num_episodes=20, calib_frac=0.2, support_size=10, way=3, episode_size=30
+)
+
+torch.manual_seed(0)
+gp = eq.EquineGP(Net(), 3, 3, num_random_features=16)
+gp.train_model(
+    dataset,
+    torch.nn.CrossEntropyLoss(),
+    torch.optim.SGD(gp.parameters(), lr=0.05),
+    num_epochs=40,
+    batch_size=32,
+    vis_support=True,
+    support_size=10,
+)
+
+entries = {}
+for name, model in (("protonet_0_1_8", protonet), ("gp_0_1_8", gp)):
+    path = os.path.join(out_dir, f"{name}.eq")
+    model.save(path)
+    out = model.predict(fixture_query_batch())
+    with open(path, "rb") as f:
+        sha256 = hashlib.sha256(f.read()).hexdigest()
+    entries[name] = {
+        "classes": out.classes.detach().tolist(),
+        "ood_scores": out.ood_scores.detach().tolist(),
+        "sha256": sha256,
+    }
+print(json.dumps(entries, indent=1))
+'''

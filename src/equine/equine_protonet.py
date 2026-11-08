@@ -46,12 +46,17 @@ from .utils import (
     _plain_train_summary,
     _rebuild_embedding,
     _refuse_torchscript,
+    _require_calibration_settings,
     _require_device,
     _require_entries,
     _require_examples,
     _require_finite_embeddings,
+    _require_fraction,
     _require_matching_weights,
     _require_names,
+    _require_rows,
+    _require_same_length,
+    _require_support,
     _require_whole_number_labels,
     _shown,
     _support_from_file,
@@ -1014,7 +1019,6 @@ class EquineProtonet(Equine):
         preds, _ = self.model(X)
         return preds
 
-    @icontract.require(lambda calib_frac: calib_frac > 0 and calib_frac < 1)
     def train_model(
         self,
         dataset: TensorDataset,
@@ -1035,11 +1039,12 @@ class EquineProtonet(Equine):
         ----------
         dataset : TensorDataset
             Input pytorch TensorDataset of training data for model, with at least
-            2 classes.
+            2 classes, its inputs of shape (examples, features...).
         num_episodes : int
             The desired number of episodes to use for training.
         calib_frac : float, optional
-            Fraction of given training data to reserve for model calibration, by default 0.2.
+            Fraction of given training data to reserve for model calibration,
+            strictly between 0 and 1, by default 0.2.
         support_size : int, optional
             Number of support examples to generate for each class, by default 25.
         way : int, optional
@@ -1054,9 +1059,11 @@ class EquineProtonet(Equine):
         opt_class : Callable, optional
             A pytorch optimizer, e.g., torch.optim.Adam, by default torch.optim.Adam.
         num_calibration_epochs : int, optional
-            The desired number of epochs to use for temperature scaling, by default 2.
+            The desired number of epochs to use for temperature scaling, at least 0
+            (0 leaves the temperature at ``init_temperature``), by default 2.
         calibration_lr : float, optional
-            Learning rate for temperature scaling, by default 0.01.
+            Learning rate for temperature scaling, a finite float above 0, by
+            default 0.01.
 
         Returns
         -------
@@ -1070,7 +1077,11 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If ``support_size`` is below 2, ``dataset`` has fewer than 2
+            If ``support_size`` is below 2; ``calib_frac`` is not strictly
+            between 0 and 1; ``num_calibration_epochs`` is not an int of at least
+            0 (a bool is refused) or ``calibration_lr`` is not a finite float
+            above 0, whether or not ``use_temperature`` is set; the inputs of
+            ``dataset`` have fewer than 2 dimensions; ``dataset`` has fewer than 2
             classes, or its labels are not 1-D or not whole numbers; if
             ``num_episodes`` is positive and ``way`` is not between 2 and the
             number of classes, or ``episode_size`` is below ``way``; or if the
@@ -1078,17 +1089,26 @@ class EquineProtonet(Equine):
             examples (with ``min_kde_samples`` None; otherwise such a class shares
             the pooled KDE) or too few training examples (more than ``support_size``
             when ``num_episodes`` is positive, ``support_size`` otherwise); the
-            model is then unchanged. Also, after training, if a calibration
-            example's embedding or OOD distance holds a NaN or infinite value,
-            or a class's calibration examples all have the same OOD distance;
-            the model is then trained but its outlier scores are not refitted.
+            model is then unchanged. An ``int`` ``calib_frac``, or an ``int`` or
+            bool ``calibration_lr``, raises it under ``python -O`` only. Also, after
+            training, if a calibration example's embedding or OOD distance holds a
+            NaN or infinite value, or a class's calibration examples all have the
+            same OOD distance; the model is then trained but its outlier scores are
+            not refitted.
+        beartype.roar.BeartypeCallHintParamViolation
+            If ``calib_frac`` or ``calibration_lr`` is not a float (an ``int``
+            included, and a bool ``calibration_lr``), or ``num_calibration_epochs``
+            is not an int, while contracts are on.
         """
         if support_size < 2:
             raise ValueError(
                 f"support_size must be at least 2, got {support_size}: the support's "
                 "diagonal covariance needs 2 examples per class."
             )
+        _require_fraction(calib_frac, "calib_frac")
+        _require_calibration_settings(num_calibration_epochs, calibration_lr)
         X, Y = dataset[:]
+        _require_rows(X, "dataset inputs")
         labels = torch.unique(Y).tolist()
         if len(labels) < 2:
             raise ValueError(
@@ -1210,9 +1230,11 @@ class EquineProtonet(Equine):
             Class labels corresponding to `calib_x`, each one of the support's
             labels.
         num_calibration_epochs : int, optional
-            Number of epochs to tune temperature, by default 1.
+            Number of epochs to tune temperature, at least 0 (0 leaves the
+            temperature unchanged), by default 1.
         calibration_lr : float, optional
-            Learning rate for temperature optimization, by default 0.01.
+            Learning rate for temperature optimization, a finite float above 0,
+            by default 0.01.
 
         Returns
         -------
@@ -1221,10 +1243,17 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If the model has no support, `calib_y` holds a label that is not in
-            the support, or, in eval mode, the embeddings of ``calib_x`` hold a
-            NaN or infinite value.
+            If ``num_calibration_epochs`` is not an int of at least 0 (a bool is
+            refused) or ``calibration_lr`` is not a finite float above 0 (an
+            ``int`` or bool ``calibration_lr`` raises it under ``python -O``
+            only), or the model has no support, before anything changes; or if
+            `calib_y` holds a label that is not in the support, or, in eval mode,
+            the embeddings of ``calib_x`` hold a NaN or infinite value.
+        beartype.roar.BeartypeCallHintParamViolation
+            If ``num_calibration_epochs`` is not an int, or ``calibration_lr`` is
+            not a float (an ``int`` or bool included), while contracts are on.
         """
+        _require_calibration_settings(num_calibration_epochs, calibration_lr)
         if len(self.model.support) == 0:
             raise ValueError(
                 "No support examples found; call train_model or update_support "
@@ -1555,11 +1584,6 @@ class EquineProtonet(Equine):
 
         return EquineOutput(classes=preds, ood_scores=ood_scores, embeddings=X_embed)
 
-    @icontract.require(
-        lambda calib_frac: (
-            not isinstance(calib_frac, (int, float)) or 0 < calib_frac < 1
-        )
-    )
     def update_support(
         self,
         support_x: torch.Tensor,
@@ -1588,8 +1612,8 @@ class EquineProtonet(Equine):
             Options passed by position are refused with a ``TypeError``; pass them
             by keyword.
         calib_frac : float
-            Fraction of given support data to use for OOD calibration. Required,
-            keyword-only, unless ``calib_x`` is given.
+            Fraction of given support data to use for OOD calibration, strictly
+            between 0 and 1. Required, keyword-only, unless ``calib_x`` is given.
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...]).
             Keyword-only.
@@ -1606,9 +1630,13 @@ class EquineProtonet(Equine):
             If ``calib_frac`` is missing (and no ``calib_x`` is given), or an option
             is passed by position.
         ValueError
-            If ``support_y`` has fewer than 2 classes, is not 1-D or holds a
-            label that is not a whole number; if only one of ``calib_x`` and
-            ``calib_y`` is given; if ``calib_y`` is not 1-D, not whole numbers, not
+            If ``calib_frac`` is given and not strictly between 0 and 1 (an
+            ``int`` ``calib_frac`` raises it under ``python -O`` only); if
+            ``support_x`` or ``support_y`` has no row dimension, or ``support_y``
+            does not hold one label per row of ``support_x``; if ``support_y`` has
+            fewer than 2 classes, is not 1-D or holds a label that is not a whole
+            number; if only one of ``calib_x`` and ``calib_y`` is given; if
+            ``calib_y`` is not 1-D, not whole numbers, not
             one label per ``calib_x`` row or holds a label ``support_y`` does not,
             or ``calib_x``'s rows are shaped unlike ``support_x``'s; if a class has
             fewer than 2 support examples (1 with a UNIT ``pred_cov_type``) or, with
@@ -1616,6 +1644,9 @@ class EquineProtonet(Equine):
             calibration example's embedding or OOD distance holds a NaN or infinite
             value, or a class's calibration examples all have the same OOD
             distance. A failed update leaves the model as it was.
+        beartype.roar.BeartypeCallHintParamViolation
+            If ``calib_frac`` is not a float or None (an ``int`` included), while
+            contracts are on.
         """
         if args:
             raise TypeError(
@@ -1631,6 +1662,9 @@ class EquineProtonet(Equine):
                 "EquineProtonet.update_support() missing required keyword argument: "
                 "'calib_frac'"
             )
+        if calib_frac is not None:
+            _require_fraction(calib_frac, "calib_frac")
+        _require_same_length(support_x, support_y, "support_x", "support_y")
         with _eval_mode(self):
             all_labels = torch.unique(support_y).tolist()
             if len(all_labels) < 2:
@@ -1658,22 +1692,16 @@ class EquineProtonet(Equine):
             # Restored if a later step raises.
             state, model_state = dict(vars(self)), dict(vars(self.model))
             try:
-                labels, counts = torch.unique(support_y, return_counts=True)
+                labels = torch.unique(support_y)
                 if label_names is not None:
                     self.label_names = label_names
                 self.validate_feature_label_names(support_x.shape[-1], labels.shape[0])
 
                 shuffled_idxs = _get_shuffle_idxs_by_class(support_y, labels.tolist())
-                support = OrderedDict()
-                for label, count in list(zip(labels.tolist(), counts.tolist())):
-                    class_support = generate_support(
-                        support_x,
-                        support_y,
-                        support_size=count,
-                        selected_labels=[label],
-                        shuffled_indexes={label: shuffled_idxs[label]},
-                    )
-                    support.update(class_support)
+                support = OrderedDict(
+                    (int(label), support_x[idxs])
+                    for label, idxs in shuffled_idxs.items()
+                )
 
                 # The support and the calibration pass record no autograd graph.
                 with torch.no_grad():
@@ -1688,7 +1716,6 @@ class EquineProtonet(Equine):
                 vars(self.model).update(model_state)
                 raise
 
-    @icontract.require(lambda self: len(self.model.support) > 0)
     def get_support(self) -> OrderedDict[int, torch.Tensor]:
         """
         Get the support examples for the model.
@@ -1697,7 +1724,15 @@ class EquineProtonet(Equine):
         -------
         OrderedDict[int, torch.Tensor]
             The support examples for the model.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
         """
+        _require_support(
+            self.model.support, "EquineProtonet.get_support", "train_model"
+        )
         return self.model.support
 
     def _label_order(self) -> list[int]:
@@ -1712,7 +1747,6 @@ class EquineProtonet(Equine):
         """
         return list(self.model.support_embeddings)
 
-    @icontract.require(lambda self: len(self.model.prototypes) > 0)
     def get_prototypes(self) -> torch.Tensor:
         """
         Get the prototypes for the model (the class means of the support embeddings).
@@ -1721,7 +1755,15 @@ class EquineProtonet(Equine):
         -------
         torch.Tensor
             The prototpes for the model.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
         """
+        _require_support(
+            self.model.support, "EquineProtonet.get_prototypes", "train_model"
+        )
         return self.model.prototypes
 
     def save(self, path: str) -> None:

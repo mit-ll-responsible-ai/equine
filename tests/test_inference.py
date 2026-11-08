@@ -11,12 +11,12 @@ calibration pass, in ``train_model`` and ``update_support``, records no autograd
 CPU only, seeded, short training like ``tests/test_devices.py``.
 """
 
+import re
 from collections import OrderedDict
 
-import icontract
 import pytest
 import torch
-from conftest import CountingEmbedding
+from conftest import CountingEmbedding, assert_model_unchanged, model_state
 from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
@@ -144,23 +144,40 @@ def test_protonet_update_support_calibration_pass_records_no_graph():
     assert rows == x.shape[0] - sum(r for r, _ in seen[:-1])
 
 
-@pytest.mark.contracts
-def test_gp_untrained_forward_and_predict_violate_precondition():
-    """Neither entry point computes anything or touches the Laplace buffers before
-    training: the training-parameters precondition guards the single-pass helper."""
+@pytest.mark.parametrize("method", ["forward", "predict"])
+def test_gp_untrained_forward_and_predict_are_refused(method):
+    """Neither entry point embeds anything, touches the Laplace buffers or changes
+    the mode before training; after the train_model call the message asks for, the
+    same call returns one row per example."""
     torch.manual_seed(0)
-    _, x, _ = separable_dataset()
-    model = eq.EquineGP(CountingEmbedding(FEATURES, CLASSES), CLASSES, CLASSES)
-    precision = model.model.precision.clone()
-    seen_data = model.model.seen_data.clone()
-    with pytest.raises(icontract.ViolationError):
-        model.forward(x[:5])
+    dataset, x, _ = separable_dataset()
+    emb = CountingEmbedding(FEATURES, CLASSES)
+    model = eq.EquineGP(emb, CLASSES, CLASSES, num_random_features=16)
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"EquineGP.{method} needs a trained model, and this model has not been "
+            "trained; call train_model first."
+        ),
+    ):
+        getattr(model, method)(x[:5])
+    assert emb.calls == 0
     assert model.training and model.model.training  # nn.Module's default, kept
-    with pytest.raises(icontract.ViolationError):
-        model.predict(x[:5])
-    assert model.training and model.model.training  # restored on the way out
-    torch.testing.assert_close(model.model.precision, precision, atol=0, rtol=0)
-    torch.testing.assert_close(model.model.seen_data, seen_data, atol=0, rtol=0)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    output = getattr(model, method)(x[:5])
+    rows = output if method == "forward" else output.classes
+    assert rows.shape == (5, CLASSES)
 
 
 def test_gp_compute_prototypes_reembeds_and_reflects_changed_support():

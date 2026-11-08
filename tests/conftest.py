@@ -2,6 +2,7 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 
+import copy
 import glob
 import io
 import math
@@ -280,6 +281,58 @@ def stored_tensors(model: eq.Equine) -> dict[str, torch.Tensor]:
                 if torch.is_tensor(t) and t.numel() > 0:
                     found[f"{prefix}{attr}[{label}]"] = t
     return found
+
+
+def model_state(model: eq.Equine) -> dict[str, object]:
+    """A copy of what a refused call must leave as it was.
+
+    Every tensor in ``stored_tensors(model)`` (cloned), each submodule's training
+    flag, the temperature's ``requires_grad``, the Laplace head's training
+    parameters and ``_seen_count`` (EquineGP), the feature and label names, the
+    training summary, and the outlier-score KDE objects (EquineProtonet).
+    """
+    state: dict[str, object] = {
+        name: t.detach().clone() for name, t in stored_tensors(model).items()
+    }
+    for name, module in model.named_modules():
+        state[f"training[{name}]"] = module.training
+    state["temperature.requires_grad"] = model.temperature.requires_grad
+    for attr in ("training_parameters_set", "num_data", "train_batch_size"):
+        if hasattr(model.model, attr):
+            state[f"model.{attr}"] = getattr(model.model, attr)
+    if hasattr(model.model, "_seen_count"):
+        state["model._seen_count"] = model.model._seen_count
+    state["feature_names"] = model.feature_names
+    state["label_names"] = model.label_names
+    state["train_summary"] = copy.deepcopy(getattr(model, "train_summary", None))
+    state["outlier_score_kde"] = list(getattr(model, "outlier_score_kde", {}).items())
+    return state
+
+
+def assert_model_unchanged(model: eq.Equine, before: dict[str, object]) -> None:
+    """Fail, naming what changed, unless ``model_state(model)`` equals ``before``."""
+    after = model_state(model)
+
+    def same(a: object, b: object) -> bool:
+        if torch.is_tensor(a) and torch.is_tensor(b):
+            return a.dtype == b.dtype and torch.equal(a, b)
+        if (
+            isinstance(a, list)
+            and isinstance(b, list)
+            and a
+            and isinstance(a[0], tuple)
+        ):
+            return len(a) == len(b) and all(
+                ka == kb and va is vb for (ka, va), (kb, vb) in zip(a, b)
+            )
+        return a == b
+
+    changed = sorted(
+        key
+        for key in before.keys() | after.keys()
+        if key not in before or key not in after or not same(before[key], after[key])
+    )
+    assert changed == [], f"the refusal changed the model: {changed}"
 
 
 def assert_on_device(model: eq.Equine, device: str) -> None:

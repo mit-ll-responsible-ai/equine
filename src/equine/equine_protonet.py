@@ -45,7 +45,6 @@ from .utils import (
     _plain_names,
     _plain_train_summary,
     _rebuild_embedding,
-    _refuse_torchscript,
     _require_calibration_settings,
     _require_device,
     _require_entries,
@@ -353,15 +352,7 @@ class Protonet(torch.nn.Module):
         torch.Tensor
             Tensors of prototypes for each of the given classes in the support.
         """
-        # Compute prototype for each class
-        proto_list = []
-        for label in self.support_embeddings:  # look at doing functorch
-            class_prototype = torch.mean(self.support_embeddings[label], dim=0)
-            proto_list.append(class_prototype)
-
-        prototypes = torch.stack(proto_list)
-
-        return prototypes
+        return torch.stack([e.mean(dim=0) for e in self.support_embeddings.values()])
 
     @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def compute_covariance(self, cov_type: CovType) -> torch.Tensor:
@@ -1877,7 +1868,6 @@ class EquineProtonet(Equine):
             support holds one class.
         """
         model_save = _load_checkpoint_for_device(path, device)
-        _refuse_torchscript(model_save, path)
         return cls._from_checkpoint(model_save, device, embedding_model=embedding_model)
 
     @classmethod

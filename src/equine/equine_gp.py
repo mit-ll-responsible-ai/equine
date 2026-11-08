@@ -36,7 +36,6 @@ from .utils import (
     _plain_names,
     _plain_train_summary,
     _rebuild_embedding,
-    _refuse_torchscript,
     _require_calibration_settings,
     _require_class_indices,
     _require_device,
@@ -1001,14 +1000,7 @@ class EquineGP(Equine):
     @icontract.require(lambda self: len(self.support_embeddings) > 0)
     def _prototypes_from_embeddings(self) -> torch.Tensor:
         """Mean of ``self.support_embeddings`` per class, in support order; embeds nothing."""
-        proto_list = []
-        for label in self.support_embeddings:  # look at doing functorch
-            class_prototype = torch.mean(self.support_embeddings[label], dim=0)
-            proto_list.append(class_prototype)
-
-        prototypes = torch.stack(proto_list)
-
-        return prototypes
+        return torch.stack([e.mean(dim=0) for e in self.support_embeddings.values()])
 
     def get_support(self) -> OrderedDict[int, torch.Tensor]:
         """
@@ -1367,7 +1359,6 @@ class EquineGP(Equine):
             ``num_classes`` is 1.
         """
         model_save = _load_checkpoint_for_device(path, device)
-        _refuse_torchscript(model_save, path)
         return cls._from_checkpoint(model_save, device, embedding_model=embedding_model)
 
     @classmethod

@@ -9,7 +9,7 @@ from .equine import Equine
 from .equine_gp import EquineGP
 from .equine_protonet import EquineProtonet
 from .registry import _truncate
-from .utils import _load_checkpoint_for_device, _refuse_torchscript
+from .utils import _load_checkpoint_for_device
 
 
 def load_equine_model(
@@ -56,7 +56,6 @@ def load_equine_model(
     architecture registry.
     """
     model_save = _load_checkpoint_for_device(model_path, device)
-    _refuse_torchscript(model_save, model_path)
     summary = model_save.get("train_summary")
     model_type = summary.get("modelType") if isinstance(summary, dict) else None
     if not isinstance(model_type, str):

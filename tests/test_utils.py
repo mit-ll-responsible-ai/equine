@@ -3,19 +3,20 @@
 # SPDX-License-Identifier: MIT
 
 import math
+import re
 import sys
 import warnings
 
 import hypothesis.extra.numpy as hnp
-import icontract
 import numpy as np
 import pytest
 import torch
-from conftest import script_module
+from beartype.roar import BeartypeCallHintParamViolation
+from conftest import BasicEmbeddingModel, script_module
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
-from equine.utils import _cholesky_with_jitter, _EpisodeSampler
+from equine.utils import _cholesky_with_jitter, _EpisodeSampler, _require_fraction
 
 
 class _NoAnnotationModel(torch.nn.Module):
@@ -95,10 +96,14 @@ def test_generate_episode(dataset) -> None:
 
 def test_generate_support_refuses_support_size_larger_than_a_class() -> None:
     # Class 0 has three examples; a support of four cannot be drawn from it.
-    # Labels are a float tensor; the message names the class as 0.0.
+    # Labels are a float tensor; the message names the class as 0.
     x = torch.rand(8, 2)
     y = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1]).float()
-    with pytest.raises(ValueError, match="Not enough support examples in class 0.0"):
+    message = (
+        "Class 0 has 3 example(s) in train_y; support_size 4 needs at least 4; pass "
+        "a support_size of at most 3, or leave class 0 out of selected_labels."
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
         eq.generate_support(x, y, support_size=4, selected_labels=[0, 1])
 
 
@@ -107,6 +112,314 @@ def test_generate_episode_refuses_support_size_larger_than_a_class() -> None:
     y = torch.tensor([0, 0, 0, 1, 1, 1, 1, 1]).float()
     with pytest.raises(ValueError, match="Class 0 has 3 examples"):
         eq.generate_episode(x, y, support_size=4, way=2, episode_size=2)
+
+
+_ROWS_X = torch.arange(24.0).reshape(12, 2)
+_ROWS_Y = torch.tensor([0] * 4 + [1] * 4 + [2] * 4)
+
+
+def _rows_of(train_y, labels):
+    return {label: torch.argwhere(train_y == label).reshape(-1) for label in labels}
+
+
+def _positive_int_message(name, shown):
+    return f"{name} must be a positive integer (an int >= 1, not a bool); got {shown}."
+
+
+def _same_length_message(x_name, x_rows, y_name, y_labels):
+    return (
+        f"{x_name} has {x_rows} row(s) and {y_name} {y_labels} label(s); give "
+        "one label per row."
+    )
+
+
+def _no_row_dimension_message(name):
+    return (
+        f"{name} must have a row dimension; got shape (); pass a tensor with one "
+        "entry per row along its first dimension."
+    )
+
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair"),
+    [
+        pytest.param(
+            {"support_size": 0},
+            _positive_int_message("support_size", "int 0"),
+            {"support_size": 2},
+            id="support_size=0",
+        ),
+        pytest.param(
+            {"support_size": -1},
+            _positive_int_message("support_size", "int -1"),
+            {"support_size": 2},
+            id="support_size=-1",
+        ),
+        pytest.param(
+            {"support_size": True},
+            _positive_int_message("support_size", "bool"),
+            {"support_size": 1},
+            id="support_size=True",
+        ),
+        pytest.param(
+            {"selected_labels": []},
+            "selected_labels is empty; give at least one label of train_y.",
+            {"selected_labels": [0, 1, 2]},
+            id="no-selected-labels",
+        ),
+        pytest.param(
+            {"selected_labels": [0, 1, 0]},
+            "selected_labels holds 0 more than once; give each label once.",
+            {"selected_labels": [0, 1]},
+            id="a-repeated-label",
+        ),
+        pytest.param(
+            {"train_x": torch.arange(28.0).reshape(14, 2)},
+            _same_length_message("train_x", 14, "train_y", 12),
+            {"train_y": torch.tensor([0] * 4 + [1] * 4 + [2] * 6)},
+            id="train_x-longer",
+        ),
+        pytest.param(
+            {"train_x": torch.tensor(0.0)},
+            _no_row_dimension_message("train_x"),
+            {"train_x": _ROWS_X},
+            id="0-d-train_x",
+        ),
+        pytest.param(
+            {"train_x": _ROWS_X[:8]},
+            _same_length_message("train_x", 8, "train_y", 12),
+            {"train_y": _ROWS_Y[:8], "selected_labels": [0, 1]},
+            id="train_x-shorter",
+        ),
+        pytest.param(
+            {
+                "train_y": torch.tensor([0.5] * 4 + [0.75] * 4 + [1.0] * 4),
+                "selected_labels": [0.5, 0.75, 1.0],
+            },
+            "train_y must be whole numbers, got 0.5.",
+            {"train_y": _ROWS_Y.float(), "selected_labels": [0.0, 1.0, 2.0]},
+            id="fractional-labels",
+        ),
+        pytest.param(
+            {"train_y": _ROWS_Y.reshape(12, 1)},
+            "train_y must be 1-D, got shape (12, 1).",
+            {"train_y": _ROWS_Y},
+            id="2-d-train_y",
+        ),
+        pytest.param(
+            {"support_size": 5},
+            "Class 0 has 4 example(s) in train_y; support_size 5 needs at least 5; "
+            "pass a support_size of at most 4, or leave class 0 out of "
+            "selected_labels.",
+            {"support_size": 4},
+            id="support_size-above-a-class",
+        ),
+        pytest.param(
+            {"selected_labels": [0, 1, 3]},
+            "Class 3 has 0 example(s) in train_y; support_size 2 needs at least 2; "
+            "leave class 3 out of selected_labels.",
+            {"selected_labels": [0, 1, 2]},
+            id="a-label-without-examples",
+        ),
+        pytest.param(
+            {
+                "shuffled_indexes": {
+                    **_rows_of(_ROWS_Y, [0, 1, 2]),
+                    1: _rows_of(_ROWS_Y, [1])[1][:1],
+                }
+            },
+            "shuffled_indexes[1] holds 1 index(es); support_size 2 needs at least 2; "
+            "give it at least 2 indexes, or pass a smaller support_size.",
+            {"shuffled_indexes": _rows_of(_ROWS_Y, [0, 1, 2])},
+            id="shuffled_indexes-entry-too-short",
+        ),
+        pytest.param(
+            {"shuffled_indexes": _rows_of(_ROWS_Y, [0, 1])},
+            "shuffled_indexes must hold one entry per label in selected_labels "
+            "([0, 1, 2]); got entries for [0, 1].",
+            {"shuffled_indexes": _rows_of(_ROWS_Y, [0, 1, 2])},
+            id="shuffled_indexes-missing-a-label",
+        ),
+        pytest.param(
+            {
+                "shuffled_indexes": {
+                    **_rows_of(_ROWS_Y, [0, 1]),
+                    5: _rows_of(_ROWS_Y, [2])[2],
+                }
+            },
+            "shuffled_indexes must hold one entry per label in selected_labels "
+            "([0, 1, 2]); got entries for [0, 1, 5].",
+            {"shuffled_indexes": _rows_of(_ROWS_Y, [0, 1, 2])},
+            id="shuffled_indexes-with-a-wrong-key",
+        ),
+        pytest.param(
+            {
+                "selected_labels": [0, 1],
+                "shuffled_indexes": _rows_of(_ROWS_Y, [0, 1, 2]),
+            },
+            "shuffled_indexes must hold one entry per label in selected_labels "
+            "([0, 1]); got entries for [0, 1, 2].",
+            {"shuffled_indexes": _rows_of(_ROWS_Y, [0, 1])},
+            id="shuffled_indexes-with-another-label",
+        ),
+    ],
+)
+def test_generate_support_refuses_bad_input(changes, message, repair) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    inputs unchanged; the call its message asks for draws the support."""
+    args = {
+        "train_x": _ROWS_X,
+        "train_y": _ROWS_Y,
+        "support_size": 2,
+        "selected_labels": [0, 1, 2],
+        "shuffled_indexes": None,
+        **changes,
+    }
+    tensors = [
+        args["train_x"],
+        args["train_y"],
+        *(args["shuffled_indexes"] or {}).values(),
+    ]
+    before = [tensor.clone() for tensor in tensors]
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        eq.generate_support(**args)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+    assert all(torch.equal(t, b) for t, b in zip(tensors, before))
+
+    args.update(repair)
+    support = eq.generate_support(**args)
+    assert list(support) == [int(label) for label in args["selected_labels"]]
+    assert all(len(rows) == args["support_size"] for rows in support.values())
+
+
+@pytest.mark.parametrize(
+    ("train_y", "support_size"),
+    [([0, 0, 0, 0], 4), ([0, 1, 2], 1)],
+    ids=["support_size-equal-to-the-rows", "as-many-labels-as-rows"],
+)
+def test_generate_support_accepts_a_support_of_every_row(train_y, support_size) -> None:
+    """A support may take every row of ``train_x``."""
+    train_x = torch.arange(2.0 * len(train_y)).reshape(-1, 2)
+    labels = sorted(set(train_y))
+    support = eq.generate_support(train_x, torch.tensor(train_y), support_size, labels)
+    assert list(support) == labels
+    rows = torch.cat(list(support.values()))
+    assert sorted(rows[:, 0].tolist()) == train_x[:, 0].tolist()
+
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair"),
+    [
+        pytest.param(
+            {"support_size": 0},
+            _positive_int_message("support_size", "int 0"),
+            {"support_size": 1},
+            id="support_size=0",
+        ),
+        pytest.param(
+            {"support_size": -1},
+            _positive_int_message("support_size", "int -1"),
+            {"support_size": 2},
+            id="support_size=-1",
+        ),
+        pytest.param(
+            {"support_size": True},
+            _positive_int_message("support_size", "bool"),
+            {"support_size": 1},
+            id="support_size=True",
+        ),
+        pytest.param(
+            {"way": 0}, _positive_int_message("way", "int 0"), {"way": 2}, id="way=0"
+        ),
+        pytest.param(
+            {"way": -1}, _positive_int_message("way", "int -1"), {"way": 2}, id="way=-1"
+        ),
+        pytest.param(
+            {"episode_size": 0},
+            _positive_int_message("episode_size", "int 0"),
+            {"episode_size": 6},
+            id="episode_size=0",
+        ),
+        pytest.param(
+            {"episode_size": -3},
+            _positive_int_message("episode_size", "int -3"),
+            {"episode_size": 6},
+            id="episode_size=-3",
+        ),
+        pytest.param(
+            {"train_x": _ROWS_X[:, 0]},
+            "train_x must have a row dimension and at least one feature dimension; "
+            "got shape (12,).",
+            {"train_x": _ROWS_X[:, :1]},
+            id="1-d-train_x",
+        ),
+        pytest.param(
+            {"train_x": torch.arange(30.0).reshape(15, 2)},
+            _same_length_message("train_x", 15, "train_y", 12),
+            {"train_y": torch.tensor([0] * 4 + [1] * 4 + [2] * 7)},
+            id="train_x-longer",
+        ),
+        pytest.param(
+            {"train_x": _ROWS_X[:11]},
+            _same_length_message("train_x", 11, "train_y", 12),
+            {"train_y": _ROWS_Y[:11]},
+            id="train_x-shorter",
+        ),
+        pytest.param(
+            {"train_y": _ROWS_Y.reshape(12, 1)},
+            "train_y must be 1-D, got shape (12, 1).",
+            {"train_y": _ROWS_Y},
+            id="2-d-train_y",
+        ),
+        pytest.param(
+            {"train_y": _ROWS_Y + 0.5},
+            "train_y must be whole numbers, got 0.5.",
+            {"train_y": _ROWS_Y.float()},
+            id="fractional-labels",
+        ),
+    ],
+)
+def test_generate_episode_refuses_bad_input(changes, message, repair) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    inputs unchanged; the call its message asks for draws the episode."""
+    args = {
+        "train_x": _ROWS_X,
+        "train_y": _ROWS_Y,
+        "support_size": 2,
+        "way": 2,
+        "episode_size": 6,
+        **changes,
+    }
+    before = [args["train_x"].clone(), args["train_y"].clone()]
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        eq.generate_episode(**args)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+    assert torch.equal(args["train_x"], before[0])
+    assert torch.equal(args["train_y"], before[1])
+
+    args.update(repair)
+    support, query_x, query_y = eq.generate_episode(**args)
+    assert list(support) == list(range(args["way"]))
+    assert all(len(rows) == args["support_size"] for rows in support.values())
+    assert len(query_x) == len(query_y) > 0
+
+
+def test_generate_episode_accepts_a_support_of_one_example() -> None:
+    """``support_size=1`` draws one support example per selected class, from that
+    class, and fills the queries from the rest."""
+    train_x, train_y = _indexed_rows(torch.long)
+    torch.manual_seed(0)
+    support, query_x, query_y = eq.generate_episode(train_x, train_y, 1, 2, 6)
+    assert list(support) == [0, 1]
+    assert all(rows.shape == (1, 1) for rows in support.values())
+    assert query_x.shape == (6, 1)
+    assert query_y.tolist() == [0, 0, 0, 1, 1, 1]
+    for position in (0, 1):
+        support_label = train_y[support[position][0, 0]]
+        query_labels = train_y[query_x[query_y == position, 0]]
+        assert (query_labels == support_label).all()
 
 
 @st.composite
@@ -162,6 +475,87 @@ def test_ece(two_tensors) -> None:
     assert eq.utils.expected_calibration_error(yh, yt) <= 1.0
 
 
+@pytest.mark.parametrize(
+    "metric",
+    [eq.brier_score, eq.brier_skill_score, eq.expected_calibration_error],
+    ids=["brier_score", "brier_skill_score", "expected_calibration_error"],
+)
+@pytest.mark.parametrize(
+    ("rows", "labels"),
+    [(10, (1,)), (1, (10,)), (10, (8,)), (1, ()), (None, (1,))],
+    ids=[
+        "10-rows-1-label",
+        "1-row-10-labels",
+        "10-rows-8-labels",
+        "0-d-y_test",
+        "0-d-y_hat",
+    ],
+)
+def test_metrics_refuse_a_label_count_other_than_the_rows(metric, rows, labels) -> None:
+    """Each metric refuses ``y_test`` without one label per row of ``y_hat``, and a
+    0-d ``y_hat`` or ``y_test``, and leaves its inputs unchanged; one row of
+    probabilities per label gives a finite value."""
+    torch.manual_seed(0)
+    if rows is None:
+        y_hat = torch.tensor(0.5)
+        message = _no_row_dimension_message("y_hat")
+    else:
+        y_hat = torch.softmax(torch.randn(rows, 3), dim=1)
+        message = (
+            _same_length_message("y_hat", rows, "y_test", labels[0])
+            if labels
+            else _no_row_dimension_message("y_test")
+        )
+    y_test = torch.randint(0, 3, labels)
+    y_hat_before, y_test_before = y_hat.clone(), y_test.clone()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        metric(y_hat, y_test)
+    assert torch.equal(y_hat, y_hat_before)
+    assert torch.equal(y_test, y_test_before)
+
+    if rows is None:
+        y_hat = torch.softmax(torch.randn(len(y_test), 3), dim=1)
+    assert math.isfinite(metric(y_hat, torch.randint(0, 3, (len(y_hat),))))
+
+
+@pytest.mark.parametrize(
+    ("train_y", "repair"),
+    [
+        pytest.param(
+            torch.nn.functional.one_hot(torch.arange(6) % 3, 3),
+            lambda y: y.argmax(dim=1),
+            id="one-hot",
+        ),
+        pytest.param(
+            torch.zeros(0, dtype=torch.long), lambda y: torch.arange(6) % 3, id="empty"
+        ),
+        pytest.param(torch.tensor(2), lambda y: y.reshape(1), id="0-d"),
+    ],
+)
+def test_generate_train_summary_refuses_labels_that_are_not_1d_or_hold_none(
+    train_y, repair
+) -> None:
+    """Labels that are not 1-D, or no labels, are refused with the labels unchanged;
+    the labels the message asks for are counted."""
+    model = eq.EquineProtonet(BasicEmbeddingModel(2, 3), 3)
+    before = train_y.clone()
+    message = (
+        "train_y must be a 1-D tensor with at least one label; got shape "
+        f"{tuple(train_y.shape)}."
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        eq.generate_train_summary(model, train_y, "today")
+    assert torch.equal(train_y, before)
+
+    fixed = repair(train_y)
+    summary = eq.generate_train_summary(model, fixed, "today")
+    labels, counts = torch.unique(fixed, return_counts=True)
+    assert summary["numTrainExamples"] == [
+        {"label": label, "numExamples": count}
+        for label, count in zip(labels.tolist(), counts.tolist())
+    ]
+
+
 @given(draw_two_tensors())
 @settings(deadline=None)
 def test_metric_summary(two_tensors) -> None:
@@ -206,31 +600,125 @@ def test_mahalanobis():
     assert torch.isclose(dist[0, 0], target_val)
 
 
-@pytest.mark.contracts
-def test_stratified_split_invalid_test_size():
-    X = torch.arange(10).float().unsqueeze(1)
-    Y = torch.randint(0, 2, (10,))
+_SPLIT_X = torch.arange(20.0).unsqueeze(1)
+_SPLIT_Y = torch.tensor([0] * 10 + [1] * 10)
 
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair"),
+    [
+        pytest.param(
+            {"X": torch.arange(22.0).unsqueeze(1)},
+            _same_length_message("X", 22, "Y", 20),
+            {"Y": torch.tensor([0] * 11 + [1] * 11)},
+            id="X-longer",
+        ),
+        pytest.param(
+            {"X": _SPLIT_X[:18]},
+            _same_length_message("X", 18, "Y", 20),
+            {"Y": _SPLIT_Y[:18]},
+            id="X-shorter",
+        ),
+        pytest.param(
+            {"Y": torch.tensor(0)},
+            _no_row_dimension_message("Y"),
+            {"Y": _SPLIT_Y},
+            id="0-d-Y",
+        ),
+        pytest.param(
+            {"X": torch.tensor(0.0)},
+            _no_row_dimension_message("X"),
+            {"X": _SPLIT_X},
+            id="0-d-X",
+        ),
+        *[
+            pytest.param(
+                {"test_size": test_size},
+                "test_size must be a number strictly between 0 and 1; got "
+                f"{test_size!r}.",
+                {"test_size": 0.25},
+                id=f"test_size={test_size}",
+            )
+            for test_size in (0.0, 1.0, 1.5, -0.25, math.nan, math.inf)
+        ],
+    ],
+)
+def test_stratified_split_refuses_bad_input(changes, message, repair) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    inputs unchanged; the call its message asks for splits every class."""
+    args = {"X": _SPLIT_X, "Y": _SPLIT_Y, "test_size": 0.25, **changes}
+    before = {key: value.clone() for key, value in args.items() if key != "test_size"}
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        eq.utils.stratified_train_test_split(**args)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+    assert all(torch.equal(args[key], value) for key, value in before.items())
+
+    args.update(repair)
+    train_x, test_x, train_y, test_y = eq.utils.stratified_train_test_split(**args)
+    assert len(train_x) + len(test_x) == len(args["X"])
+    assert set(train_y.tolist()) == set(test_y.tolist()) == {0, 1}
+
+
+@pytest.mark.parametrize(
+    ("test_size", "error", "message"),
+    [
+        *[
+            pytest.param(
+                test_size,
+                BeartypeCallHintParamViolation,
+                None,
+                marks=pytest.mark.contracts,
+                id=f"int-{test_size}-contracts-on",
+            )
+            for test_size in (0, 1)
+        ],
+        *[
+            pytest.param(
+                test_size,
+                ValueError,
+                "test_size must be a number strictly between 0 and 1; got "
+                f"{test_size}.",
+                marks=pytest.mark.skipif(
+                    __debug__, reason="beartype refuses an int test_size first"
+                ),
+                id=f"int-{test_size}-python-O",
+            )
+            for test_size in (0, 1)
+        ],
+    ],
+)
+def test_stratified_split_refuses_an_int_test_size(test_size, error, message) -> None:
+    """An int ``test_size`` is a type error while contracts are on and a
+    ``ValueError`` under python -O, with no random draw; the float the message asks
+    for splits every class."""
+    rng = torch.get_rng_state()
+    with pytest.raises(error, match=None if message is None else re.escape(message)):
+        eq.utils.stratified_train_test_split(_SPLIT_X, _SPLIT_Y, test_size)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    _, _, train_y, test_y = eq.utils.stratified_train_test_split(
+        _SPLIT_X, _SPLIT_Y, 0.25
+    )
+    assert set(train_y.tolist()) == set(test_y.tolist()) == {0, 1}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [True, "0.25", None, torch.tensor(0.25), 1, 0, -0.5, math.nan],
+    ids=["bool", "str", "None", "tensor", "int-1", "int-0", "negative", "nan"],
+)
+def test_require_fraction_refuses_what_is_not_a_number_between_0_and_1(
+    value,
+) -> None:
     with pytest.raises(
-        icontract.ViolationError, match="test_size must be between 0 and 1."
+        ValueError,
+        match=re.escape(
+            f"calib_frac must be a number strictly between 0 and 1; got {value!r}."
+        ),
     ):
-        eq.utils.stratified_train_test_split(X, Y, test_size=1.5)
-
-    with pytest.raises(
-        icontract.ViolationError, match="test_size must be between 0 and 1."
-    ):
-        eq.utils.stratified_train_test_split(X, Y, test_size=0)
-
-
-@pytest.mark.contracts
-def test_stratified_split_mismatched_lengths():
-    X = torch.arange(10).float().unsqueeze(1)
-    Y = torch.randint(0, 2, (8,))  # Mismatched length
-
-    with pytest.raises(
-        icontract.ViolationError, match="X and Y must have the same number of samples."
-    ):
-        eq.utils.stratified_train_test_split(X, Y, test_size=0.3)
+        _require_fraction(value, "calib_frac")
+    assert _require_fraction(0.25, "calib_frac") is None
 
 
 def test_stratified_split_imbalanced_classes():
@@ -444,12 +932,52 @@ def test_mahalanobis_raises_on_a_covariance_that_is_not_positive_definite(cov):
         eq.mahalanobis_distance_nosq(torch.ones(1, 3, 2), cov)
 
 
-@pytest.mark.contracts
-def test_mahalanobis_rejects_an_unbatched_covariance():
-    """A single (dim, dim) covariance is refused."""
-    m = torch.randn(4, 4)
-    with pytest.raises(icontract.ViolationError, match="classes, dim, dim"):
-        eq.mahalanobis_distance_nosq(torch.randn(4, 5), m @ m.T + torch.eye(4))
+@pytest.mark.parametrize(
+    ("x_shape", "cov", "repair"),
+    [
+        pytest.param(
+            (4, 5), lambda: _spd(1, 4)[0], lambda cov: cov.unsqueeze(0), id="dim-dim"
+        ),
+        pytest.param(
+            (4,), lambda: _spd(1, 4)[0], lambda cov: cov.unsqueeze(0), id="dim-dim-1d-x"
+        ),
+        pytest.param(
+            (2, 4, 5),
+            lambda: torch.rand(2, 4, 3, dtype=torch.float64),
+            lambda cov: _spd(2, 4),
+            id="not-square",
+        ),
+        pytest.param(
+            (4, 5),
+            lambda: _spd(1, 4).unsqueeze(0),
+            lambda cov: cov.squeeze(0),
+            id="4-d",
+        ),
+    ],
+)
+def test_mahalanobis_refuses_a_cov_that_is_not_classes_dim_dim(
+    x_shape, cov, repair
+) -> None:
+    """A covariance that is not one square matrix per class is refused, with the
+    inputs unchanged; the covariance its message asks for gives the distances."""
+    torch.manual_seed(0)
+    x = torch.randn(*x_shape, dtype=torch.float64)
+    cov = cov()
+    x_before, cov_before = x.clone(), cov.clone()
+    message = (
+        "cov must have shape (classes, dim, dim), one square matrix per class (a "
+        f"single matrix as cov.unsqueeze(0)); got shape {tuple(cov.shape)}."
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        eq.mahalanobis_distance_nosq(x, cov)
+    assert torch.equal(x, x_before)
+    assert torch.equal(cov, cov_before)
+
+    fixed = repair(cov)
+    dist = eq.mahalanobis_distance_nosq(x, fixed)
+    examples = () if len(x_shape) == 1 else (x_shape[-1],)
+    assert dist.shape == (fixed.shape[0], *examples)
+    assert torch.isfinite(dist).all()
 
 
 def test_cholesky_with_jitter_factors_only_the_matrices_that_need_it():
@@ -685,7 +1213,8 @@ def test_generate_episode_draws_the_labels_then_each_selected_class(
 
 @pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])
 @pytest.mark.parametrize(
-    ("support_size", "way", "episode_size"), [(3, 2, 8), (2, 3, 30), (4, 1, 1)]
+    ("support_size", "way", "episode_size"),
+    [(3, 2, 8), (2, 3, 30), (4, 1, 1), (1, 2, 6)],
 )
 def test_episode_sampler_matches_generate_episode(
     label_dtype, support_size, way, episode_size

@@ -325,6 +325,12 @@
   `Dataset`; they accept the same values. pyright reports no errors in `src/`
   and a 100% type-completeness score for the public API, and CI runs both
   checks (`tox -e pyright`) (#172, #208, #233).
+- `generate_episode` accepts `support_size=1` (a one-shot episode;
+  `EquineProtonet.train_model` still needs at least 2), and `generate_support`
+  a support that takes every row of `train_x`: a `support_size` equal to the
+  number of rows, or as many selected labels as rows with `support_size=1`.
+  With contracts on, an icontract precondition refused both; under
+  `python -O` they ran, as in EQUINE 0.1.8.
 
 ### Deprecated
 - `equine.upgrade`: it converts files saved by EQUINE 0.1.x in this release and
@@ -567,3 +573,67 @@
   from `train_model`. The message now names the `CovType` members and the
   value received, and that `CovType(value)` converts `'unit'`, `'diag'` or
   `'full'`.
+- Under `python -O`, the exported utilities accepted input that only their
+  icontract preconditions refused, and returned a wrong result or failed with
+  an error that did not name the input. They now raise `ValueError` naming
+  the argument and what to pass, in both modes, before any random draw,
+  except the per-class count in `generate_episode`, which applies to the
+  classes the draw selected (with contracts on, `icontract.ViolationError`
+  before). Under `python -O` before:
+  - `brier_score`, `brier_skill_score` and `expected_calibration_error`, with
+    a `y_test` of another length than `y_hat`'s rows, broadcast a single row
+    or label and returned a value, or raised a torch `RuntimeError`;
+  - `generate_train_summary` with one-hot labels counted every element of the
+    matrix (240 zeros and 120 ones for 120 rows of 3 classes), and with no
+    labels returned an empty count;
+  - `mahalanobis_distance_nosq` with a single `(dim, dim)` covariance returned
+    one row per row of the matrix, as if there were `dim` classes, and with a
+    covariance that is not square raised a torch `RuntimeError`;
+  - `generate_support` with a `support_size` of 0 (empty supports) or -1 (all
+    but one example of each class), no `selected_labels` (an empty support), a
+    repeated label or two labels with the same integer part such as 0.5 and
+    0.7 (merged into one key), a `train_x` longer than `train_y` (the extra
+    rows never drawn), or `shuffled_indexes` without an entry for a selected
+    label (`KeyError`) or with an entry for a label not selected (ignored);
+  - `generate_episode` with a `support_size`, `way` or `episode_size` of 0 or
+    less (empty supports, no queries, or `ZeroDivisionError` for `way=0`), a
+    1-D `train_x` (1-D episodes), a `train_x` longer than `train_y` (the extra
+    rows never drawn) or a 2-D `train_y` (a `ValueError` about shuffled
+    indexes);
+  - `stratified_train_test_split` with an `X` longer than `Y` (the extra rows
+    dropped) or shorter (`IndexError`), or a `test_size` of 0.0 or at least
+    1.0 (one side empty) or below 0 (the split inverted: for -0.25, a quarter
+    of each class for training).
+
+  In both modes, a `train_x` shorter than `train_y` made `generate_support`
+  and `generate_episode` raise `IndexError`, or return a support or episode
+  from the rows present when no drawn row was missing; `generate_episode`
+  raised `KeyError` for labels that are not whole numbers; and
+  `generate_support` stored a single such label under its integer part. All
+  three now raise the same `ValueError`, as do `generate_support` with a 2-D
+  `train_y` or with a `train_y` holding a label that is not a whole number,
+  selected or not, `generate_train_summary` with 0-d labels, and the three
+  metrics and `stratified_train_test_split` with a 0-d `y_test` or `Y`
+  (before, an `IndexError`; under `python -O`, `brier_score` and
+  `brier_skill_score` returned a value).
+  `generate_support` with a `support_size` above a selected class's count of
+  examples raised `ValueError: Not enough support examples in class 0`, or
+  `icontract.ViolationError` with contracts on when `support_size` reached the
+  number of rows or, times the number of selected labels, exceeded it; a
+  selected label without examples raised `ValueError: Class 3 has no
+  examples.`; and a `shuffled_indexes` entry with fewer than `support_size`
+  indexes gave that class a shorter support without an error, in both modes.
+  These now raise a `ValueError` that names the class's count of examples, or
+  the entry's length, and `support_size`, and says what to pass
+  (`Class 0 has 4 example(s) in train_y; support_size 5 needs at least 5;
+  pass a support_size of at most 4, or leave class 0 out of
+  selected_labels.`). A `test_size` of 0.0, 1.0 or outside (0, 1) raises
+  `ValueError` in both modes; an `int` `test_size` is a type error while
+  contracts are on (beartype's `BeartypeCallHintParamViolation`) and
+  `ValueError` under `python -O`. EQUINE 0.1.8 behaved the same, except
+  that `mahalanobis_distance_nosq` raised a torch `RuntimeError` for a single
+  `(dim, dim)` covariance in both modes, `generate_support` raised
+  `IndexError` for a shorter `train_x` whenever a selected label had a row
+  past its end and, for a selected label without examples, `AssertionError`
+  (under `python -O`, an empty support for it), and `generate_episode` under
+  `python -O` returned an episode of 3-D supports for a 2-D `train_y`.

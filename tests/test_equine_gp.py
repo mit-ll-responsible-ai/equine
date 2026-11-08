@@ -1,17 +1,22 @@
 import copy
+import math
+import re
 import warnings
 
 import numpy as np
 import pytest
 import torch
 import torchmetrics
+from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
     LABEL_KINDS,
     BasicEmbeddingModel,
+    assert_model_unchanged,
     assert_on_device,
     assert_valid_prediction,
     generate_random_string_list,
     labels_of_kind,
+    model_state,
     random_dataset,
     stored_tensors,
     use_basic_embedding_model,
@@ -1079,6 +1084,266 @@ def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(labels) -> Non
     assert not model.training
     assert not model.model.training_parameters_set
     assert model.train_summary == summary
+
+
+def _rows_of_each_class(rows_per_class: int) -> torch.utils.data.TensorDataset:
+    """The first ``rows_per_class`` rows of each class of ``separable_dataset``."""
+    dataset, _, y = separable_dataset()
+    rows = torch.cat(
+        [torch.argwhere(y == label).reshape(-1)[:rows_per_class] for label in range(3)]
+    )
+    return torch.utils.data.TensorDataset(*dataset[rows])
+
+
+def _support_size_message(shown: str) -> str:
+    return (
+        "support_size must be a positive integer (an int >= 1, not a bool); got "
+        f"{shown}."
+    )
+
+
+@pytest.mark.parametrize(
+    ("rows_per_class", "options", "message", "repair"),
+    [
+        *[
+            pytest.param(
+                40,
+                {"batch_size": 32, "vis_support": True, "support_size": value},
+                _support_size_message(shown),
+                {"support_size": 5},
+                id=f"vis_support-support_size={value}",
+            )
+            for value, shown in ((0, "int 0"), (-1, "int -1"), (True, "bool"))
+        ],
+        pytest.param(
+            40,
+            {"batch_size": 200},
+            "batch_size (200) is larger than the dataset (120 rows); pass a "
+            "batch_size of at most 120.",
+            {"batch_size": 120},
+            id="batch_size-200-on-120-rows",
+        ),
+        pytest.param(
+            16,
+            {},
+            "batch_size (64) is larger than the dataset (48 rows); pass a "
+            "batch_size of at most 48.",
+            {"batch_size": 48},
+            id="default-batch_size-on-48-rows",
+        ),
+    ],
+)
+def test_train_model_refuses_bad_input(
+    rows_per_class, options, message, repair
+) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    model untrained; the call its message asks for trains it."""
+    torch.manual_seed(0)
+    dataset = _rows_of_each_class(rows_per_class)
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.05)
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.train_model(dataset, torch.nn.CrossEntropyLoss(), optimizer, 1, **options)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    options.update(repair)
+    model.train_model(dataset, torch.nn.CrossEntropyLoss(), optimizer, 1, **options)
+    assert model.model.training_parameters_set
+    assert model.predict(dataset.tensors[0][:5]).classes.shape == (5, CLASSES)
+    if options.get("vis_support"):
+        assert [len(r) for r in model.get_support().values()] == [5] * CLASSES
+
+
+@pytest.mark.parametrize("support_size", [0, -1])
+def test_train_model_without_vis_support_does_not_read_support_size(
+    support_size,
+) -> None:
+    """Without ``vis_support``, ``support_size`` is not read: any value trains the
+    model and leaves the support empty."""
+    torch.manual_seed(0)
+    dataset = _rows_of_each_class(40)
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        1,
+        batch_size=32,
+        support_size=support_size,
+    )
+    assert model.model.training_parameters_set
+    assert len(model.support) == 0
+    assert model.predict(dataset.tensors[0][:5]).classes.shape == (5, CLASSES)
+
+
+def _epochs_message(shown: str) -> str:
+    return (
+        "num_calibration_epochs must be a non-negative integer (an int >= 0, not a "
+        f"bool; 0 leaves the temperature unchanged); got {shown}."
+    )
+
+
+def _lr_message(value: object) -> str:
+    return (
+        "calibration_lr must be a finite float above 0 (not an int or a bool), such as "
+        f"0.01 or 1.0; got {value!r}."
+    )
+
+
+@pytest.mark.parametrize(
+    ("trained", "changes", "message", "repair"),
+    [
+        *[
+            pytest.param(
+                True,
+                {"num_calibration_epochs": value},
+                _epochs_message(shown),
+                {"num_calibration_epochs": 1},
+                id=f"num_calibration_epochs={value}",
+            )
+            for value, shown in ((-1, "int -1"), (True, "bool"))
+        ],
+        *[
+            pytest.param(
+                True,
+                {"calibration_lr": value},
+                _lr_message(value),
+                {"calibration_lr": 0.01},
+                id=f"calibration_lr={value}",
+            )
+            for value in (0.0, -0.01, math.nan, math.inf)
+        ],
+        pytest.param(
+            False,
+            {},
+            "EquineGP.calibrate_model needs a trained model, and this model has not "
+            "been trained; call train_model first.",
+            {},
+            id="untrained",
+        ),
+    ],
+)
+def test_calibrate_model_refuses_bad_input(trained, changes, message, repair) -> None:
+    """Each refusal names the argument (or asks for training), draws no random
+    numbers and leaves the model as it was, the temperature and the Laplace buffers
+    included; the call its message asks for calibrates the temperature."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    if trained:
+        model.train_model(
+            dataset,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=1,
+            batch_size=32,
+        )
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    args = {"num_calibration_epochs": 1, "calibration_lr": 0.01, **changes}
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.calibrate_model(dataset, **args)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    if not trained:
+        model.train_model(
+            dataset,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=1,
+            batch_size=32,
+        )
+    args.update(repair)
+    model.calibrate_model(dataset, **args)
+    assert model.temperature.item() != 0.5
+    assert not model.temperature.requires_grad
+
+
+@pytest.mark.parametrize(
+    ("changes", "error", "message"),
+    [
+        *[
+            pytest.param(
+                changes,
+                BeartypeCallHintParamViolation,
+                None,
+                marks=pytest.mark.contracts,
+                id=f"{name}-contracts-on",
+            )
+            for changes, name in (
+                ({"calibration_lr": 0}, "int-calibration_lr-0"),
+                ({"calibration_lr": 1}, "int-calibration_lr-1"),
+                ({"calibration_lr": True}, "bool-calibration_lr"),
+                ({"num_calibration_epochs": 1.0}, "float-num_calibration_epochs"),
+            )
+        ],
+        *[
+            pytest.param(
+                changes,
+                ValueError,
+                message,
+                marks=pytest.mark.skipif(
+                    __debug__, reason="beartype refuses the wrong type first"
+                ),
+                id=f"{name}-python-O",
+            )
+            for changes, name, message in (
+                ({"calibration_lr": 0}, "int-calibration_lr-0", _lr_message(0)),
+                ({"calibration_lr": 1}, "int-calibration_lr-1", _lr_message(1)),
+                (
+                    {"calibration_lr": True},
+                    "bool-calibration_lr",
+                    _lr_message(True),
+                ),
+                (
+                    {"num_calibration_epochs": 1.0},
+                    "float-num_calibration_epochs",
+                    _epochs_message("float"),
+                ),
+            )
+        ],
+    ],
+)
+def test_calibrate_model_refuses_a_wrong_number_type(changes, error, message) -> None:
+    """An int or bool ``calibration_lr`` or a float ``num_calibration_epochs`` is a
+    type error while contracts are on and a ``ValueError`` under python -O; the model
+    is left as it was, and the values the message asks for calibrate the
+    temperature."""
+    model, _ = _gp_trained_on_cpu()
+    dataset = separable_dataset()[0]
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(error, match=None if message is None else re.escape(message)):
+        model.calibrate_model(dataset, **changes)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    model.calibrate_model(dataset, num_calibration_epochs=1, calibration_lr=0.01)
+    assert model.temperature.item() != 0.5
+
+
+def test_calibrate_model_with_0_epochs_leaves_the_temperature_unchanged() -> None:
+    model, _ = _gp_trained_on_cpu()
+    dataset = separable_dataset()[0]
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    model.calibrate_model(dataset, num_calibration_epochs=0)
+    assert model.temperature.item() == 0.5
+    assert not model.temperature.requires_grad
 
 
 @pytest.mark.parametrize("labels", GP_LABEL_KINDS)

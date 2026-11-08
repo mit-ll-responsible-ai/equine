@@ -331,6 +331,12 @@
   number of rows, or as many selected labels as rows with `support_size=1`.
   With contracts on, an icontract precondition refused both; under
   `python -O` they ran, as in EQUINE 0.1.8.
+- `EquineGP.calibrate_model(num_calibration_epochs=0)` leaves the temperature
+  unchanged, as `EquineProtonet.calibrate_temperature` does, and
+  `EquineGP.update_support` keeps every example of a class when that class is
+  the only one in `support_y` and `support_size` is at least its count. With
+  contracts on, an icontract precondition refused both; under `python -O` they
+  ran, as in EQUINE 0.1.8.
 
 ### Deprecated
 - `equine.upgrade`: it converts files saved by EQUINE 0.1.x in this release and
@@ -637,3 +643,74 @@
   past its end and, for a selected label without examples, `AssertionError`
   (under `python -O`, an empty support for it), and `generate_episode` under
   `python -O` returned an episode of 3-D supports for a 2-D `train_y`.
+- Under `python -O`, `EquineGP` and `EquineProtonet` accepted input that only
+  an icontract precondition refused, and returned a wrong result, trained or
+  changed the model, or failed with an error that did not name the input.
+  They now raise `ValueError` naming the argument and what to pass, in both
+  modes, before the model, its buffers, its support or the random number
+  generator change (with contracts on, `icontract.ViolationError` before).
+  Under `python -O` before:
+  - `EquineGP.update_support` with a `support_size` of 0 (empty supports and
+    NaN prototypes) or -1 (all but one example of each class), and
+    `EquineGP.train_model(vis_support=True)` with such a `support_size` (the
+    same support, after training);
+  - `EquineGP.train_model` with a `batch_size` larger than the dataset, such as
+    the default 64 on fewer than 64 rows, trained, and the check that refuses
+    to predict before an epoch's data has been seen could no longer fire;
+  - `EquineGP.calibrate_model` with a negative `num_calibration_epochs` or a
+    `calibration_lr` of 0.0 left the temperature as it was;
+  - `EquineGP.forward`, `predict` and `calibrate_model` on a model that was
+    not trained raised `RuntimeError: Not seen sufficient data for precision
+    matrix`, or `Did not reset precision matrix at start of epoch` after
+    adding the batch to the Laplace precision matrix (`calibrate_model`, and
+    `forward` in training mode). They now say to call `train_model` first;
+  - `EquineGP.compute_prototypes` on a model without a support raised
+    `RuntimeError: stack expects a non-empty TensorList`, and `get_support` on
+    either class and `EquineGP.get_prototypes` returned an empty dict or tensor
+    (`EquineGP.get_support` after `train_model` without `vis_support`
+    included). They now say to call `train_model` (with `vis_support=True` for
+    `EquineGP`) or `update_support` first;
+  - `EquineProtonet.update_support` and `train_model` with a `calib_frac`
+    below 0 inverted the split (for -0.25, three quarters of each class held
+    out for calibration), and with 0.0 or at least 1.0 raised a `ValueError`
+    that named a class's count of examples after the split or, with
+    `min_kde_samples` set, the pooled KDE (`train_model`: after training);
+    `update_support` with `calib_x` ignored such a `calib_frac`;
+  - `EquineProtonet.update_support` with a `support_x` longer than `support_y`
+    ignored the extra rows, and with `calib_frac` and a shorter `support_x`
+    raised `IndexError`;
+  - `EquineProtonet.train_model` with 1-D inputs and a positive
+    `num_episodes` trained on 1-D episodes.
+
+  In both modes, `EquineGP.update_support` with no examples raised
+  `RuntimeError: stack expects a non-empty TensorList` after replacing the
+  support and its embeddings, which left the old prototypes;
+  `EquineProtonet.update_support` with `calib_x` and a `support_x` shorter than
+  `support_y` raised `IndexError`; `EquineProtonet.get_prototypes` on a model
+  without a support raised `AttributeError`;
+  `EquineProtonet.calibrate_temperature`, and `train_model` with
+  `use_temperature`, took a negative `num_calibration_epochs` or a
+  `calibration_lr` of 0.0 as a no-op, and raised torch's `ValueError: Invalid
+  learning rate` for a negative `calibration_lr` (in `train_model`, after
+  training), leaving the temperature's `requires_grad` set; an infinite
+  `calibration_lr` set `EquineGP`'s temperature to infinity (every prediction
+  uniform) and `EquineProtonet`'s to its 1e-3 floor; and
+  `EquineProtonet.train_model` trained on 1-D inputs with `num_episodes=0`.
+  These now raise the same `ValueError` before anything changes.
+  `num_calibration_epochs` is an int of at least 0 in both classes, and a bool
+  is refused (`True` ran one epoch); `EquineProtonet.train_model` checks its
+  calibration settings whether or not `use_temperature` is set. An `int`
+  `calib_frac`, an `int` or bool `calibration_lr`, or a float
+  `num_calibration_epochs`, is a type error while contracts are on (beartype's
+  `BeartypeCallHintParamViolation`) and `ValueError` under `python -O`.
+  EQUINE 0.1.8 behaved the same, except under `python -O`:
+  `EquineGP.forward` and `predict` on a model that was not trained returned
+  logits or predictions after adding the batch to the precision matrix, and
+  `calibrate_model` calibrated the temperature, and with a negative or NaN
+  `calibration_lr` left the temperature's `requires_grad` set;
+  `EquineProtonet.update_support` with a `calib_frac` of at least 1.0 raised
+  `RuntimeError: stack expects a non-empty TensorList`, and with 0.0 scipy's
+  `ValueError`, after replacing the support; and `EquineProtonet.train_model`
+  with a `calib_frac` of at least 1.0 raised a `ValueError` about the way
+  being above the number of labels, and with 0.0 scipy's `ValueError` after
+  training. 0.1.8 had no `calib_x` or `min_kde_samples`.

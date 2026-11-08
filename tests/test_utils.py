@@ -16,7 +16,12 @@ from conftest import BasicEmbeddingModel, script_module
 from hypothesis import given, settings, strategies as st
 
 import equine as eq
-from equine.utils import _cholesky_with_jitter, _EpisodeSampler, _require_fraction
+from equine.utils import (
+    _cholesky_with_jitter,
+    _EpisodeSampler,
+    _require_calibration_settings,
+    _require_fraction,
+)
 
 
 class _NoAnnotationModel(torch.nn.Module):
@@ -719,6 +724,57 @@ def test_require_fraction_refuses_what_is_not_a_number_between_0_and_1(
     ):
         _require_fraction(value, "calib_frac")
     assert _require_fraction(0.25, "calib_frac") is None
+
+
+_EPOCHS_MESSAGE = (
+    "num_calibration_epochs must be a non-negative integer (an int >= 0, not a bool; "
+    "0 leaves the temperature unchanged); got {}."
+)
+_LR_MESSAGE = (
+    "calibration_lr must be a finite float above 0 (not an int or a bool), such as "
+    "0.01 or 1.0; got {}."
+)
+
+
+@pytest.mark.parametrize(
+    ("epochs", "lr", "message"),
+    [
+        *[
+            pytest.param(
+                value, 0.01, _EPOCHS_MESSAGE.format(shown), id=f"epochs-{name}"
+            )
+            for value, shown, name in (
+                (-1, "int -1", "negative"),
+                (True, "bool", "bool"),
+                (1.0, "float", "float"),
+                ("1", "str", "str"),
+                (None, "NoneType", "None"),
+            )
+        ],
+        *[
+            pytest.param(1, value, _LR_MESSAGE.format(repr(value)), id=f"lr-{name}")
+            for value, name in (
+                (0, "int-0"),
+                (1, "int-1"),
+                (0.0, "zero"),
+                (-0.5, "negative"),
+                (math.nan, "nan"),
+                (math.inf, "inf"),
+                (True, "bool"),
+                ("0.01", "str"),
+                (None, "None"),
+                (torch.tensor(0.01), "tensor"),
+            )
+        ],
+    ],
+)
+def test_require_calibration_settings_refuses_what_is_not_a_count_and_a_rate(
+    epochs, lr, message
+) -> None:
+    with pytest.raises(ValueError, match=re.escape(message)):
+        _require_calibration_settings(epochs, lr)
+    assert _require_calibration_settings(0, 0.01) is None
+    assert _require_calibration_settings(2, 1.0) is None
 
 
 def test_stratified_split_imbalanced_classes():

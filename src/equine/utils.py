@@ -595,6 +595,68 @@ def _require_rows(x: torch.Tensor, name: str) -> None:
         )
 
 
+def _require_calibration_settings(
+    num_calibration_epochs: object, calibration_lr: object
+) -> None:
+    """
+    Refuse temperature-calibration settings that are not a count of epochs and a
+    learning rate.
+
+    Parameters
+    ----------
+    num_calibration_epochs : object
+        The number of calibration epochs.
+    calibration_lr : object
+        The learning rate of the temperature.
+
+    Raises
+    ------
+    ValueError
+        If ``num_calibration_epochs`` is not an int of at least 0 (a bool is
+        refused), or ``calibration_lr`` is not a float that is finite and above 0
+        (an int or a bool is refused).
+    """
+    epochs = num_calibration_epochs
+    if type(epochs) is not int or epochs < 0:
+        shown = f" {epochs}" if type(epochs) is int and epochs > -(10**6) else ""
+        raise ValueError(
+            "num_calibration_epochs must be a non-negative integer (an int >= 0, not "
+            "a bool; 0 leaves the temperature unchanged); got "
+            f"{type(epochs).__name__}{shown}."
+        )
+    lr = calibration_lr
+    if not isinstance(lr, float) or not math.isfinite(lr) or lr <= 0:
+        raise ValueError(
+            "calibration_lr must be a finite float above 0 (not an int or a bool), "
+            f"such as 0.01 or 1.0; got {_truncate(repr(lr), 80)}."
+        )
+
+
+def _require_support(support: Mapping[Any, Any], method: str, train_call: str) -> None:
+    """
+    Refuse a call to ``method`` on a model without a support.
+
+    Parameters
+    ----------
+    support : Mapping
+        The model's support, keyed by label.
+    method : str
+        The method called, named in the message.
+    train_call : str
+        The training call that stores a support, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``support`` is empty.
+    """
+    if len(support) == 0:
+        raise ValueError(
+            f"{method} needs a support, and this model has none; call {train_call} "
+            "or update_support first."
+        )
+
+
 def _require_class_indices(y: torch.Tensor, num_classes: int, name: str) -> None:
     """
     Refuse labels that are not class indices of a model with ``num_classes`` classes.

@@ -684,3 +684,21 @@ def test_full_covariance_protonet_trains_on_the_device(device):
     )
     assert all(torch.isfinite(p).all() for p in model.parameters())
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
+
+
+@pytest.mark.parametrize("device", devices())
+def test_protonet_calibrate_temperature_accepts_float64_labels(device):
+    """Labels are mapped to columns where they are, then moved as integers."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        use_temperature=True,
+        device=device,
+    )
+    model.train_model(
+        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
+    )
+    model.calibrate_temperature(x[:30], y[:30].double(), num_calibration_epochs=1)
+    assert torch.isfinite(model.temperature).all()

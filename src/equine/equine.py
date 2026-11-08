@@ -298,6 +298,17 @@ class Equine(torch.nn.Module, ABC):
             return self.label_names
         return None
 
+    def _label_order(self) -> list[int] | None:
+        """
+        The class label of each column of ``predict``'s ``classes``.
+
+        Returns
+        -------
+        list[int] | None
+            None: column ``j`` holds label ``j``.
+        """
+        return None
+
     def get_feature_names(self) -> list[str] | None:
         """
         Retrieve the feature names used in the model.

@@ -63,14 +63,13 @@ _TORCHSCRIPT_CHECKPOINT_ERROR = (
 _LEGACY_FILE_ERROR = (
     "'{path}' is not in the current EQUINE model format (a safetensors file, format "
     f"{EQUINE_FORMAT_VERSION}): it is a PyTorch archive or a pickle, as files saved "
-    "by EQUINE 0.1.x and by development builds before format "
-    f"{EQUINE_FORMAT_VERSION} are. Rewrite it once with `{_UPGRADE_HINT} {{path}}`; "
-    "a file whose embedding is TorchScript (every file from EQUINE 0.1.x) also "
-    "needs the embedding architecture: "
+    "by EQUINE 0.1.x are. Rewrite it once with its embedding architecture: "
     + _UPGRADE_USAGE
     + ". Only upgrade such files if you trust them: the upgrade unpickles a file "
     "from EQUINE 0.1.x without restrictions and loads TorchScript, either of which "
-    "can run code embedded in the file."
+    "can run code embedded in the file. A file written by a development build "
+    f"before format {EQUINE_FORMAT_VERSION} is not converted: save the model again, "
+    "or retrain it."
 )
 
 
@@ -119,9 +118,10 @@ def load_checkpoint(path: str, map_location: str | None = None) -> dict[str, Any
     Read a saved EQUINE model file: a safetensors file (see ``equine._model_file``).
 
     The metadata, the JSON and the tensor references in the header are checked before
-    any tensor is read, and each tensor is read once. A PyTorch archive or a pickle
-    (EQUINE 0.1.x files, and format 2 and 3 files) is refused; ``python -m
-    equine.upgrade`` rewrites it.
+    any tensor is read, and each tensor is read once. A PyTorch archive or a pickle is
+    refused: ``python -m equine.upgrade`` rewrites a file from EQUINE 0.1.x; a format 2
+    or 3 file, from a development build, is not converted (save the model again, or
+    retrain it).
 
     The file contains no executable code: the embedding model is stored as a recipe and
     weights.

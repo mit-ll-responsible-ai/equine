@@ -19,43 +19,23 @@ an entry point makes reports eval mode, and its result equals the one computed a
 
 import pytest
 import torch
+from builders import quick_gp, quick_protonet
 from conftest import BasicEmbeddingModel, RecordingEmbedding, assert_valid_prediction
 from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
 
 
+def _recording():
+    return RecordingEmbedding(FEATURES, CLASSES)
+
+
 def _protonet():
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(
-        RecordingEmbedding(FEATURES, CLASSES), CLASSES, use_temperature=True
-    )
-    model.train_model(
-        dataset,
-        num_episodes=5,
-        calib_frac=0.2,
-        support_size=10,
-        way=3,
-        episode_size=30,
-    )
-    return model, x, y
+    return _protonet_with(_recording, use_temperature=True)
 
 
 def _gp():
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineGP(
-        RecordingEmbedding(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
-    )
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=2,
-        batch_size=32,
-    )
-    return model, x, y
+    return _gp_with(_recording)
 
 
 def _assert_same_output(actual: eq.EquineOutput, expected: eq.EquineOutput) -> None:
@@ -259,28 +239,13 @@ def _batchnorm_embedding() -> torch.nn.Sequential:
     )
 
 
-def _protonet_with(make_embedding):
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(make_embedding(), CLASSES)
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
-    return model, x, y
+def _protonet_with(make_embedding, **kwargs):
+    model, x, y = quick_protonet(make_embedding, **kwargs)
+    return model, x, y.long()
 
 
 def _gp_with(make_embedding):
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineGP(make_embedding(), CLASSES, CLASSES, num_random_features=16)
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=2,
-        batch_size=32,
-    )
-    return model, x, y
+    return quick_gp(make_embedding, num_epochs=2)
 
 
 @pytest.mark.parametrize(

@@ -18,6 +18,17 @@
   with a scipy error; `None` (the default) refuses such a class with a
   message naming it. With a UNIT `pred_cov_type`, `update_support` accepts a
   class with one support example.
+- **`EquineProtonet(cov_reg_type=)`**: `"epsilon"` (the default) or
+  `"shared"`, which blends each DIAGONAL or FULL class covariance with the
+  covariance pooled over the classes and uses a UNIT covariance as is. Any
+  other string, or `"shared"` with a UNIT `cov_type` and `pred_cov_type`
+  (where it would never apply), raises `ValueError`; a value that is not a
+  string is a type error while contracts are on (beartype's
+  `BeartypeCallHintParamViolation`) and `ValueError` under `python -O`. In
+  0.1.8 it was not a parameter, and `"shared"` was reachable only by setting
+  the attribute on the model's `Protonet` (`model.model.cov_reg_type`); on a
+  default model (UNIT training) it applied at prediction, which used
+  DIAGONAL. That configuration is accepted. Saved only when not the default.
 - **`SpectralResidualMLP`, SNGP's embedding** (registered as
   `equine.spectral_residual_mlp`). A linear projection and `num_blocks`
   residual blocks `h + coefficient * relu(W h + b)` whose weights are
@@ -337,6 +348,10 @@
   the only one in `support_y` and `support_size` is at least its count. With
   contracts on, an icontract precondition refused both; under `python -O` they
   ran, as in EQUINE 0.1.8.
+- `cov_reg_type="shared"` with a UNIT covariance no longer warns
+  ("reverting to epsilon regularization") at each covariance computation,
+  which with the default UNIT `cov_type` meant every training episode. The
+  UNIT covariance is used as is, as before.
 
 ### Deprecated
 - `equine.upgrade`: it converts files saved by EQUINE 0.1.x in this release and
@@ -375,6 +390,16 @@
   statistic now reads unscaled distances whether or not `relative_mahal` is
   set. A model file without `ood_distance` loads as `"rmd_sqrt"`, the 0.1.8
   statistic, and keeps its OOD scores.
+- `EquineProtonet.save` did not write `cov_reg_type`, so a model using
+  `"shared"` reloaded as `"epsilon"`, with different class probabilities and
+  OOD scores (#185). It is now saved when it is not `"epsilon"`. `load`
+  refuses a file whose `cov_reg_type` is not `"epsilon"` or `"shared"`, or is
+  `"shared"` with a UNIT `cov_type` and `pred_cov_type`; a file without it
+  loads as `"epsilon"`, as before.
+- A `cov_reg_type` other than `"epsilon"` or `"shared"` (in 0.1.8 settable
+  only by attribute) left the class covariances unregularized. It now raises
+  `ValueError` naming the two accepted values, also when set by attribute on
+  the model's `Protonet`, at its next covariance computation.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

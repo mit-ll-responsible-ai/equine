@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
@@ -215,6 +214,47 @@ class _OutlierGrid:
 
 
 COV_REG_TYPE = "epsilon"
+_COV_REG_TYPES = ("epsilon", "shared")
+
+
+def _require_cov_reg_type(
+    cov_reg_type: object,
+    cov_type: object = None,
+    pred_cov_type: object = None,
+    *,
+    name: str = "cov_reg_type",
+    unknown_repair: str | None = None,
+    unknown_unit_repair: str | None = (
+        "pass cov_reg_type='epsilon', or 'shared' with a cov_type or pred_cov_type "
+        "of CovType.DIAGONAL or CovType.FULL."
+    ),
+    unit_repair: str = (
+        "pass a cov_type or pred_cov_type of CovType.DIAGONAL or CovType.FULL, or "
+        "cov_reg_type='epsilon'."
+    ),
+) -> None:
+    """
+    Raise ``ValueError`` unless ``cov_reg_type`` is one of ``_COV_REG_TYPES``, or
+    when it is ``"shared"`` and both ``cov_type`` and ``pred_cov_type`` are
+    ``CovType.UNIT``. ``name`` names ``cov_reg_type`` in the message. For a value
+    not in ``_COV_REG_TYPES`` the message ends with ``unknown_unit_repair`` when
+    both types are UNIT and with ``unknown_repair`` otherwise (each when given);
+    for ``"shared"`` with both types UNIT it ends with ``unit_repair``. The
+    defaults are the constructor's repairs.
+    """
+    both_unit = cov_type is CovType.UNIT and pred_cov_type is CovType.UNIT
+    if not (isinstance(cov_reg_type, str) and cov_reg_type in _COV_REG_TYPES):
+        repair = unknown_unit_repair if both_unit else unknown_repair
+        ending = "." if repair is None else f"; {repair}"
+        raise ValueError(
+            f"{name} must be one of {list(_COV_REG_TYPES)}; got "
+            f"{_shown(cov_reg_type)}{ending}"
+        )
+    if cov_reg_type == "shared" and both_unit:
+        raise ValueError(
+            f"{name} is 'shared', which pools DIAGONAL or FULL covariances, and "
+            f"cov_type and pred_cov_type are CovType.UNIT; {unit_repair}"
+        )
 
 
 ###############################################
@@ -451,12 +491,20 @@ class Protonet(torch.nn.Module):
         cov_type : CovType
             Type of covariance to use [unit, diag, full].
         cov_reg_type : str
-            Regularization type: ``"epsilon"`` or ``"shared"``.
+            Regularization type: ``"epsilon"`` or ``"shared"``. ``"shared"``
+            applies to DIAGONAL and FULL covariances; a UNIT covariance is used as
+            is.
 
         Returns
         -------
         OrderedDict[int, torch.Tensor]
             Dictionary containing the regularized class covariance matrices.
+
+        Raises
+        ------
+        ValueError
+            If ``cov_reg_type`` is not ``"epsilon"`` or ``"shared"``; beartype
+            refuses a non-string first unless Python runs with ``-O``.
         """
 
         if cov_type == CovType.FULL:
@@ -470,12 +518,6 @@ class Protonet(torch.nn.Module):
 
         if cov_reg_type == "shared":
             if cov_type != CovType.FULL and cov_type != CovType.DIAGONAL:
-                for label in self.support_embeddings:
-                    class_cov_dict[label] = class_cov_dict[label] + regularization
-                warnings.warn(
-                    "Covariance type UNIT is incompatible with shared regularization, \
-                    reverting to epsilon regularization"
-                )
                 return class_cov_dict
 
             shared_covariance = self.compute_shared_covariance(class_cov_dict, cov_type)
@@ -495,6 +537,8 @@ class Protonet(torch.nn.Module):
                 class_cov_dict[label] = (
                     class_cov_dict[label].to(self.device) + regularization
                 )
+        else:
+            _require_cov_reg_type(cov_reg_type)
 
         return class_cov_dict
 
@@ -822,6 +866,7 @@ class EquineProtonet(Equine):
         pred_cov_type: CovType | None = None,
         ood_cov_type: CovType | None = None,
         min_kde_samples: int | None = None,
+        cov_reg_type: str = COV_REG_TYPE,
     ) -> None:
         """
         EquineProtonet class constructor
@@ -874,13 +919,24 @@ class EquineProtonet(Equine):
             An int pools instead: a class with fewer than ``min_kde_samples``
             calibration examples, or whose distances are all equal (a single
             example always is), shares one KDE fitted on every calibration example.
+        cov_reg_type : str, optional
+            How the class covariances are regularized, by default ``"epsilon"``.
+            ``"epsilon"`` adds ``DEFAULT_EPSILON`` to the variances of each
+            DIAGONAL or FULL class covariance. ``"shared"`` also blends each
+            DIAGONAL or FULL class covariance with the covariance pooled over the
+            classes, and uses a UNIT covariance as is; it needs a DIAGONAL or FULL
+            ``cov_type`` or ``pred_cov_type``.
 
         Raises
         ------
         ValueError
             If ``ood_distance`` is not ``"rmd_sq"`` or ``"rmd_sqrt"``, or
             ``min_kde_samples`` is not None or an int of at least 1 (a bool is
-            refused), the rule ``load`` applies to a model file.
+            refused), the rule ``load`` applies to a model file. If
+            ``cov_reg_type`` is not ``"epsilon"`` or ``"shared"`` (beartype
+            refuses a non-string first unless Python runs with ``-O``), or is
+            ``"shared"`` with a UNIT ``cov_type`` and ``pred_cov_type``; ``load``
+            refuses a model file with such settings.
         """
         if min_kde_samples is not None:
             _positive_int(min_kde_samples, "min_kde_samples")
@@ -889,6 +945,11 @@ class EquineProtonet(Equine):
                 f"ood_distance must be one of {list(_OOD_DISTANCES)}; got "
                 f"{_shown(ood_distance)}."
             )
+        _require_cov_reg_type(
+            cov_reg_type,
+            cov_type,
+            PRED_COV_TYPE if pred_cov_type is None else pred_cov_type,
+        )
         super().__init__(
             embedding_model,
             device=device,
@@ -896,7 +957,7 @@ class EquineProtonet(Equine):
             label_names=label_names,
         )
         self.cov_type = cov_type
-        self.cov_reg_type = COV_REG_TYPE
+        self.cov_reg_type = cov_reg_type
         self.relative_mahal = relative_mahal
         self.ood_distance = ood_distance
         self.min_kde_samples = min_kde_samples
@@ -1775,6 +1836,10 @@ class EquineProtonet(Equine):
         ValueError
             If the embedding model is not a registered architecture, or the model
             holds a value a model file does not store (see ``equine._model_file``).
+        ValueError
+            If ``model.model.cov_reg_type``, set after construction, is not
+            ``"epsilon"`` or ``"shared"``, or is ``"shared"`` while ``cov_type``
+            and ``pred_cov_type`` are both UNIT; nothing is written.
         RuntimeError
             If the model has no support examples (neither ``train_model`` nor
             ``update_support`` has run).
@@ -1784,6 +1849,15 @@ class EquineProtonet(Equine):
                 "The model has no support examples to save; call train_model or "
                 "update_support first."
             )
+        _require_cov_reg_type(
+            self.model.cov_reg_type,
+            self.cov_type,
+            self.model.pred_cov_type,
+            name="model.model.cov_reg_type",
+            unknown_repair="set it to 'epsilon' or 'shared', then save.",
+            unknown_unit_repair="set model.model.cov_reg_type to 'epsilon', then save.",
+            unit_repair="set model.model.cov_reg_type to 'epsilon', then save.",
+        )
         _model_file.write(path, self._to_checkpoint())
 
     def _to_checkpoint(self) -> dict[str, Any]:
@@ -1797,11 +1871,14 @@ class EquineProtonet(Equine):
             "ood_distance": self.ood_distance,
             "device": self.device,
         }
-        # pred_cov_type and ood_cov_type are written only when not the default.
+        # pred_cov_type, ood_cov_type and cov_reg_type are written only when not
+        # the default.
         if self.model.pred_cov_type != PRED_COV_TYPE:
             model_settings["pred_cov_type"] = self.model.pred_cov_type.value
         if self.model.ood_cov_type != OOD_COV_TYPE:
             model_settings["ood_cov_type"] = self.model.ood_cov_type.value
+        if self.model.cov_reg_type != COV_REG_TYPE:
+            model_settings["cov_reg_type"] = self.model.cov_reg_type
         if self.min_kde_samples is not None:
             model_settings["min_kde_samples"] = self.min_kde_samples
         save_data: dict[str, Any] = {
@@ -1865,7 +1942,10 @@ class EquineProtonet(Equine):
             architecture. If ``device`` is unavailable here, names an index at
             or above its device count, or lacks a dtype the file holds (float64
             on MPS: load such a file with ``device="cpu"``). If the file's
-            support holds one class.
+            support holds one class. If the file's ``cov_reg_type`` is not
+            ``"epsilon"`` or ``"shared"``, or is ``"shared"`` with a UNIT
+            ``cov_type`` and ``pred_cov_type`` (a file without ``cov_reg_type``
+            loads as ``"epsilon"``).
         """
         model_save = _load_checkpoint_for_device(path, device)
         return cls._from_checkpoint(model_save, device, embedding_model=embedding_model)
@@ -1967,6 +2047,21 @@ class EquineProtonet(Equine):
                     f"{err} Save the model again, or upgrade the original file again "
                     "with `python -m equine.upgrade`."
                 ) from err
+        if "cov_reg_type" in settings:
+            file_repair = (
+                "the file was not written by save() or was changed after. Save the "
+                "model again, or upgrade the original file again with "
+                "`python -m equine.upgrade`."
+            )
+            _require_cov_reg_type(
+                settings["cov_reg_type"],
+                settings.get("cov_type", CovType.UNIT),
+                settings.get("pred_cov_type", PRED_COV_TYPE),
+                name="Model file's settings['cov_reg_type']",
+                unknown_repair=file_repair,
+                unknown_unit_repair=file_repair,
+                unit_repair=file_repair,
+            )
         # Allow the user to override the saved device state dynamically
         if device is not None:
             settings["device"] = device

@@ -2,8 +2,9 @@
 # Subject to FAR 52.227-11 – Patent Rights – Ownership by the Contractor (May 2014).
 # SPDX-License-Identifier: MIT
 """EquineProtonet's pred_cov_type and ood_cov_type: prediction, OOD scores and
-save/load (UNIT accepts one-example classes); an explicit calibration set for
-update_support; and pooled outlier-score KDEs for sparse classes (min_kde_samples)."""
+save/load (UNIT accepts one-example classes); the loader's checks of cov_reg_type;
+an explicit calibration set for update_support; and pooled outlier-score KDEs for
+sparse classes (min_kde_samples)."""
 
 import pickle
 
@@ -72,6 +73,7 @@ def test_a_default_model_saves_neither_covariance_type(tmp_path) -> None:
     settings = _model_file.read(path)["settings"]
     assert "pred_cov_type" not in settings
     assert "ood_cov_type" not in settings
+    assert "cov_reg_type" not in settings
 
 
 def test_unit_covariance_changes_predictions() -> None:
@@ -125,6 +127,79 @@ def test_load_refuses_a_covariance_type_and_says_how_to_repair(tmp_path, key) ->
         eq.load_equine_model(path)
     model.save(path)
     assert isinstance(eq.load_equine_model(path), eq.EquineProtonet)
+
+
+def _file_cov_reg_type_message(problem: str) -> str:
+    return (
+        f"Model file's settings['cov_reg_type'] {problem}; the file was not written "
+        "by save() or was changed after. Save the model again, or upgrade the "
+        "original file again with `python -m equine.upgrade`."
+    )
+
+
+_FILE_SHARED_WITH_UNIT = _file_cov_reg_type_message(
+    "is 'shared', which pools DIAGONAL or FULL covariances, and cov_type and "
+    "pred_cov_type are CovType.UNIT"
+)
+
+
+@pytest.mark.parametrize(
+    "changes, message",
+    [
+        pytest.param(
+            {"cov_reg_type": "typo"},
+            _file_cov_reg_type_message(
+                "must be one of ['epsilon', 'shared']; got 'typo'"
+            ),
+            id="unknown",
+        ),
+        pytest.param(
+            {"cov_reg_type": 5},
+            _file_cov_reg_type_message(
+                "must be one of ['epsilon', 'shared']; got a int"
+            ),
+            id="int",
+        ),
+        pytest.param(
+            {"cov_reg_type": "typo", "cov_type": "unit", "pred_cov_type": "unit"},
+            _file_cov_reg_type_message(
+                "must be one of ['epsilon', 'shared']; got 'typo'"
+            ),
+            id="unknown-unit-both",
+        ),
+        pytest.param(
+            {"cov_type": "unit", "pred_cov_type": "unit"},
+            _FILE_SHARED_WITH_UNIT,
+            id="shared-unit-both",
+        ),
+    ],
+)
+def test_load_refuses_a_cov_reg_type_and_says_how_to_repair(
+    tmp_path, changes, message
+) -> None:
+    """A shared model's file edited to hold an unknown ``cov_reg_type``, or UNIT
+    for both covariance types, is refused and left as it was; saving the model
+    again gives a file that loads as shared."""
+    model, x, _ = quick_protonet(cov_type=CovType.DIAGONAL, cov_reg_type="shared")
+    path = tmp_path / "m.eq"
+    model.save(str(path))
+    saved = _model_file.read(str(path))
+    assert saved["settings"]["cov_reg_type"] == "shared"
+    saved["settings"].update(changes)
+    _model_file.write(str(path), saved)
+    edited = path.read_bytes()
+    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+        with pytest.raises(ValueError) as err:
+            loader(str(path))
+        assert str(err.value) == message
+    assert path.read_bytes() == edited
+
+    model.save(str(path))
+    loaded = eq.load_equine_model(str(path))
+    assert loaded.model.cov_reg_type == "shared"
+    out, reloaded = model.predict(x), loaded.predict(x)
+    assert torch.allclose(reloaded.classes, out.classes, atol=1e-6)
+    assert torch.allclose(reloaded.ood_scores, out.ood_scores, atol=1e-6)
 
 
 def _calibration_rows():

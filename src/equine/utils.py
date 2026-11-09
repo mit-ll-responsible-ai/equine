@@ -886,7 +886,7 @@ def _checked_settings(cls: type, settings: Any) -> dict[str, Any]:
     accepts any string key. The plain values common to the model classes are
     type-checked here (an ``int`` temperature becomes a ``float``), and so is
     ``ood_distance``, which must be one of ``_OOD_DISTANCES``; sizes,
-    ``cov_type`` and ``device`` are checked by the caller.
+    ``cov_type``, ``cov_reg_type`` and ``device`` are checked by the caller.
     """
     if not (isinstance(settings, dict) and all(isinstance(k, str) for k in settings)):
         raise ValueError(

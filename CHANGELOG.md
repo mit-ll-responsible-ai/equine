@@ -417,6 +417,12 @@
   with no more support examples than classes (such as an empty dict), where
   it returned a value computed without the support or, for an empty dict,
   zeros.
+- `EquineProtonet.forward` (calling `model(X)`) skipped the temperature, so
+  on a model with `use_temperature=True` its class probabilities differed
+  from `predict(X).classes` (#183). It now divides the distances by the
+  temperature before the softmax, as `predict` does, and in eval mode equals
+  `predict(X).classes`. With `use_temperature=False` it is unchanged.
+  Training, temperature calibration and `predict` do not call it.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

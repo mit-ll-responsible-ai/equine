@@ -198,7 +198,11 @@ class Equine(torch.nn.Module, ABC):
         Returns
         -------
         torch.Tensor
-            The output of the model.
+            The output of the model, which depends on the subclass:
+            ``EquineGP`` returns logits divided by ``temperature``;
+            ``EquineProtonet`` returns class probabilities, the softmax of the
+            negated distances to the class prototypes, with the distances
+            divided by ``temperature`` first when ``use_temperature`` is True.
 
         """
         raise NotImplementedError

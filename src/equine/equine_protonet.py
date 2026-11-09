@@ -1989,9 +1989,14 @@ class EquineProtonet(Equine):
 
         Raises
         ------
+        LegacyFormatError
+            If the file is a PyTorch archive or a pickle, as files saved by
+            EQUINE 0.1.x are (see ``equine.utils.load_checkpoint``); a
+            ``ValueError``. Rewrite a file from EQUINE 0.1.x once with
+            ``python -m equine.upgrade``.
         ValueError
-            If the file is not in the current EQUINE format or stores its
-            embedding model as TorchScript (both are rewritten once with
+            If the file is not in the current EQUINE format, stores its
+            embedding model as TorchScript (rewrite it once with
             ``python -m equine.upgrade``), or names an unregistered
             architecture. If ``device`` is unavailable here, names an index at
             or above its device count, or lacks a dtype the file holds (float64

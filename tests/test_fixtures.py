@@ -112,6 +112,16 @@ def test_0_1_8_fixture_upgrades_and_predicts_the_same(name, tmp_path) -> None:
     )
 
 
+@pytest.mark.parametrize("name", list(FIXTURES_0_1_8))
+def test_0_1_8_fixture_is_refused_with_legacy_format_error(name) -> None:
+    """The model loaders refuse a file saved by EQUINE 0.1.8 with
+    ``equine.LegacyFormatError``, naming the upgrade."""
+    filename, cls = FIXTURES_0_1_8[name]
+    for load in (eq.load_equine_model, cls.load):
+        with pytest.raises(eq.LegacyFormatError, match="python -m equine.upgrade"):
+            load(_fixture(filename))
+
+
 class _ProtonetWithoutOodDistance(eq.EquineProtonet):
     """An ``EquineProtonet`` subclass whose ``__init__`` does not take
     ``ood_distance``."""

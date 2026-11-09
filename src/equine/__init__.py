@@ -19,6 +19,7 @@ from .registry import (
     registered_architectures,
 )
 from .utils import (
+    LegacyFormatError,
     _warn_if_torch_crashes_with_threads,
     brier_score,
     brier_skill_score,
@@ -47,6 +48,7 @@ __all__ = [
     "EquineGP",
     "EquineProtonet",
     "CovType",
+    "LegacyFormatError",
     "MLP",
     "SpectralResidualMLP",
     "embedding_architecture",

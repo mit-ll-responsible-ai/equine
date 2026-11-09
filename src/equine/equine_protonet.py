@@ -548,24 +548,42 @@ class Protonet(torch.nn.Module):
         """
         Method to calculate a shared covariance matrix.
 
-        The shared covariance matrix is calculated as the weighted average of the class covariance matrices,
-        where the weights are the number of support examples for each class. This is useful when the number of
-        support examples for each class is small.
+        The shared covariance is the within-class covariance pooled over the
+        classes, each class weighted by its degrees of freedom: the sum over the
+        classes of ``(n_k - 1) * C_k``, divided by ``N - K``. ``C_k`` is the
+        covariance of class ``k``, ``n_k`` its number of support embeddings, ``N``
+        the number of support embeddings of the classes in ``class_cov_dict``
+        and ``K`` the number of those classes.
 
         Parameters
         ----------
         class_cov_dict : OrderedDict[int, torch.Tensor]
-            A dictionary containing each class and the corresponding covariance matrix.
+            A dictionary containing each class and the corresponding covariance
+            matrix; every class must be in the support.
         cov_type : CovType
-            Type of covariance to use [unit, diag, full].
+            Type of the covariances: ``CovType.DIAGONAL`` or ``CovType.FULL``.
 
         Returns
         -------
         torch.Tensor
             Tensor containing the shared covariance matrix.
-        """
-        total_support = sum([x.shape[0] for x in class_cov_dict.values()])
 
+        Raises
+        ------
+        ValueError
+            If ``cov_type`` is ``CovType.UNIT``.
+        ValueError
+            If ``cov_type`` is not a ``CovType`` member; beartype refuses it
+            first unless Python runs with ``-O``.
+        ValueError
+            If the model has no support embeddings.
+        ValueError
+            If a label in ``class_cov_dict`` has no support embeddings.
+        ValueError
+            If the classes in ``class_cov_dict`` have no more support embeddings
+            than there are classes (``N - K < 1``), as for an empty
+            ``class_cov_dict`` or classes of one support embedding each.
+        """
         if cov_type == CovType.FULL:
             shared_covariance = torch.zeros(
                 (self.emb_out_dim, self.emb_out_dim), device=self.device
@@ -573,21 +591,49 @@ class Protonet(torch.nn.Module):
         elif cov_type == CovType.DIAGONAL:
             shared_covariance = torch.zeros(self.emb_out_dim, device=self.device)
         else:
+            shown = (
+                f"CovType.{cov_type.name}"
+                if isinstance(cov_type, CovType)
+                else _shown(cov_type)
+            )
             raise ValueError(
-                "Shared covariance can only be used with FULL or DIAGONAL (not UNIT) covariance types"
+                "compute_shared_covariance pools DIAGONAL or FULL covariances; got "
+                f"{shown}. Pass CovType.DIAGONAL or CovType.FULL."
             )
 
-        for label in class_cov_dict:
-            num_class_support = class_cov_dict[label].shape[0]
+        if not self.support_embeddings:
+            raise ValueError(
+                "compute_shared_covariance pools the covariances of the support "
+                "classes, and the model has no support; call update_support first."
+            )
+
+        missing = [
+            label for label in class_cov_dict if label not in self.support_embeddings
+        ]
+        if missing:
+            raise ValueError(
+                f"class_cov_dict has labels {missing}, which have no support "
+                "embeddings; pass the covariances of the support classes "
+                f"{list(self.support_embeddings)}."
+            )
+
+        total_support = 0
+        for label, class_covariance in class_cov_dict.items():
+            num_class_support = self.support_embeddings[label].shape[0]
+            total_support += num_class_support
             shared_covariance = (
-                shared_covariance + (num_class_support - 1) * class_cov_dict[label]
-            )  # undo N-1 div from cov
+                shared_covariance + (num_class_support - 1) * class_covariance
+            )
 
-        shared_covariance = shared_covariance / (
-            total_support - 1
-        )  # redo N-1 div for shared cov
+        if total_support - len(class_cov_dict) < 1:
+            raise ValueError(
+                "compute_shared_covariance divides by the number of support examples "
+                f"minus the number of classes, {total_support} - {len(class_cov_dict)} "
+                "here; pooling needs more support examples than classes; pass the "
+                "covariances of classes with at least 2 support examples."
+            )
 
-        return shared_covariance
+        return shared_covariance / (total_support - len(class_cov_dict))
 
     @icontract.require(lambda X_embed, mu: X_embed.shape[-1] == mu.shape[-1])
     @icontract.ensure(lambda result: torch.all(result >= 0))

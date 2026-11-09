@@ -400,6 +400,23 @@
   only by attribute) left the class covariances unregularized. It now raises
   `ValueError` naming the two accepted values, also when set by attribute on
   the model's `Protonet`, at its next covariance computation.
+- With `cov_reg_type="shared"`, the covariance pooled over the classes
+  weighted every class equally and divided by the wrong count (#180): it took
+  each class's number of support examples from its covariance's first
+  dimension, which is the embedding width. It is now the pooled within-class
+  covariance: each class covariance weighted by the class's number of support
+  examples minus one, divided by the total number of support examples minus
+  the number of classes. With equal class supports the old shared covariance
+  was smaller by the factor `K(D - 1) / (KD - 1)` (`K` classes, embedding
+  width `D`), which changed its blend with each class covariance; with uneven
+  supports (after `update_support` or `load`) the classes were also weighted
+  wrongly. Training, predicted classes and OOD scores of models using
+  `"shared"` can change. Called directly on the model's `Protonet`
+  (`model.model.compute_shared_covariance`), it now raises `ValueError` for
+  a model without a support, a class that is not in the support, and classes
+  with no more support examples than classes (such as an empty dict), where
+  it returned a value computed without the support or, for an empty dict,
+  zeros.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

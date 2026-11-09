@@ -1116,9 +1116,10 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If the model has no support, or, in eval mode, the embeddings of
-            ``X`` hold a NaN or infinite value.
+            If ``X`` is empty, the model has no support, or, in eval mode, the
+            embeddings of ``X`` hold a NaN or infinite value.
         """
+        _require_examples(X, "forward")
         preds, dists = self.model(X)
         if self.use_temperature:
             preds = torch.softmax(torch.negative(dists / self.temperature), dim=1)
@@ -1671,7 +1672,7 @@ class EquineProtonet(Equine):
             If ``X`` is empty, its embeddings hold a NaN or infinite value, or a
             support label has no outlier-score KDE.
         """
-        _require_examples(X)
+        _require_examples(X, "predict")
         # One embedding pass, under no_grad.
         with _eval_mode(self), torch.no_grad():
             preds, dists, X_embed = self.model._forward_with_embeddings(X)

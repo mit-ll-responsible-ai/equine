@@ -40,11 +40,15 @@ def load_equine_model(
 
     Raises
     ------
+    LegacyFormatError
+        If the file is a PyTorch archive or a pickle, as files saved by EQUINE
+        0.1.x are (see ``equine.utils.load_checkpoint``); a ``ValueError``.
+        Rewrite a file from EQUINE 0.1.x once with ``python -m equine.upgrade``.
     ValueError
         If the model type is missing or unknown, the file is not in the
-        current EQUINE format (files from earlier releases must first be
-        rewritten with ``python -m equine.upgrade``), it stores its embedding
-        model as TorchScript, or its recipe names an unregistered architecture.
+        current EQUINE format, it stores its embedding model as TorchScript
+        (rewrite it once with ``python -m equine.upgrade``), or its recipe
+        names an unregistered architecture.
         If ``device`` is unavailable here, names an
         index at or above its device count, or lacks a dtype the file holds
         (float64 on MPS: load such a file with ``device="cpu"``).

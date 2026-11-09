@@ -1097,6 +1097,9 @@ class EquineProtonet(Equine):
         """
         Generates class probabilities based on the input tensor.
 
+        Computes in the mode the caller left the model in (via
+        ``train()``/``eval()``), with autograd.
+
         Parameters
         ----------
         X : torch.Tensor
@@ -1106,7 +1109,9 @@ class EquineProtonet(Equine):
         -------
         torch.Tensor
             Class probabilities: the softmax of the negated distances to the
-            class prototypes.
+            class prototypes, with the distances divided by ``temperature``
+            first when ``use_temperature`` is True. In eval mode, equal to
+            ``predict(X).classes``.
 
         Raises
         ------
@@ -1114,7 +1119,9 @@ class EquineProtonet(Equine):
             If the model has no support, or, in eval mode, the embeddings of
             ``X`` hold a NaN or infinite value.
         """
-        preds, _ = self.model(X)
+        preds, dists = self.model(X)
+        if self.use_temperature:
+            preds = torch.softmax(torch.negative(dists / self.temperature), dim=1)
         return preds
 
     def train_model(

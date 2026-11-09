@@ -361,6 +361,26 @@ def test_temperature_restarts_rounded_through_the_default_dtype() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "use_temperature", [True, False], ids=["use_temperature", "no_temperature"]
+)
+@pytest.mark.parametrize("single", [False, True], ids=["batch", "single_example"])
+def test_forward_equals_predict_classes(use_temperature, single) -> None:
+    """In eval mode, ``model(X)`` equals ``predict(X).classes`` on a model whose
+    temperature is 2.5: both divide the distances by it when ``use_temperature``
+    is True, and neither does when it is False. ``model(X)`` records autograd."""
+    model, x, _ = quick_protonet(use_temperature=use_temperature)
+    model.eval()
+    with torch.no_grad():
+        model.temperature.fill_(2.5)
+    rows = x[0] if single else x
+    probabilities = model(rows)
+    assert probabilities.requires_grad
+    torch.testing.assert_close(
+        probabilities, model.predict(rows).classes, atol=0, rtol=0
+    )
+
+
 @given(random_dataset=random_dataset())
 @settings(deadline=None, max_examples=1)
 def test_predict_fail_before_training(random_dataset):

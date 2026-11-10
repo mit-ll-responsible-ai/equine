@@ -2107,7 +2107,7 @@ EquineOutput object that contains both the class probabilities
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
-<span class="sd">        Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the</span>
+<span class="sd">        Upon implementation, predicts the class probabilities and out-of-distribution (ood) scores for the</span>
 <span class="sd">        given input data.</span>
 
 <span class="sd">        Parameters</span>
@@ -2717,7 +2717,7 @@ of torch.nn.Module.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the
+        <p>Upon implementation, predicts the class probabilities and out-of-distribution (ood) scores for the
 given input data.</p>
 
 
@@ -2801,7 +2801,7 @@ given input data.</p>
 <span class="normal">223</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Upon implementation, predicts the class logits and out-of-distribution (ood) scores for the</span>
+<span class="sd">    Upon implementation, predicts the class probabilities and out-of-distribution (ood) scores for the</span>
 <span class="sd">    given input data.</span>
 
 <span class="sd">    Parameters</span>

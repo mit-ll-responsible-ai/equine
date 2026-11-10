@@ -4,8 +4,8 @@
 """Cross-version compatibility: files saved by an earlier code version load, or are
 upgraded with ``equine.upgrade``, and keep producing the same predictions.
 
-tests/fixtures/*_v4*.eq are fixed format-4, float32 files holding the models that
-the ``fixture_*`` functions in golden_data build. tests/fixtures/*_0_1_8.eq are files
+tests/fixtures/*_v4*.eq are fixed format-4, float32 files saved from the recipes
+of the ``fixture_*`` functions in golden_data; they are checked as stored. tests/fixtures/*_0_1_8.eq are files
 saved by EQUINE 0.1.8's own save(), with the script in golden_data's
 ``FIXTURES_0_1_8_SCRIPT``; their test upgrades a copy.
 
@@ -87,6 +87,18 @@ def test_v4_fixture_loads_and_predicts_the_same(name) -> None:
     assert torch.allclose(
         out.ood_scores, torch.tensor(EXPECTED[name]["ood_scores"]), atol=1e-5, rtol=0
     )
+
+
+@pytest.mark.parametrize("name", ["protonet", "protonet_nondefault"])
+def test_v4_protonet_fixture_without_head_weights_loads_the_identity_head(name) -> None:
+    """The format-4 Protonet fixtures hold no head weights; each loads with the
+    identity head."""
+    path = _fixture(FIXTURE_FILES[name][0])
+    assert _model_file.read(path)["model_head_save"] == {}
+    head = eq.load_equine_model(path).model.model_head
+    assert isinstance(head, torch.nn.Linear)
+    assert torch.equal(head.weight, torch.eye(3))
+    assert torch.equal(head.bias, torch.zeros(3))
 
 
 @pytest.mark.parametrize("name", list(FIXTURES_0_1_8))

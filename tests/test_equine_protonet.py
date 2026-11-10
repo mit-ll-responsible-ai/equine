@@ -313,8 +313,8 @@ def test_train_episodes(random_dataset, num_episodes, num_deep_features, kwargs)
 
 
 # The calibrated temperature of ``_float64_protonet_with_temperature(2)``,
-# pinned on the CPU with torch 2.9.1.
-_BASE_CALIBRATED_TEMPERATURE = 0.8800012564399848
+# pinned on the CPU with torch 2.14.1.
+_BASE_CALIBRATED_TEMPERATURE = 0.8800012210563728
 
 
 def _float64_protonet_with_temperature(

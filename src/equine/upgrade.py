@@ -78,10 +78,10 @@ _DEPRECATION = (
     "with this release."
 )
 
-_HEAD_NOTE = (
-    "The file held the weights of a Linear head, which EQUINE <= 0.1.6 saved; the "
-    "head is now an Identity, so those weights were dropped and "
-    "predictions can differ from those of the EQUINE version that saved the file."
+_EMB_OUT_DIM_NOTE = (
+    "The file's settings['emb_out_dim'] was 1 while its embedding model outputs "
+    "{width} features; it was set to {width}, the number of features "
+    "EquineProtonet's model head takes."
 )
 
 _NOTHING_TO_COMPARE_ERROR = (
@@ -176,10 +176,9 @@ def _load_archive(archive: Any) -> torch.nn.Module:
         ) from err
 
 
-def _current_layout(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """The checkpoint rewritten with plain values only, minus its embedding, plus notes."""
+def _current_layout(checkpoint: dict[str, Any]) -> dict[str, Any]:
+    """The checkpoint rewritten with plain values only, minus its embedding."""
     out = dict(checkpoint)
-    notes: list[str] = []
     out.pop("embed_jit_save", None)
     out.pop("contains_executable", None)
     out["equine_format_version"] = EQUINE_FORMAT_VERSION
@@ -199,10 +198,6 @@ def _current_layout(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], list[st
             int(label): _kde_to_state(kde) if isinstance(kde, gaussian_kde) else kde
             for label, kde in out["outlier_kde"].items()
         }
-    head = out.get("model_head_save")
-    if isinstance(head, dict) and set(head) == {"weight", "bias"}:
-        out["model_head_save"] = {}
-        notes.append(_HEAD_NOTE)
     for key in ("feature_names", "label_names"):
         names = out.get(key)
         if isinstance(names, (list, tuple)) or (
@@ -211,7 +206,37 @@ def _current_layout(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], list[st
             out[key] = [str(name) for name in names]
     if "train_summary" in out:
         out["train_summary"] = _plain(out["train_summary"])
-    return out, notes
+    return out
+
+
+def _match_emb_out_dim(
+    current: dict[str, Any], embedding: torch.nn.Module, notes: list[str]
+) -> None:
+    """
+    Set a checkpoint's ``settings['emb_out_dim']`` of 1 to the number of features
+    ``embedding`` outputs for the first support row, with a note. The settings are
+    left as they are when the embedding raises on that row.
+    """
+    settings = current.get("settings")
+    support = current.get("support")
+    rows: Any = (
+        next(iter(support.values()), None) if isinstance(support, dict) else None
+    )
+    if (
+        not isinstance(settings, dict)
+        or type(settings.get("emb_out_dim")) is not int
+        or settings["emb_out_dim"] != 1
+        or not _has_rows(rows)
+    ):
+        return
+    try:
+        probe = _embed(embedding, rows[:1])
+    except Exception:
+        return
+    width = probe.shape[-1] if probe.dim() > 0 else 1
+    if width != 1:
+        settings["emb_out_dim"] = width
+        notes.append(_EMB_OUT_DIM_NOTE.format(width=width))
 
 
 def _attribute_tensor(module: Any, key: str) -> torch.Tensor | None:
@@ -720,7 +745,8 @@ def _upgrade(
             "EQUINE version the upgrade converts. Save the model again with this "
             "EQUINE, or retrain it."
         )
-    current, notes = _current_layout(checkpoint)
+    current = _current_layout(checkpoint)
+    notes: list[str] = []
     blocks = _comparison_blocks(current, check_inputs)
     if not blocks:
         if not allow_unchecked:
@@ -729,6 +755,7 @@ def _upgrade(
     scripted = _load_archive(checkpoint["embed_jit_save"])
     embedding_model.load_state_dict(_weights_from_archive(scripted, embedding_model))
     current.update(_embedding_checkpoint(embedding_model))
+    _match_emb_out_dim(current, embedding_model, notes)
     try:
         _model_file.encode(
             {key: current[key] for key in ("embedding_recipe", "embedding_state_dict")}
@@ -822,9 +849,9 @@ def upgrade_model_file(
     FutureWarning
         When the file's embedding is TorchScript: reading these files is deprecated.
     UserWarning
-        When Linear-head weights were dropped, when ``allow_unchecked`` let
-        the upgrade write a file whose embedding was not compared, or when
-        the permission bits could not be copied.
+        When an ``emb_out_dim`` of 1 was set to the embedding's output width, when
+        ``allow_unchecked`` let the upgrade write a file whose embedding was not
+        compared, or when the permission bits could not be copied.
     """
     checkpoint = _read_safely(path)
     if checkpoint is not None and not _holds_torchscript(checkpoint):

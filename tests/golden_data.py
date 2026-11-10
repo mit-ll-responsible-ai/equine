@@ -135,7 +135,7 @@ def fixture_query_batch() -> torch.Tensor:
 def fixture_protonet() -> eq.EquineProtonet:
     """Builds the float32 model stored in tests/fixtures/protonet_v2.eq."""
     torch.manual_seed(0)
-    model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3)
+    model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
         fixture_dataset(),
         num_episodes=20,
@@ -179,6 +179,7 @@ def fixture_protonet_nondefault() -> eq.EquineProtonet:
         use_temperature=True,
         feature_names=FEATURE_NAMES,
         label_names=LABEL_NAMES,
+        ood_distance="rmd_sqrt",
     )
     model.train_model(
         fixture_dataset(),

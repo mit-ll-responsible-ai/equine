@@ -1667,25 +1667,43 @@ def test_gp_malformed_settings_are_refused_before_construction(
         eq.EquineGP.load(path)
 
 
-def test_protonet_head_weights_must_match_its_identity_head(
-    tmp_path, monkeypatch
-) -> None:
-    model, _ = train_protonet(BasicEmbeddingModel(6, 3))
+@pytest.mark.parametrize(
+    "head",
+    [
+        {"weight": torch.eye(3)},
+        {"weight": torch.eye(4), "bias": torch.zeros(4)},
+        {"weight": torch.eye(3, dtype=torch.int64), "bias": torch.zeros(3)},
+        {"weight": torch.eye(3), "bias": torch.zeros(3), "scale": torch.ones(1)},
+        {"weight": torch.eye(3), "bias": torch.zeros(3), "_extra_state": torch.ones(1)},
+    ],
+    ids=["missing-bias", "wrong-shape", "integer-weight", "extra-key", "extra-state"],
+)
+def test_protonet_head_weights_must_match_the_model_head(tmp_path, head) -> None:
+    """Head weights that the model head does not take are refused with the repair;
+    saving the model again writes a file that loads."""
+    model, X = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    _rewrite(path, model_head_save={"weight": torch.zeros(3, 3)})
-    monkeypatch.setattr(eq.EquineProtonet, "__init__", _refuse_construction)
+    _rewrite(path, model_head_save=head)
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="model_head_save does not match"):
+        with pytest.raises(
+            ValueError,
+            match=r"model_head_save does not match the model head its settings build "
+            r"\(.+\); the file was not written by save\(\) or was changed after\. "
+            "Save the model again",
+        ):
             loader(path)
+    model.save(path)
+    assert_same(model, eq.EquineProtonet.load(path), X)
 
 
-@pytest.mark.parametrize("emb_out_dim", [10**9, 4, 2, 0])
+@pytest.mark.parametrize("emb_out_dim", [10**9, 4, 2, 1, 0])
 def test_protonet_emb_out_dim_is_bounded_by_the_embedding_output(
     tmp_path, monkeypatch, emb_out_dim
 ) -> None:
-    """update_support allocates torch.ones(emb_out_dim); the embedding here
-    outputs 3 features."""
+    """The model head holds emb_out_dim x emb_out_dim weights; the embedding here
+    outputs 3 features, and any other emb_out_dim is refused before the model is
+    built."""
     model, X = train_protonet(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
@@ -1693,13 +1711,14 @@ def test_protonet_emb_out_dim_is_bounded_by_the_embedding_output(
     ckpt["settings"]["emb_out_dim"] = emb_out_dim
     _model_file.write(path, ckpt)
 
-    def refuse(self, support) -> None:
-        raise AssertionError("update_support ran before emb_out_dim was checked")
-
     with monkeypatch.context() as patch:
-        patch.setattr(equine.equine_protonet.Protonet, "update_support", refuse)
+        patch.setattr(eq.EquineProtonet, "__init__", _refuse_construction)
         for loader in (eq.EquineProtonet.load, eq.load_equine_model):
-            with pytest.raises(ValueError, match="emb_out_dim"):
+            with pytest.raises(
+                ValueError,
+                match=r"settings\['emb_out_dim'\] (is not the 3 features its "
+                r"embedding model outputs|must be)",
+            ):
                 loader(path)
 
     ckpt["settings"]["emb_out_dim"] = 3

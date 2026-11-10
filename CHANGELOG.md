@@ -11,9 +11,10 @@
   the outlier scores, so the whole support is kept and the split is
   reproducible. Keyword-only; both or neither.
 - **`EquineProtonet(min_kde_samples=k)`**: a class with fewer than `k`
-  calibration examples, or whose calibration OOD distances are all equal (a
-  single example always is), shares one outlier-score KDE fitted on every
-  calibration example, in `update_support` and `train_model`. In 0.1.8 a
+  calibration examples, or whose calibration OOD distances are equal up to
+  rounding (as defined under Fixed; a single example's always are), shares
+  one outlier-score KDE fitted on every calibration example, in
+  `update_support` and `train_model`. In 0.1.8 a
   class with fewer than 2 calibration examples or equal distances failed
   with a scipy error; `None` (the default) refuses such a class with a
   message naming it. With a UNIT `pred_cov_type`, `update_support` accepts a
@@ -470,8 +471,14 @@
   predicted uniform probabilities. `train_model` now refuses a `support_size`
   below 2 (#193).
 - Fitting a Protonet's outlier scores raises `ValueError` naming the class when
-  all its calibration examples have the same OOD distance, instead of a scipy
-  `LinAlgError`.
+  its calibration OOD distances are equal up to rounding: when they span at
+  most 64 times the machine epsilon of their dtype times the largest magnitude
+  among the distances they are computed from (with `relative_mahal`, the
+  distance to the predicted class prototype and the distance to the mean of
+  the support embeddings, both squared for `"rmd_sq"`; without it, the
+  distance to the predicted class prototype). 0.1.8 raised scipy's
+  `LinAlgError` when the distances were equal and fitted a KDE on distances
+  within that span (#328).
 - `save` on a model that was never trained wrote a file that `load` refused; it
   now raises `RuntimeError` and writes nothing (#218).
 - `predict` on an empty batch raised an icontract error (Protonet) or returned

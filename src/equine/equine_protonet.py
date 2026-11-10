@@ -78,6 +78,9 @@ class CovType(Enum):
 PRED_COV_TYPE = CovType.DIAGONAL
 OOD_COV_TYPE = CovType.DIAGONAL
 DEFAULT_EPSILON = 1e-5
+# OOD distances that span at most this many machine epsilons of the largest
+# distance they are computed from count as equal.
+_SPREAD_EPSILONS = 64
 
 
 def _kde_to_state(kde: gaussian_kde) -> dict[str, Any]:
@@ -99,6 +102,16 @@ def _upper_tail(z: torch.Tensor, weights: torch.Tensor, uniform: bool) -> torch.
     if uniform:
         return upper.mean(dim=1)
     return (upper @ weights).clamp(0.0, 1.0)
+
+
+def _equal_up_to_rounding(dists: torch.Tensor, magnitudes: torch.Tensor) -> bool:
+    """
+    Whether ``dists`` span (largest minus smallest) at most ``_SPREAD_EPSILONS``
+    times the machine epsilon of their dtype times the largest of ``magnitudes``.
+    """
+    eps = torch.finfo(dists.dtype).eps
+    tolerance = _SPREAD_EPSILONS * eps * float(magnitudes.max())
+    return float(dists.max() - dists.min()) <= tolerance
 
 
 class _OutlierGrid:
@@ -961,10 +974,17 @@ class EquineProtonet(Equine):
             (DIAGONAL).
         min_kde_samples : int, optional
             None (the default) fits one outlier-score KDE per class and refuses a
-            class with fewer than 2 calibration examples or equal OOD distances.
-            An int pools instead: a class with fewer than ``min_kde_samples``
-            calibration examples, or whose distances are all equal (a single
-            example always is), shares one KDE fitted on every calibration example.
+            class with fewer than 2 calibration examples or with OOD distances that
+            are equal up to rounding: that span (largest minus smallest) at most 64
+            times the machine epsilon of their dtype times the largest magnitude
+            among the distances they are computed from (with ``relative_mahal``,
+            the distance to the predicted class prototype and the distance to the
+            mean of the support embeddings, both squared for ``"rmd_sq"``; without
+            it, the distance to the predicted class prototype). An int pools
+            instead: a class with fewer than ``min_kde_samples`` calibration
+            examples, or whose distances are equal up to rounding (a single
+            example's always are), shares one KDE fitted on every calibration
+            example.
         cov_reg_type : str, optional
             How the class covariances are regularized, by default ``"epsilon"``.
             ``"epsilon"`` adds ``DEFAULT_EPSILON`` to the variances of each
@@ -1199,8 +1219,8 @@ class EquineProtonet(Equine):
             bool ``calibration_lr``, raises it under ``python -O`` only. Also, after
             training, if a calibration example's embedding or OOD distance holds a
             NaN or infinite value, or a class's calibration examples all have the
-            same OOD distance; the model is then trained but its outlier scores are
-            not refitted.
+            same OOD distance up to rounding (see ``min_kde_samples``); the model is
+            then trained but its outlier scores are not refitted.
         beartype.roar.BeartypeCallHintParamViolation
             If ``calib_frac`` or ``calibration_lr`` is not a float (an ``int``
             included, and a bool ``calibration_lr``), or ``num_calibration_epochs``
@@ -1298,8 +1318,10 @@ class EquineProtonet(Equine):
             pred_probs, dists, X_embed = self.model._forward_with_embeddings(
                 model_calib_x
             )
-            ood_dists = self._compute_ood_dist(X_embed, pred_probs, dists)
-            self._fit_outlier_scores(ood_dists, model_calib_y)
+            ood_dists, magnitudes = self._ood_dist_and_magnitude(
+                X_embed, pred_probs, dists
+            )
+            self._fit_outlier_scores(ood_dists, model_calib_y, magnitudes)
 
         if self.use_temperature:
             self.calibrate_temperature(
@@ -1384,7 +1406,10 @@ class EquineProtonet(Equine):
 
     @icontract.ensure(lambda self: len(self.model.support_embeddings) > 0)
     def _fit_outlier_scores(
-        self, ood_dists: torch.Tensor, calib_y: torch.Tensor
+        self,
+        ood_dists: torch.Tensor,
+        calib_y: torch.Tensor,
+        ood_magnitudes: torch.Tensor,
     ) -> None:
         """
         Private function to fit outlier scores with a kernel density estimate (KDE).
@@ -1399,6 +1424,9 @@ class EquineProtonet(Equine):
         calib_y : torch.Tensor
             Tensor of class labels for `ood_dists` examples. Every class needs
             at least 2 examples when ``min_kde_samples`` is None.
+        ood_magnitudes : torch.Tensor
+            Per example of `ood_dists`, the largest magnitude among the distances
+            its OOD distance is computed from (``_ood_dist_and_magnitude``).
 
         Returns
         -------
@@ -1407,12 +1435,13 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If a class's OOD distances include a NaN or infinite value or are all
-            equal (with ``min_kde_samples`` None), or fitting a KDE fails; no KDE is
-            changed then.
+            If a class's OOD distances include a NaN or infinite value or are equal
+            up to rounding (``_equal_up_to_rounding`` with the class's
+            ``ood_magnitudes``; with ``min_kde_samples`` None), or fitting a KDE
+            fails; no KDE is changed then.
         """
         if self.min_kde_samples is not None:
-            self._fit_pooled_outlier_scores(ood_dists, calib_y)
+            self._fit_pooled_outlier_scores(ood_dists, calib_y, ood_magnitudes)
             return
         class_ood_dists = OrderedDict(
             (label, ood_dists[calib_y == int(label)])
@@ -1424,11 +1453,15 @@ class EquineProtonet(Equine):
                     f"A calibration example of class {label} has a NaN or infinite "
                     "OOD distance; fitting its outlier score needs finite values."
                 )
-            if bool((dists == dists[0]).all()):
+            if _equal_up_to_rounding(dists, ood_magnitudes[calib_y == int(label)]):
                 raise ValueError(
                     f"Every calibration example of class {label} has the same OOD "
-                    f"distance ({dists[0].item()}); fitting its outlier score needs "
-                    "at least 2 distinct values."
+                    f"distance up to rounding ({float(dists.min())} to "
+                    f"{float(dists.max())}); fitting its outlier score needs "
+                    f"distances that differ by more. Give class {label} calibration "
+                    "examples with different OOD distances (calib_x and calib_y, or a "
+                    "larger calib_frac), or build the model with min_kde_samples to "
+                    "share the pooled KDE."
                 )
         # TODO convert to torch func
         fitted = OrderedDict(
@@ -1439,18 +1472,23 @@ class EquineProtonet(Equine):
         self._outlier_grids = {}
 
     def _fit_pooled_outlier_scores(
-        self, ood_dists: torch.Tensor, calib_y: torch.Tensor
+        self,
+        ood_dists: torch.Tensor,
+        calib_y: torch.Tensor,
+        ood_magnitudes: torch.Tensor,
     ) -> None:
         """
-        Fit one KDE per class with enough calibration examples, and share one KDE
-        fitted on every calibration example among the rest (``min_kde_samples``).
+        Fit one KDE per class with at least ``min_kde_samples`` calibration
+        examples whose OOD distances are not equal up to rounding
+        (``_equal_up_to_rounding`` with the class's ``ood_magnitudes``), and share
+        one KDE fitted on every calibration example among the rest.
 
         Raises
         ------
         ValueError
             If an OOD distance is NaN or infinite, or there are fewer than 2
-            calibration examples or all have the same OOD distance; no KDE is
-            changed then.
+            calibration examples or all their OOD distances are equal up to
+            rounding (with all of ``ood_magnitudes``); no KDE is changed then.
         """
         if not bool(torch.isfinite(ood_dists).all()):
             raise ValueError(
@@ -1458,19 +1496,21 @@ class EquineProtonet(Equine):
                 "the outlier scores needs finite values. Check the embedding model's "
                 "output for the calibration examples."
             )
-        if len(ood_dists) < 2 or bool((ood_dists == ood_dists[0]).all()):
+        if len(ood_dists) < 2 or _equal_up_to_rounding(ood_dists, ood_magnitudes):
             raise ValueError(
-                "The pooled outlier-score KDE needs at least 2 distinct calibration "
-                "OOD distances; give more calibration examples with different OOD "
-                "distances (calib_x and calib_y, or a larger calib_frac)."
+                "The pooled outlier-score KDE needs at least 2 calibration OOD "
+                "distances that differ by more than rounding; give more calibration "
+                "examples with different OOD distances (calib_x and calib_y, or a "
+                "larger calib_frac)."
             )
         assert self.min_kde_samples is not None
         pooled = gaussian_kde(ood_dists.cpu().detach().numpy())
         fitted: OrderedDict[int, gaussian_kde] = OrderedDict()
         for label in self.model.support_embeddings.keys():
-            dists = ood_dists[calib_y == int(label)]
-            if len(dists) >= self.min_kde_samples and not bool(
-                (dists == dists[0]).all()
+            rows = calib_y == int(label)
+            dists = ood_dists[rows]
+            if len(dists) >= self.min_kde_samples and not _equal_up_to_rounding(
+                dists, ood_magnitudes[rows]
             ):
                 fitted[label] = gaussian_kde(dists.cpu().detach().numpy())
             else:
@@ -1606,6 +1646,21 @@ class EquineProtonet(Equine):
         torch.Tensor
             Tensor of OOD distances for the given embeddings.
         """
+        return self._ood_dist_and_magnitude(X_embeddings, predictions, distances)[0]
+
+    def _ood_dist_and_magnitude(
+        self,
+        X_embeddings: torch.Tensor,
+        predictions: torch.Tensor,
+        distances: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        The OOD distances of ``_compute_ood_dist`` and, per example, the largest
+        magnitude among the distances its OOD distance is computed from: with
+        ``relative_mahal``, the distance to the predicted class and the distance
+        to the global mean (their squares for ``"rmd_sq"``); otherwise the
+        distance to the predicted class.
+        """
         preds = torch.argmax(predictions, dim=1)
         preds = preds.unsqueeze(dim=-1)
         # Calculate (Relative) Mahalanobis Distance:
@@ -1616,14 +1671,14 @@ class EquineProtonet(Equine):
             null_distance = null_distance.unsqueeze(dim=-1)
             class_distance = distances.gather(1, preds)
             if self.ood_distance == "rmd_sq":
-                ood_dist = class_distance**2 - null_distance**2
-            else:
-                ood_dist = class_distance - null_distance
+                class_distance, null_distance = class_distance**2, null_distance**2
+            ood_dist = class_distance - null_distance
+            magnitude = torch.maximum(class_distance.abs(), null_distance.abs())
         else:
             ood_dist = distances.gather(1, preds)
+            magnitude = ood_dist.abs()
 
-        ood_dist = torch.reshape(ood_dist, (-1,))
-        return ood_dist
+        return torch.reshape(ood_dist, (-1,)), torch.reshape(magnitude, (-1,))
 
     def predict(self, X: torch.Tensor) -> EquineOutput:
         """Predict function for EquineProtonet, inherited and implemented from Equine.
@@ -1749,7 +1804,8 @@ class EquineProtonet(Equine):
             ``min_kde_samples`` None, fewer than 2 calibration examples; or if a
             calibration example's embedding or OOD distance holds a NaN or infinite
             value, or a class's calibration examples all have the same OOD
-            distance. A failed update leaves the model as it was.
+            distance up to rounding (see ``min_kde_samples``). A failed update
+            leaves the model as it was.
         beartype.roar.BeartypeCallHintParamViolation
             If ``calib_frac`` is not a float or None (an ``int`` included), while
             contracts are on.
@@ -1813,8 +1869,10 @@ class EquineProtonet(Equine):
                 with torch.no_grad():
                     self.model.update_support(support)
                     preds, dists, X_embed = self.model._forward_with_embeddings(calib_x)
-                    ood_dists = self._compute_ood_dist(X_embed, preds, dists)
-                    self._fit_outlier_scores(ood_dists, calib_y)
+                    ood_dists, magnitudes = self._ood_dist_and_magnitude(
+                        X_embed, preds, dists
+                    )
+                    self._fit_outlier_scores(ood_dists, calib_y, magnitudes)
             except Exception:
                 vars(self).clear()
                 vars(self).update(state)

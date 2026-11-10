@@ -913,7 +913,7 @@ def test_update_support_leaves_the_model_as_it_was_when_a_later_step_fails(
     support, kdes = model.get_support(), dict(model.outlier_score_kde)
     tensors = stored_tensors(model)
 
-    def fail(ood_dists, calib_y):
+    def fail(ood_dists, calib_y, ood_magnitudes):
         raise ValueError("fitting failed")
 
     monkeypatch.setattr(model, "_fit_outlier_scores", fail)
@@ -944,7 +944,7 @@ def test_outlier_scores_keep_the_kdes_when_a_kde_fit_fails(monkeypatch) -> None:
     ood_dists = torch.tensor([2.0, 3.0, 1.0, 4.0, 5.0, 6.0])
     calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
     with pytest.raises(ValueError, match="fit failed"):
-        model._fit_outlier_scores(ood_dists, calib_y)
+        model._fit_outlier_scores(ood_dists, calib_y, ood_dists.abs())
     assert model.outlier_score_kde == kdes
 
 
@@ -954,7 +954,7 @@ def test_outlier_scores_refuse_a_non_finite_distance_and_keep_the_kdes() -> None
     ood_dists = torch.tensor([2.0, 3.0, 1.0, 4.0, 5.0, float("inf")])
     calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
     with pytest.raises(ValueError, match="class 2 has a NaN or infinite"):
-        model._fit_outlier_scores(ood_dists, calib_y)
+        model._fit_outlier_scores(ood_dists, calib_y, ood_dists.abs())
     assert model.outlier_score_kde == kdes
 
 
@@ -1334,14 +1334,134 @@ def test_calibrate_temperature_refuses_a_wrong_number_type(
     assert model.temperature.item() != 0.5
 
 
-def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes() -> None:
+_REFUSED_CLASS_1 = (
+    r"^Every calibration example of class 1 has the same OOD distance up to "
+    r"rounding \(\S+ to \S+\); fitting its outlier score needs distances that "
+    r"differ by more\. Give class 1 calibration examples with different OOD "
+    r"distances \(calib_x and calib_y, or a larger calib_frac\), or build the "
+    r"model with min_kde_samples to share the pooled KDE\.$"
+)
+
+
+@pytest.mark.parametrize("value", [1.0, 0.0], ids=["one", "zero"])
+def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes(value) -> None:
     model, _, _ = quick_protonet()
     kdes = dict(model.outlier_score_kde)
-    ood_dists = torch.tensor([2.0, 3.0, 1.0, 1.0, 4.0, 5.0])
+    ood_dists = torch.tensor([2.0, 3.0, value, value, 4.0, 5.0])
     calib_y = torch.tensor([0, 0, 1, 1, 2, 2])
-    with pytest.raises(ValueError, match="calibration example of class 1"):
-        model._fit_outlier_scores(ood_dists, calib_y)
+    with pytest.raises(ValueError, match=_REFUSED_CLASS_1):
+        model._fit_outlier_scores(ood_dists, calib_y, ood_dists.abs())
     assert model.outlier_score_kde == kdes
+
+
+# The magnitude of the distances class 1's OOD distances are computed from, and
+# its first OOD distance.
+_ROUNDING_CASES = {
+    "at -1": (1.0, -1.0),
+    "near 0": (8.0, 0.0),
+    "at -2**20": (2.0**20, -(2.0**20)),
+}
+
+
+def _class_1_at_the_tolerance(dtype, case, wider):
+    """OOD distances, their magnitudes and labels for classes 0, 1 and 2, three
+    examples each. Class 1's magnitudes are half, all and a quarter of
+    ``magnitude``, and its distances span exactly 64 machine epsilons of
+    ``dtype`` times ``magnitude``, or one representable value more when
+    ``wider``; classes 0 and 2 are their own magnitudes."""
+    magnitude, first = _ROUNDING_CASES[case]
+    tolerance = 64 * torch.finfo(dtype).eps * magnitude
+    last = torch.tensor(first + tolerance, dtype=dtype)
+    assert float(last) - first == tolerance
+    if wider:
+        last = torch.nextafter(last, torch.tensor(math.inf, dtype=dtype))
+    ood_dists = torch.cat(
+        [
+            torch.tensor([2.0, 3.0, 4.0, first, first], dtype=dtype),
+            last.reshape(1),
+            torch.tensor([5.0, 6.0, 7.0], dtype=dtype),
+        ]
+    )
+    magnitudes = ood_dists.abs()
+    magnitudes[3:6] = torch.tensor([magnitude / 2, magnitude, magnitude / 4])
+    calib_y = torch.tensor([0, 0, 0, 1, 1, 1, 2, 2, 2])
+    return ood_dists, magnitudes, calib_y
+
+
+@pytest.mark.parametrize("case", list(_ROUNDING_CASES))
+@pytest.mark.parametrize(
+    "dtype", [torch.float32, torch.float64], ids=["float32", "float64"]
+)
+def test_outlier_scores_refuse_distances_equal_up_to_rounding(dtype, case) -> None:
+    """A class whose OOD distances span exactly 64 machine epsilons of their
+    magnitude is refused and the KDEs are kept; one representable value wider,
+    its KDE is fitted on them."""
+    model, _, _ = quick_protonet()
+    kdes = dict(model.outlier_score_kde)
+    ood_dists, magnitudes, calib_y = _class_1_at_the_tolerance(dtype, case, False)
+    with pytest.raises(ValueError, match=_REFUSED_CLASS_1):
+        model._fit_outlier_scores(ood_dists, calib_y, magnitudes)
+    assert model.outlier_score_kde == kdes
+    ood_dists, magnitudes, calib_y = _class_1_at_the_tolerance(dtype, case, True)
+    model._fit_outlier_scores(ood_dists, calib_y, magnitudes)
+    assert model.outlier_score_kde[1].dataset[0].tolist() == ood_dists[3:6].tolist()
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [dict(), dict(ood_distance="rmd_sqrt"), dict(relative_mahal=False)],
+    ids=["rmd_sq", "rmd_sqrt", "plain"],
+)
+def test_ood_magnitudes_are_the_distances_each_ood_distance_subtracts(setting) -> None:
+    """``_ood_dist_and_magnitude`` returns ``_compute_ood_dist``'s distances and,
+    per example, the larger magnitude of the class distance and the distance to
+    the support mean (squared for "rmd_sq"); without relative_mahal, the class
+    distance."""
+    model, x, _ = quick_protonet(**setting)
+    with torch.no_grad():
+        preds, dists, embeddings = model.model._forward_with_embeddings(x)
+        ood_dists, magnitudes = model._ood_dist_and_magnitude(embeddings, preds, dists)
+        class_distance = dists.gather(1, preds.argmax(dim=1, keepdim=True)).flatten()
+        null_distance = model.model.compute_distance(
+            embeddings, model.model.global_mean, model.model.global_covariance
+        ).flatten()
+    assert torch.equal(ood_dists, model._compute_ood_dist(embeddings, preds, dists))
+    if "relative_mahal" in setting:
+        expected = class_distance
+    elif "ood_distance" in setting:
+        expected = torch.maximum(class_distance, null_distance)
+    else:
+        expected = torch.maximum(class_distance**2, null_distance**2)
+    assert torch.equal(magnitudes, expected)
+
+
+@pytest.mark.parametrize("method", ["update_support", "train_model"])
+def test_the_calibration_pass_judges_rounding_by_the_ood_magnitudes(
+    monkeypatch, method
+) -> None:
+    """``update_support`` and ``train_model`` pass ``_ood_dist_and_magnitude``'s
+    magnitudes to the fit: OOD distances near 1e-3 that differ by at most 1e-6,
+    computed from distances of magnitude 100, are refused."""
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+
+    def near_one_thousandth(X_embeddings, predictions, distances):
+        steps = torch.linspace(0.0, 1.0, len(X_embeddings), dtype=distances.dtype)
+        ood_dists = 1e-3 + 1e-6 * steps
+        return ood_dists, torch.full_like(ood_dists, 100.0)
+
+    monkeypatch.setattr(model, "_ood_dist_and_magnitude", near_one_thousandth)
+    with pytest.raises(ValueError, match="has the same OOD distance up to rounding"):
+        if method == "update_support":
+            model.update_support(x, y, calib_frac=0.2)
+        else:
+            model.train_model(
+                torch.utils.data.TensorDataset(x, y.float()),
+                num_episodes=0,
+                calib_frac=0.2,
+                support_size=10,
+            )
 
 
 @pytest.mark.parametrize("cov_type", [eq.CovType.DIAGONAL, eq.CovType.FULL])
@@ -2163,8 +2283,8 @@ def test_a_failed_update_support_keeps_the_grids(monkeypatch) -> None:
     kept = dict(grids)
     fit = model._fit_outlier_scores
 
-    def fit_then_fail(ood_dists, calib_y):
-        fit(ood_dists, calib_y)
+    def fit_then_fail(ood_dists, calib_y, ood_magnitudes):
+        fit(ood_dists, calib_y, ood_magnitudes)
         raise ValueError("a later step failed")
 
     monkeypatch.setattr(model, "_fit_outlier_scores", fit_then_fail)

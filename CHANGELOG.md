@@ -613,6 +613,26 @@
   `predict` cannot invert. When the precision holds NaN or infinite values, as
   after training that diverged, `predict` raises an error that says so, where
   the inversion could return a NaN or wrong inverse without an error (#297).
+- `EquineGP.train_model` left a precision matrix built while the weights were
+  still training. The matrix is reset at the start of each epoch, and each
+  training batch adds its features to it before the optimizer step changes
+  the weights. The precision matrix that `predict` inverts for the GP
+  variance and the OOD score was therefore a sum over the last epoch's
+  batches, each computed with different weights, none with the final ones,
+  and with the embedding model in training mode. After the last epoch's
+  training pass, `train_model` now resets the precision matrix and passes
+  every training example through the model once more, in dataset order and
+  in batches of `batch_size`, under `torch.no_grad()` and with no optimizer
+  step. The embedding model runs in eval mode: its BatchNorm statistics stay
+  as training left them and dropout is off. The pass's batch loader draws no
+  number from the global random number generator, and the pass changes no
+  weight. It changes the probabilities and OOD scores that `predict` returns,
+  not the predicted classes. The last epoch's validation metrics are computed
+  after the pass; those of earlier epochs use the precision matrix of their
+  own training pass. A `num_epochs` of 0 or less runs no pass. If the pass
+  raises, the model counts as untrained: `forward`, `predict`,
+  `calibrate_model` and `save` refuse it until `train_model` returns. A loaded
+  model keeps the precision matrix stored in its file (#307).
 - `EquineGP.predict` computed each OOD score in the probabilities' dtype and
   divided it by the entropy of a uniform distribution built in the default
   dtype, and built the jitter added before the precision matrix is inverted in

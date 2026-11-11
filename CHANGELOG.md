@@ -660,8 +660,25 @@
   after the pass; those of earlier epochs use the precision matrix of their
   own training pass. A `num_epochs` of 0 or less runs no pass. If the pass
   raises, the model counts as untrained: `forward`, `predict`,
-  `calibrate_model` and `save` refuse it until `train_model` returns. A loaded
-  model keeps the precision matrix stored in its file (#307).
+  `calibrate_model` and `save` refuse it until a `train_model` that runs at
+  least one epoch returns. A loaded model keeps the precision matrix stored in
+  its file (#307).
+- When an error or a `KeyboardInterrupt` stopped `EquineGP.train_model` in an
+  epoch (in the embedding model, the loss, or the optimizer or scheduler
+  step), the model stayed marked as trained, with every module in training
+  mode and a precision matrix summed over only the batches seen before the
+  error. `predict` returned OOD scores computed from that matrix, or raised an
+  error that named no repair, and `calibrate_model` raised `AssertionError:
+  Did not reset precision matrix at start of epoch`. Now, if anything raises
+  after `train_model` has checked its arguments and moved `val_metrics` to the
+  device, the model counts as untrained: its training parameters are cleared,
+  its precision matrix is reset and every module is in eval mode, so
+  `forward`, `predict`, `calibrate_model` and `save` refuse it with a message
+  that says to call `train_model`, and a `train_model` that runs at least one
+  epoch and returns repairs it. The weights keep the optimizer steps taken
+  before the error. `vis_support=True` with a dataset that has no `tensors` (a
+  `Subset`, for example) raised `AttributeError` after the last epoch; it is
+  now refused with a `ValueError` before training (#343).
 - `EquineGP.predict` computed each OOD score in the probabilities' dtype and
   divided it by the entropy of a uniform distribution built in the default
   dtype, and built the jitter added before the precision matrix is inverted in

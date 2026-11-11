@@ -790,11 +790,11 @@ class EquineGP(Equine):
         ------
         ValueError
             If ``vis_support`` is True and ``support_size`` is not a positive
-            integer; the feature or label names do not match the data or the
-            number of classes; the labels of ``dataset`` are not 1-D, not whole
-            numbers or not class indices (0 to ``num_classes - 1``); or
-            ``batch_size`` is larger than the number of examples in ``dataset``.
-            The model is then unchanged.
+            integer or ``dataset`` has no ``tensors``; the feature or label names
+            do not match the data or the number of classes; the labels of
+            ``dataset`` are not 1-D, not whole numbers or not class indices (0 to
+            ``num_classes - 1``); or ``batch_size`` is larger than the number of
+            examples in ``dataset``. The model is then unchanged.
 
         Notes
         -----
@@ -809,14 +809,31 @@ class EquineGP(Equine):
         through the model once, in dataset order and in batches of ``batch_size``,
         under ``torch.no_grad()``. The embedding model runs in eval mode and only the
         Laplace head adds the features to the precision matrix. The rebuild's batch
-        loader draws no number from the global random number generator. If the
-        rebuild raises, the error propagates and the model counts as untrained:
-        ``forward``, ``predict``, ``calibrate_model`` and ``save`` refuse it until
-        ``train_model`` returns. A ``num_epochs`` of 0 or less runs no epoch and no
-        rebuild, and leaves the precision matrix and the training mode as they were.
+        loader draws no number from the global random number generator. A
+        ``num_epochs`` of 0 or less runs no epoch and no rebuild, and leaves the
+        precision matrix and the training mode as they were.
+
+        The training parameters are set after the argument checks and after
+        ``val_metrics`` are moved to the device; an error before that leaves the
+        model unchanged. If anything raises after that (an epoch, the rebuild, a
+        validation pass, the scheduler, ``update_support`` or the train summary),
+        ``KeyboardInterrupt`` included, the error propagates and the model counts as
+        untrained: its training parameters are cleared, its precision matrix is
+        reset and every module is in eval mode. ``forward``, ``predict``,
+        ``calibrate_model`` and ``save`` then refuse it until a ``train_model``
+        that runs at least one epoch returns. The weights keep the optimizer steps
+        taken before the error.
         """
         if vis_support:
             _positive_int(support_size, "support_size")
+            if not hasattr(dataset, "tensors"):
+                raise ValueError(
+                    "vis_support=True takes the support from dataset.tensors, and "
+                    f"a {type(dataset).__name__} has no tensors; pass a "
+                    "TensorDataset, or pass vis_support=False and call "
+                    "update_support(support_x, support_y, support_size=...) after "
+                    "train_model."
+                )
         self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
         train_y = dataset[:][1]
         _require_whole_number_labels(train_y, None, "dataset labels")
@@ -834,7 +851,6 @@ class EquineGP(Equine):
         if validation_dataset is not None:
             val_loader = _batch_loader(validation_dataset, batch_size, shuffle=False)
 
-        self.model.set_training_params(num_data, batch_size)
         val_metrics_outputs: list[list[Any]] | None = None
 
         if validation_dataset is not None and val_metrics is not None:
@@ -843,64 +859,80 @@ class EquineGP(Equine):
                 metric.to(self.device)
             val_metrics_outputs = [[] for _ in val_metrics]
 
-        train_loss: list[float] = []
-        for epoch in tqdm(range(num_epochs)):
-            self.train()  # wrapper and inner module together
-            self.model.reset_precision_matrix()
-            epoch_loss = torch.zeros((), dtype=torch.float32, device=self.device)
-            num_batches = 0
-            for i, (xs, labels) in enumerate(train_loader):
-                opt.zero_grad()
-                xs = self._input_to_model(xs)
-                labels = labels.to(self.device)
-                yhats = self.model(xs)
-                loss = loss_fn(yhats, labels.to(torch.long))
-                loss.backward()
-                opt.step()
-                value = loss.detach().reshape(())
-                if value.dtype != torch.float64:
-                    value = value.float()
-                epoch_loss = epoch_loss.to(value.device) + value
-                num_batches += 1
-            train_loss.append(epoch_loss.item() / num_batches)
-            if scheduler is not None:
-                scheduler.step()
-            self.eval()
-            if epoch == num_epochs - 1:
-                self._rebuild_precision(dataset, batch_size)
-            # compute the validation metrics
-            if (
-                validation_dataset is not None
-                and val_loader is not None
-                and val_metrics is not None
-                and val_metrics_outputs is not None
-            ):
-                for metric in val_metrics:
-                    metric.reset()
-                for _, (xs_val, labels_val) in enumerate(val_loader):
-                    xs_val = self._input_to_model(xs_val)
-                    labels_val = labels_val.to(self.device)
-                    yhats_val = self.model(xs_val)
+        self.model.set_training_params(num_data, batch_size)
+        try:
+            train_loss: list[float] = []
+            for epoch in tqdm(range(num_epochs)):
+                self.train()  # wrapper and inner module together
+                self.model.reset_precision_matrix()
+                epoch_loss = torch.zeros((), dtype=torch.float32, device=self.device)
+                num_batches = 0
+                for i, (xs, labels) in enumerate(train_loader):
+                    opt.zero_grad()
+                    xs = self._input_to_model(xs)
+                    labels = labels.to(self.device)
+                    yhats = self.model(xs)
+                    loss = loss_fn(yhats, labels.to(torch.long))
+                    loss.backward()
+                    opt.step()
+                    value = loss.detach().reshape(())
+                    if value.dtype != torch.float64:
+                        value = value.float()
+                    epoch_loss = epoch_loss.to(value.device) + value
+                    num_batches += 1
+                train_loss.append(epoch_loss.item() / num_batches)
+                if scheduler is not None:
+                    scheduler.step()
+                self.eval()
+                if epoch == num_epochs - 1:
+                    self._rebuild_precision(dataset, batch_size)
+                # compute the validation metrics
+                if (
+                    validation_dataset is not None
+                    and val_loader is not None
+                    and val_metrics is not None
+                    and val_metrics_outputs is not None
+                ):
                     for metric in val_metrics:
-                        metric.update(yhats_val, labels_val)
-                for i, metric in enumerate(val_metrics):
-                    val_metrics_outputs[i].append(metric.compute())
-        if vis_support:
-            tensors = cast(TensorDataset, dataset).tensors
-            self.update_support(tensors[0], tensors[1], support_size=support_size)
+                        metric.reset()
+                    for _, (xs_val, labels_val) in enumerate(val_loader):
+                        xs_val = self._input_to_model(xs_val)
+                        labels_val = labels_val.to(self.device)
+                        yhats_val = self.model(xs_val)
+                        for metric in val_metrics:
+                            metric.update(yhats_val, labels_val)
+                    for i, metric in enumerate(val_metrics):
+                        val_metrics_outputs[i].append(metric.compute())
+            if vis_support:
+                tensors = cast(TensorDataset, dataset).tensors
+                self.update_support(tensors[0], tensors[1], support_size=support_size)
 
-        date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-        self.train_summary: dict[str, Any] = generate_train_summary(
-            self, train_y, date_trained
-        )
+            date_trained = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            self.train_summary: dict[str, Any] = generate_train_summary(
+                self, train_y, date_trained
+            )
 
-        return_dict: dict[str, Any] = dict()
-        return_dict["train_summary"] = self.train_summary
-        return_dict["train_loss"] = train_loss
-        if validation_dataset is not None:
-            return_dict["val_metrics"] = val_metrics_outputs
+            return_dict: dict[str, Any] = dict()
+            return_dict["train_summary"] = self.train_summary
+            return_dict["train_loss"] = train_loss
+            if validation_dataset is not None:
+                return_dict["val_metrics"] = val_metrics_outputs
 
-        return return_dict
+            return return_dict
+        except BaseException:
+            self._mark_untrained()
+            raise
+
+    def _mark_untrained(self) -> None:
+        """
+        Clear the training parameters, put every module in eval mode and reset the
+        precision matrix. ``forward``, ``predict``, ``calibrate_model`` and ``save``
+        then refuse the model until a ``train_model`` that runs at least one epoch
+        returns.
+        """
+        self.model.clear_training_params()
+        self.eval()
+        self.model.reset_precision_matrix()
 
     def _rebuild_precision(self, dataset: Dataset[Any], batch_size: int) -> None:
         """
@@ -913,8 +945,7 @@ class EquineGP(Equine):
         batch's features to the precision matrix: the embedding model's BatchNorm
         statistics are not updated and its dropout is off. The batch loader draws
         from a generator of its own, not from the global one. The head is back in
-        eval mode afterwards. If the pass raises, the training parameters are cleared
-        (the model then counts as untrained) and the error propagates.
+        eval mode afterwards, also when the pass raises.
         """
         self.eval()
         self.model.reset_precision_matrix()
@@ -926,9 +957,6 @@ class EquineGP(Equine):
             with torch.no_grad():
                 for xs, _ in loader:
                     self.model(self._input_to_model(xs))
-        except BaseException:
-            self.model.clear_training_params()
-            raise
         finally:
             self.model.training = False
 

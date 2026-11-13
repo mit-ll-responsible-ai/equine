@@ -659,3 +659,87 @@ def test_update_support_refuses_support_x_and_support_y_of_different_lengths() -
         with pytest.raises(ValueError, match="support_x has 19 examples"):
             model.update_support(x[1:], y, support_size=3)
         assert torch.equal(torch.get_rng_state(), state)
+
+
+@pytest.mark.parametrize("batch_size", [1, 7])
+def test_laplace_eval_logits_equal_the_full_covariance_formula(batch_size) -> None:
+    """In float64, eval-mode logits are ``beta(k)`` divided by
+    ``sqrt(1 + diag(k @ covariance @ k.T * ridge_penalty) * mean_field_factor)``.
+    """
+    torch.manual_seed(0)
+    laplace = eq.equine_gp._Laplace(
+        feature_extractor=torch.nn.Identity(),
+        num_deep_features=FEATURES,
+        num_gp_features=FEATURES,
+        normalize_gp_features=True,
+        num_random_features=32,
+        num_outputs=CLASSES,
+        feature_scale=2.0,
+        mean_field_factor=25,
+        ridge_penalty=0.5,
+    ).to(torch.float64)
+    train_x = torch.randn(40, FEATURES, dtype=torch.float64)
+    laplace.set_training_params(num_data=40, batch_size=40)
+    laplace.train()
+    laplace(train_x)
+    laplace.eval()
+    x = 2 * torch.randn(batch_size, FEATURES, dtype=torch.float64)
+
+    with torch.no_grad():
+        logits, k = laplace._forward_with_features(x)
+        mean = laplace.beta(k)
+        pred_cov = k @ ((laplace.covariance @ k.t()) * 0.5)
+        expected = mean / torch.sqrt(1.0 + torch.diag(pred_cov) * 25).unsqueeze(-1)
+
+    assert logits.dtype == torch.float64
+    assert not torch.allclose(logits, mean), "the variance must change the logits"
+    torch.testing.assert_close(logits, expected, rtol=0, atol=1e-12)
+
+
+def test_mean_field_logits_receives_one_variance_per_example(monkeypatch) -> None:
+    """``mean_field_logits`` receives a ``(batch_size,)`` variance."""
+    model, x = _gp_trained_on_cpu()
+    original = eq.equine_gp._Laplace.mean_field_logits
+    shapes = []
+
+    def recording(self, logits, pred_var, mean_field_factor):
+        shapes.append(tuple(pred_var.shape))
+        return original(self, logits, pred_var, mean_field_factor)
+
+    monkeypatch.setattr(eq.equine_gp._Laplace, "mean_field_logits", recording)
+    model.predict(x[:5])
+    model(x[:5])
+    assert shapes == [(5,), (5,)]
+
+
+def test_laplace_without_mean_field_returns_the_full_covariance() -> None:
+    """With ``mean_field_factor=None``, eval mode returns ``beta(k)`` and the full
+    ``k @ covariance @ k.T * ridge_penalty`` matrix."""
+    torch.manual_seed(0)
+    laplace = eq.equine_gp._Laplace(
+        feature_extractor=torch.nn.Identity(),
+        num_deep_features=FEATURES,
+        num_gp_features=FEATURES,
+        normalize_gp_features=True,
+        num_random_features=32,
+        num_outputs=CLASSES,
+        feature_scale=2.0,
+        mean_field_factor=None,
+        ridge_penalty=0.5,
+    ).to(torch.float64)
+    train_x = torch.randn(40, FEATURES, dtype=torch.float64)
+    laplace.set_training_params(num_data=40, batch_size=40)
+    laplace.train()
+    laplace(train_x)
+    laplace.eval()
+    x = 2 * torch.randn(7, FEATURES, dtype=torch.float64)
+
+    with torch.no_grad():
+        (pred, pred_cov), k = laplace._forward_with_features(x)
+        identity = torch.eye(32, dtype=torch.float64)
+        covariance = torch.linalg.inv(laplace.precision + 1e-7 * identity)
+        expected = k @ ((covariance @ k.t()) * 0.5)
+
+    assert pred_cov.shape == (7, 7)
+    torch.testing.assert_close(pred, laplace.beta(k), atol=1e-12, rtol=0)
+    torch.testing.assert_close(pred_cov, expected, atol=1e-12, rtol=0)

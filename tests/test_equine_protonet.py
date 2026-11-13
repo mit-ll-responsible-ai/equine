@@ -56,11 +56,179 @@ def test_compute_embeddings(data_shape, num_classes, seed):
     assert embeddings.shape == (data_shape[0], num_classes)
 
 
+_SHARED_SUPPORT_SIZES = (3, 30, 12)
+
+
+def _float64_support(sizes: tuple[int, ...]) -> OrderedDict[int, torch.Tensor]:
+    """A float64 support with ``sizes[k]`` rows of width 8 for class ``k``, each
+    class with its own spread and mean."""
+    gen = torch.Generator().manual_seed(0)
+    return OrderedDict(
+        (
+            label,
+            (1 + 2 * label) * torch.randn(n, 8, generator=gen, dtype=torch.float64)
+            + label,
+        )
+        for label, n in enumerate(sizes)
+    )
+
+
+def _float64_shared_protonet(
+    cov_type: eq.CovType, sizes: tuple[int, ...] = _SHARED_SUPPORT_SIZES
+) -> Protonet:
+    """A ``Protonet`` using ``"shared"`` in training mode, given
+    ``_float64_support(sizes)`` (by default 3, 30 and 12 rows)."""
+    proto = Protonet(torch.nn.Identity(), 8, cov_type, "shared", DEFAULT_EPSILON)
+    proto.train()
+    proto.update_support(_float64_support(sizes))
+    return proto
+
+
+def _class_covariances(
+    proto: Protonet, cov_type: eq.CovType
+) -> OrderedDict[int, torch.Tensor]:
+    """The ``cov_type`` covariance of each class in ``proto``'s support."""
+    return OrderedDict(
+        (label, proto.compute_covariance_by_type(cov_type, embeddings))
+        for label, embeddings in proto.support_embeddings.items()
+    )
+
+
+def _pooled_covariance(covariances: OrderedDict[int, torch.Tensor]) -> torch.Tensor:
+    """The within-class scatter of the 3, 30 and 12 support rows,
+    ``2 C_0 + 29 C_1 + 11 C_2``, divided by ``N - K = 45 - 3``."""
+    scatter = sum(
+        (n - 1) * covariance
+        for n, covariance in zip(_SHARED_SUPPORT_SIZES, covariances.values())
+    )
+    return scatter / (sum(_SHARED_SUPPORT_SIZES) - len(_SHARED_SUPPORT_SIZES))
+
+
+@pytest.mark.parametrize("cov_type", [eq.CovType.DIAGONAL, eq.CovType.FULL])
+def test_shared_covariance_weights_each_class_by_its_degrees_of_freedom(
+    cov_type,
+) -> None:
+    """The shared covariance of classes with 3, 30 and 12 support rows is
+    ``(2 C_0 + 29 C_1 + 11 C_2) / 42``, in the support's dtype."""
+    proto = _float64_shared_protonet(cov_type)
+    covariances = _class_covariances(proto, cov_type)
+    shared = proto.compute_shared_covariance(covariances, cov_type)
+    assert shared.dtype == torch.float64
+    torch.testing.assert_close(
+        shared, _pooled_covariance(covariances), atol=1e-6, rtol=0
+    )
+
+
 def test_compute_shared_covariance_refuses_unit_covariance() -> None:
+    """A UNIT ``cov_type`` is refused before the support is read; DIAGONAL, as
+    the message asks, pools the diagonal class covariances of a support."""
     model = eq.EquineProtonet(BasicEmbeddingModel(2, 3), 3)
     class_cov_dict = OrderedDict({0: torch.ones(3), 1: torch.ones(3)})
-    with pytest.raises(ValueError, match="not UNIT"):
+    message = (
+        "compute_shared_covariance pools DIAGONAL or FULL covariances; got "
+        "CovType.UNIT. Pass CovType.DIAGONAL or CovType.FULL."
+    )
+    with pytest.raises(ValueError) as err:
         model.model.compute_shared_covariance(class_cov_dict, eq.CovType.UNIT)
+    assert str(err.value) == message
+
+    proto = _float64_shared_protonet(eq.CovType.DIAGONAL)
+    covariances = _class_covariances(proto, eq.CovType.DIAGONAL)
+    with pytest.raises(ValueError) as err:
+        proto.compute_shared_covariance(covariances, eq.CovType.UNIT)
+    assert str(err.value) == message
+    shared = proto.compute_shared_covariance(covariances, eq.CovType.DIAGONAL)
+    torch.testing.assert_close(
+        shared, _pooled_covariance(covariances), atol=1e-6, rtol=0
+    )
+
+
+def test_compute_shared_covariance_refuses_a_label_without_support() -> None:
+    """A covariance whose label is not in the support is refused; the
+    covariances of the support classes, as the message asks, are pooled."""
+    proto = _float64_shared_protonet(eq.CovType.DIAGONAL)
+    covariances = _class_covariances(proto, eq.CovType.DIAGONAL)
+    with pytest.raises(ValueError) as err:
+        proto.compute_shared_covariance(
+            OrderedDict({**covariances, 5: covariances[0]}), eq.CovType.DIAGONAL
+        )
+    assert str(err.value) == (
+        "class_cov_dict has labels [5], which have no support embeddings; pass "
+        "the covariances of the support classes [0, 1, 2]."
+    )
+    shared = proto.compute_shared_covariance(covariances, eq.CovType.DIAGONAL)
+    torch.testing.assert_close(
+        shared, _pooled_covariance(covariances), atol=1e-6, rtol=0
+    )
+
+
+def test_compute_shared_covariance_refuses_a_model_without_support() -> None:
+    """A ``Protonet`` that never had ``update_support`` is refused; after
+    ``update_support``, as the message asks, the same covariances are pooled."""
+    support = _float64_support(_SHARED_SUPPORT_SIZES)
+    proto = Protonet(
+        torch.nn.Identity(), 8, eq.CovType.DIAGONAL, "shared", DEFAULT_EPSILON
+    )
+    proto.train()
+    covariances = OrderedDict(
+        (label, proto.compute_covariance_by_type(eq.CovType.DIAGONAL, rows))
+        for label, rows in support.items()
+    )
+    with pytest.raises(ValueError) as err:
+        proto.compute_shared_covariance(covariances, eq.CovType.DIAGONAL)
+    assert str(err.value) == (
+        "compute_shared_covariance pools the covariances of the support classes, "
+        "and the model has no support; call update_support first."
+    )
+    proto.update_support(support)
+    shared = proto.compute_shared_covariance(covariances, eq.CovType.DIAGONAL)
+    torch.testing.assert_close(
+        shared, _pooled_covariance(covariances), atol=1e-6, rtol=0
+    )
+
+
+def _too_few_support_examples(total: int, classes: int) -> str:
+    return (
+        "compute_shared_covariance divides by the number of support examples minus "
+        f"the number of classes, {total} - {classes} here; pooling needs more support "
+        "examples than classes; pass the covariances of classes with at least 2 "
+        "support examples."
+    )
+
+
+def test_compute_shared_covariance_refuses_an_empty_class_cov_dict() -> None:
+    """An empty ``class_cov_dict`` (0 - 0 in the denominator) is refused; the
+    covariances of the support classes, as the message asks, are pooled."""
+    proto = _float64_shared_protonet(eq.CovType.DIAGONAL)
+    with pytest.raises(ValueError) as err:
+        proto.compute_shared_covariance(OrderedDict(), eq.CovType.DIAGONAL)
+    assert str(err.value) == _too_few_support_examples(0, 0)
+    covariances = _class_covariances(proto, eq.CovType.DIAGONAL)
+    shared = proto.compute_shared_covariance(covariances, eq.CovType.DIAGONAL)
+    torch.testing.assert_close(
+        shared, _pooled_covariance(covariances), atol=1e-6, rtol=0
+    )
+
+
+def test_compute_shared_covariance_refuses_classes_of_one_support_example() -> None:
+    """Two classes of one support example each (2 - 2 in the denominator) are
+    refused; the covariance of the class with 5 support examples, as the message
+    asks, pools to itself."""
+    proto = _float64_shared_protonet(eq.CovType.UNIT, sizes=(1, 1, 5))
+    zeros = torch.zeros(8, dtype=torch.float64)
+    with pytest.raises(ValueError) as err:
+        proto.compute_shared_covariance(
+            OrderedDict({0: zeros, 1: zeros}), eq.CovType.DIAGONAL
+        )
+    assert str(err.value) == _too_few_support_examples(2, 2)
+    covariance = proto.compute_covariance_by_type(
+        eq.CovType.DIAGONAL, proto.support_embeddings[2]
+    )
+    shared = proto.compute_shared_covariance(
+        OrderedDict({2: covariance}), eq.CovType.DIAGONAL
+    )
+    assert torch.isfinite(shared).all()
+    torch.testing.assert_close(shared, covariance, atol=1e-6, rtol=0)
 
 
 def test_update_support_sets_label_names() -> None:

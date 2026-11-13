@@ -404,3 +404,29 @@
   infinities included). Calls that could run before and now raise include
   those merges and, under `python -O`, `train_model` and `update_support` on
   labels holding NaN (#289).
+- `EquineGP.train_model`, `calibrate_model` and `update_support` truncated
+  labels that are not whole numbers, so labels such as 0 and 0.5 trained,
+  calibrated or entered the support as one class without an error. They now
+  raise `ValueError` when the labels are not 1-D or not whole numbers (NaN
+  and infinities included): `train_model` and `update_support` before the
+  model changes, `calibrate_model` at the first batch holding such a label.
+  A `calibrate_model` call that raises now leaves the temperature as it was,
+  without gradients enabled. `train_model` reads `dataset[:]` before training
+  instead of after it, so a dataset that draws random numbers when indexed
+  trains differently from the same seed. Labels of `validation_dataset` still
+  go to `val_metrics` as given. Calls that could run before and now raise
+  include those merges, NaN labels on some platforms and, under `python -O`,
+  `train_model` on 2-D labels with a `loss_fn` that accepts them (#290).
+- `EquineGP.train_model` and `calibrate_model` accepted labels outside
+  `[0, num_classes)`. With the default loss, rows labelled -100 were left out
+  of it without an error (the default `ignore_index` of `CrossEntropyLoss`
+  and `cross_entropy`). Other such labels raised `IndexError` on the CPU at
+  the first batch holding one, after any earlier batches had changed the
+  model; on MPS, `train_model` raised `AcceleratorError` with torch 2.15 and
+  trained on them without an error with torch 2.14. `update_support` stored
+  them as classes. The three methods now raise `ValueError` for them, right
+  after the check for labels that are not whole numbers. Calls that could run
+  before and now raise include rows labelled -100, `train_model` with a
+  `loss_fn` that ignores or masks such labels (for example
+  `CrossEntropyLoss(ignore_index=-1)`), `train_model` on MPS with torch 2.14,
+  and `update_support` with such labels (#291).

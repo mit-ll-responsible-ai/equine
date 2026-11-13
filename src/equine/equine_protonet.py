@@ -231,6 +231,8 @@ class Protonet(torch.nn.Module):
         cov_reg_type: str,
         epsilon: float,
         device: str = "cpu",
+        pred_cov_type: CovType | None = None,
+        ood_cov_type: CovType | None = None,
     ) -> None:
         """
         Protonet class constructor.
@@ -242,13 +244,20 @@ class Protonet(torch.nn.Module):
         emb_out_dim : int
             Dimension size of given embedding model's output.
         cov_type : CovType
-            Type of covariance to use when computing distances [unit, diag, full].
+            Covariance type of the class distances in training mode [unit, diag, full].
         cov_reg_type : str
             Type of regularization to use when generating the covariance matrix [epsilon, shared].
         epsilon : float
             Epsilon value to use for covariance regularization.
         device : str, optional
             The device to train the protonet model on (defaults to cpu).
+        pred_cov_type : CovType, optional
+            Covariance of the class distances in eval mode; None selects the module
+            default ``PRED_COV_TYPE`` (DIAGONAL).
+        ood_cov_type : CovType, optional
+            Covariance of the distance to the global mean in the relative
+            Mahalanobis OOD score; None selects the module default ``OOD_COV_TYPE``
+            (DIAGONAL).
         """
         super().__init__()
         self.embedding_model = embedding_model
@@ -256,6 +265,12 @@ class Protonet(torch.nn.Module):
         self.cov_reg_type = cov_reg_type
         self.epsilon = epsilon
         self.emb_out_dim = emb_out_dim
+        self.pred_cov_type: CovType = (
+            PRED_COV_TYPE if pred_cov_type is None else pred_cov_type
+        )
+        self.ood_cov_type: CovType = (
+            OOD_COV_TYPE if ood_cov_type is None else ood_cov_type
+        )
         self.to(device)
         self.device = device
 
@@ -263,6 +278,15 @@ class Protonet(torch.nn.Module):
         self.support_embeddings: OrderedDict[int, torch.Tensor] = OrderedDict()
         self.model_head: torch.nn.Module = self.create_model_head(emb_out_dim)
         self.model_head.to(device)
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """
+        Restore a pickled Protonet; a pickle without ``pred_cov_type`` or
+        ``ood_cov_type`` uses the module default for it.
+        """
+        state.setdefault("pred_cov_type", PRED_COV_TYPE)
+        state.setdefault("ood_cov_type", OOD_COV_TYPE)
+        super().__setstate__(state)
 
     def _apply(
         self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
@@ -652,7 +676,7 @@ class Protonet(torch.nn.Module):
         The global moments of the support embeddings (used for the OOD score)
         are computed whatever mode the caller left the model in (via
         ``train()``/``eval()``). The covariance type depends on the
-        mode: ``PRED_COV_TYPE`` in eval mode, ``cov_type`` in training mode.
+        mode: ``pred_cov_type`` in eval mode, ``cov_type`` in training mode.
 
         Parameters
         ----------
@@ -683,7 +707,7 @@ class Protonet(torch.nn.Module):
 
         if self.training is False:
             self.covariance: torch.Tensor = self.compute_covariance(
-                cov_type=PRED_COV_TYPE
+                cov_type=self.pred_cov_type
             )
         else:
             self.covariance: torch.Tensor = self.compute_covariance(
@@ -695,12 +719,12 @@ class Protonet(torch.nn.Module):
         """Method to calculate the global moments of the support embeddings for use in OOD score generation"""
         embeddings = torch.cat(list(self.support_embeddings.values()))
         self.global_covariance = torch.unsqueeze(
-            self.compute_covariance_by_type(OOD_COV_TYPE, embeddings), dim=0
+            self.compute_covariance_by_type(self.ood_cov_type, embeddings), dim=0
         )
         global_reg_input = OrderedDict().fromkeys([0], torch.Tensor())
         global_reg_input[0] = self.global_covariance
         self.global_covariance: torch.Tensor = self.regularize_covariance(
-            global_reg_input, OOD_COV_TYPE, "epsilon"
+            global_reg_input, self.ood_cov_type, "epsilon"
         )[0]
         self.global_mean: torch.Tensor = torch.mean(embeddings, dim=0)
 
@@ -757,6 +781,8 @@ class EquineProtonet(Equine):
         feature_names: list[str] | None = None,
         label_names: list[str] | None = None,
         ood_distance: str = "rmd_sq",
+        pred_cov_type: CovType | None = None,
+        ood_cov_type: CovType | None = None,
     ) -> None:
         """
         EquineProtonet class constructor
@@ -795,6 +821,13 @@ class EquineProtonet(Equine):
             statistic in use: after changing ``ood_distance``, refit them with
             ``update_support`` or ``train_model``. Without it, the KDEs are the
             same for both values.
+        pred_cov_type : CovType, optional
+            Covariance of the class distances at prediction time; None selects the
+            module default ``PRED_COV_TYPE`` (DIAGONAL).
+        ood_cov_type : CovType, optional
+            Covariance of the distance to the global mean in the relative
+            Mahalanobis OOD score; None selects the module default ``OOD_COV_TYPE``
+            (DIAGONAL).
 
         Raises
         ------
@@ -837,9 +870,21 @@ class EquineProtonet(Equine):
             self.cov_reg_type,
             self.epsilon,
             device=device,
+            pred_cov_type=pred_cov_type,
+            ood_cov_type=ood_cov_type,
         )
         # Moves the temperature buffer onto the model's device.
         self.to(self.device)
+
+    @property
+    def pred_cov_type(self) -> CovType:
+        """The covariance of the class distances at prediction time. Read-only."""
+        return self.model.pred_cov_type
+
+    @property
+    def ood_cov_type(self) -> CovType:
+        """The covariance of the distance to the global mean in the OOD score. Read-only."""
+        return self.model.ood_cov_type
 
     @property
     def support(self) -> OrderedDict[int, torch.Tensor]:
@@ -1614,6 +1659,11 @@ class EquineProtonet(Equine):
             "ood_distance": self.ood_distance,
             "device": self.device,
         }
+        # pred_cov_type and ood_cov_type are written only when not the default.
+        if self.model.pred_cov_type != PRED_COV_TYPE:
+            model_settings["pred_cov_type"] = self.model.pred_cov_type.value
+        if self.model.ood_cov_type != OOD_COV_TYPE:
+            model_settings["ood_cov_type"] = self.model.ood_cov_type.value
         save_data: dict[str, Any] = {
             "equine_format_version": EQUINE_FORMAT_VERSION,
             **_embedding_checkpoint(self.model.embedding_model),
@@ -1744,14 +1794,18 @@ class EquineProtonet(Equine):
         _positive_int(
             settings.get("emb_out_dim"), "Model file's settings['emb_out_dim']"
         )
-        if "cov_type" in settings:
-            cov_type = settings["cov_type"]
+        for key in ("cov_type", "pred_cov_type", "ood_cov_type"):
+            if key not in settings:
+                continue
+            cov_type = settings[key]
             try:
-                settings["cov_type"] = CovType(cov_type)
+                settings[key] = CovType(cov_type)
             except (ValueError, TypeError) as err:
                 raise ValueError(
-                    f"Model file's settings['cov_type'] ({_shown(cov_type)}) is not "
-                    f"one of {[member.value for member in CovType]}."
+                    f"Model file's settings['{key}'] ({_shown(cov_type)}) is not "
+                    f"one of {[member.value for member in CovType]}; the file was not "
+                    "written by save() or was changed after. Save the model again, or "
+                    "upgrade the original file again with `python -m equine.upgrade`."
                 ) from err
         # Allow the user to override the saved device state dynamically
         if device is not None:

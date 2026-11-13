@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- **`EquineProtonet(pred_cov_type=, ood_cov_type=)`**: the covariance type
+  of the class distances at prediction and of the distance to the support
+  mean in the relative-Mahalanobis OOD score, which 0.1.8 fixed at DIAGONAL
+  (`None` keeps DIAGONAL). Saved only when not the default.
 - **`SpectralResidualMLP`, SNGP's embedding** (registered as
   `equine.spectral_residual_mlp`). A linear projection and `num_blocks`
   residual blocks `h + coefficient * relu(W h + b)` whose weights are

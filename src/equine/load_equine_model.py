@@ -51,7 +51,7 @@ def load_equine_model(
 
     Notes
     -----
-    Loading runs no code from the file: it is read with restricted unpickling (see
+    Loading runs no code from the file: it is a safetensors file (see
     ``utils.load_checkpoint``) and its embedding model is rebuilt through the
     architecture registry.
     """

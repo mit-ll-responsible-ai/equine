@@ -21,6 +21,7 @@ from golden_data import CLASSES, FEATURES, ROWS, separable_dataset
 from hypothesis import given, settings
 
 import equine as eq
+from equine.equine import MIN_TEMPERATURE
 
 
 @given(random_dataset=random_dataset())
@@ -1155,6 +1156,29 @@ def test_calibrate_model_leaves_the_temperature_as_it_was_when_the_optimizer_rai
         model.calibrate_model(torch.utils.data.TensorDataset(x, y.float()))
     assert model.temperature.item() == 0.5
     assert not model.temperature.requires_grad
+
+
+def test_calibrate_model_keeps_the_temperature_at_or_above_the_floor(
+    monkeypatch,
+) -> None:
+    model, x = _gp_trained_on_cpu()
+    _, _, y = separable_dataset()
+    used = []
+    cross_entropy = torch.nn.functional.cross_entropy
+
+    def record(*args, **kwargs):
+        used.append(model.temperature.item())
+        return cross_entropy(*args, **kwargs)
+
+    monkeypatch.setattr(torch.nn.functional, "cross_entropy", record)
+    model.calibrate_model(
+        torch.utils.data.TensorDataset(x, y),
+        num_calibration_epochs=200,
+        calibration_lr=5.0,
+    )
+    assert len(used) == 200
+    assert min(used) >= MIN_TEMPERATURE
+    assert model.temperature.item() >= MIN_TEMPERATURE
 
 
 @pytest.mark.parametrize("labels", GP_LABEL_KINDS)

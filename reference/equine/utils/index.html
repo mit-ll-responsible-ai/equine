@@ -2205,7 +2205,8 @@ more than <code>support_size</code> examples.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1677</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1676</span>
+<span class="normal">1677</span>
 <span class="normal">1678</span>
 <span class="normal">1679</span>
 <span class="normal">1680</span>
@@ -2294,12 +2295,7 @@ more than <code>support_size</code> examples.</p>
 <span class="normal">1763</span>
 <span class="normal">1764</span>
 <span class="normal">1765</span>
-<span class="normal">1766</span>
-<span class="normal">1767</span>
-<span class="normal">1768</span>
-<span class="normal">1769</span>
-<span class="normal">1770</span>
-<span class="normal">1771</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">)</span>
+<span class="normal">1766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">support_size</span><span class="p">:</span> <span class="n">support_size</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">way</span><span class="p">:</span> <span class="n">way</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
@@ -2378,16 +2374,12 @@ more than <code>support_size</code> examples.</p>
     <span class="n">episode_label_list</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">episode_support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">episode_label</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">):</span>
-        <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">train_x</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]]</span>
-        <span class="n">shuffled_y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">episode_label</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">])</span>
-        <span class="p">)</span>  <span class="c1"># need sequential labels for episode</span>
-
-        <span class="n">num_remaining_examples</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">support_size</span>
+        <span class="n">num_remaining_examples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">])</span> <span class="o">-</span> <span class="n">support_size</span>
         <span class="n">episode_end_idx</span> <span class="o">=</span> <span class="n">support_size</span> <span class="o">+</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_remaining_examples</span><span class="p">,</span> <span class="n">examples_per_task</span><span class="p">)</span>
+        <span class="n">query_idxs</span> <span class="o">=</span> <span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">][</span><span class="n">support_size</span><span class="p">:</span><span class="n">episode_end_idx</span><span class="p">]</span>
 
-        <span class="n">episode_data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shuffled_x</span><span class="p">[</span><span class="n">support_size</span><span class="p">:</span><span class="n">episode_end_idx</span><span class="p">])</span>
-        <span class="n">episode_label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shuffled_y</span><span class="p">[</span><span class="n">support_size</span><span class="p">:</span><span class="n">episode_end_idx</span><span class="p">])</span>
+        <span class="n">episode_data_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">train_x</span><span class="p">[</span><span class="n">query_idxs</span><span class="p">])</span>
+        <span class="n">episode_label_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="n">episode_label</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">query_idxs</span><span class="p">)))</span>
         <span class="n">episode_support</span><span class="p">[</span><span class="n">episode_label</span><span class="p">]</span> <span class="o">=</span> <span class="n">support</span><span class="p">[</span><span class="n">label</span><span class="p">]</span>
 
     <span class="n">episode_x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">episode_data_list</span><span class="p">)</span>
@@ -2536,7 +2528,12 @@ class and one column per predicted class, in column order.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1807</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1802</span>
+<span class="normal">1803</span>
+<span class="normal">1804</span>
+<span class="normal">1805</span>
+<span class="normal">1806</span>
+<span class="normal">1807</span>
 <span class="normal">1808</span>
 <span class="normal">1809</span>
 <span class="normal">1810</span>
@@ -2597,12 +2594,7 @@ class and one column per predicted class, in column order.</p>
 <span class="normal">1865</span>
 <span class="normal">1866</span>
 <span class="normal">1867</span>
-<span class="normal">1868</span>
-<span class="normal">1869</span>
-<span class="normal">1870</span>
-<span class="normal">1871</span>
-<span class="normal">1872</span>
-<span class="normal">1873</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1868</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">true_y</span><span class="p">:</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="n">true_y</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -2782,7 +2774,12 @@ class and one column per predicted class, in column order.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1937</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1932</span>
+<span class="normal">1933</span>
+<span class="normal">1934</span>
+<span class="normal">1935</span>
+<span class="normal">1936</span>
+<span class="normal">1937</span>
 <span class="normal">1938</span>
 <span class="normal">1939</span>
 <span class="normal">1940</span>
@@ -2807,12 +2804,7 @@ class and one column per predicted class, in column order.</p>
 <span class="normal">1959</span>
 <span class="normal">1960</span>
 <span class="normal">1961</span>
-<span class="normal">1962</span>
-<span class="normal">1963</span>
-<span class="normal">1964</span>
-<span class="normal">1965</span>
-<span class="normal">1966</span>
-<span class="normal">1967</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1962</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">eq_preds</span><span class="p">,</span> <span class="n">test_y</span><span class="p">:</span> <span class="n">test_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">eq_preds</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="p">)</span>
 <span class="nd">@beartype</span>
@@ -3090,8 +3082,7 @@ no example or an example of another label.</p>
 <span class="normal">1670</span>
 <span class="normal">1671</span>
 <span class="normal">1672</span>
-<span class="normal">1673</span>
-<span class="normal">1674</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
+<span class="normal">1673</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_x</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_y</span><span class="p">))</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">selected_labels</span><span class="p">,</span> <span class="n">train_x</span><span class="p">:</span> <span class="p">(</span>
         <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">selected_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_x</span><span class="p">))</span>
@@ -3152,8 +3143,8 @@ no example or an example of another label.</p>
 <span class="sd">        ``support_size`` examples, or ``shuffled_indexes`` for a label selects</span>
 <span class="sd">        no example or an example of another label.</span>
 <span class="sd">    """</span>
-    <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">shuffled_indexes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">labels</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">counts</span><span class="p">)):</span>
             <span class="k">if</span> <span class="p">(</span><span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">support_size</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Not enough support examples in class </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
@@ -3163,14 +3154,13 @@ no example or an example of another label.</p>
 
     <span class="n">support</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]()</span>
     <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">selected_labels</span><span class="p">:</span>
-        <span class="n">shuffled_x</span> <span class="o">=</span> <span class="n">train_x</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]]</span>
+        <span class="n">selected_support</span> <span class="o">=</span> <span class="n">train_x</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">][:</span><span class="n">support_size</span><span class="p">]]</span>
 
         <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">train_y</span><span class="p">[</span><span class="n">shuffled_idxs</span><span class="p">[</span><span class="n">label</span><span class="p">]])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">!=</span> <span class="p">[</span><span class="n">label</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">"The shuffled indexes for label </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2"> must select at least one "</span>
                 <span class="s2">"example, and only examples of that label."</span>
             <span class="p">)</span>
-        <span class="n">selected_support</span> <span class="o">=</span> <span class="n">shuffled_x</span><span class="p">[:</span><span class="n">support_size</span><span class="p">]</span>
         <span class="n">support</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">label</span><span class="p">)]</span> <span class="o">=</span> <span class="n">selected_support</span>
 
     <span class="k">return</span> <span class="n">support</span>
@@ -3282,7 +3272,12 @@ no example or an example of another label.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1907</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1902</span>
+<span class="normal">1903</span>
+<span class="normal">1904</span>
+<span class="normal">1905</span>
+<span class="normal">1906</span>
+<span class="normal">1907</span>
 <span class="normal">1908</span>
 <span class="normal">1909</span>
 <span class="normal">1910</span>
@@ -3304,12 +3299,7 @@ no example or an example of another label.</p>
 <span class="normal">1926</span>
 <span class="normal">1927</span>
 <span class="normal">1928</span>
-<span class="normal">1929</span>
-<span class="normal">1930</span>
-<span class="normal">1931</span>
-<span class="normal">1932</span>
-<span class="normal">1933</span>
-<span class="normal">1934</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="normal">1929</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">train_y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="nd">@beartype</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">generate_train_summary</span><span class="p">(</span>
     <span class="n">model</span><span class="p">:</span> <span class="n">Equine</span><span class="p">,</span> <span class="n">train_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">date_trained</span><span class="p">:</span> <span class="nb">str</span>
@@ -3413,7 +3403,12 @@ no example or an example of another label.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1876</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1871</span>
+<span class="normal">1872</span>
+<span class="normal">1873</span>
+<span class="normal">1874</span>
+<span class="normal">1875</span>
+<span class="normal">1876</span>
 <span class="normal">1877</span>
 <span class="normal">1878</span>
 <span class="normal">1879</span>
@@ -3436,12 +3431,7 @@ no example or an example of another label.</p>
 <span class="normal">1896</span>
 <span class="normal">1897</span>
 <span class="normal">1898</span>
-<span class="normal">1899</span>
-<span class="normal">1900</span>
-<span class="normal">1901</span>
-<span class="normal">1902</span>
-<span class="normal">1903</span>
-<span class="normal">1904</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">Y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+<span class="normal">1899</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">Y</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">result</span><span class="p">:</span> <span class="nb">all</span><span class="p">(</span><span class="s2">"label"</span> <span class="ow">in</span> <span class="n">d</span> <span class="ow">and</span> <span class="s2">"numExamples"</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="p">)</span>
 <span class="p">)</span>
@@ -3887,7 +3877,12 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2011</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2006</span>
+<span class="normal">2007</span>
+<span class="normal">2008</span>
+<span class="normal">2009</span>
+<span class="normal">2010</span>
+<span class="normal">2011</span>
 <span class="normal">2012</span>
 <span class="normal">2013</span>
 <span class="normal">2014</span>
@@ -3921,12 +3916,7 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 <span class="normal">2042</span>
 <span class="normal">2043</span>
 <span class="normal">2044</span>
-<span class="normal">2045</span>
-<span class="normal">2046</span>
-<span class="normal">2047</span>
-<span class="normal">2048</span>
-<span class="normal">2049</span>
-<span class="normal">2050</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">2045</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"cov must have shape (classes, dim, dim)"</span>
 <span class="p">)</span>
 <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">cov</span><span class="p">:</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">cov</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
@@ -4104,7 +4094,12 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2053</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2048</span>
+<span class="normal">2049</span>
+<span class="normal">2050</span>
+<span class="normal">2051</span>
+<span class="normal">2052</span>
+<span class="normal">2053</span>
 <span class="normal">2054</span>
 <span class="normal">2055</span>
 <span class="normal">2056</span>
@@ -4173,12 +4168,7 @@ where the LAPACK build reports success for it (OpenBLAS does).</p>
 <span class="normal">2119</span>
 <span class="normal">2120</span>
 <span class="normal">2121</span>
-<span class="normal">2122</span>
-<span class="normal">2123</span>
-<span class="normal">2124</span>
-<span class="normal">2125</span>
-<span class="normal">2126</span>
-<span class="normal">2127</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">2122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">:</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
     <span class="s2">"X and Y must have the same number of samples."</span><span class="p">,</span>
 <span class="p">)</span>

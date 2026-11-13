@@ -13,6 +13,7 @@ accelerator this machine has (see ``conftest.available_devices()``); on CI
 import pytest
 import torch
 import torchmetrics
+from builders import quick_gp, quick_protonet
 from conftest import (
     BasicEmbeddingModel,
     assert_on_device,
@@ -40,45 +41,13 @@ def devices() -> list:
 
 def _protonet(device: str, use_temperature: bool = False):
     """Short float32 training on ``device``."""
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES),
-        CLASSES,
-        use_temperature=use_temperature,
-        device=device,
-    )
-    model.train_model(
-        dataset,
-        num_episodes=5,
-        calib_frac=0.2,
-        support_size=10,
-        way=3,
-        episode_size=30,
-    )
-    return model, x, y
+    model, x, y = quick_protonet(device=device, use_temperature=use_temperature)
+    return model, x, y.long()
 
 
 def _gp(device: str, **train_kwargs):
     """Short float32 training on ``device``."""
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineGP(
-        BasicEmbeddingModel(FEATURES, CLASSES),
-        CLASSES,
-        CLASSES,
-        num_random_features=16,
-        device=device,
-    )
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=2,
-        batch_size=32,
-        **train_kwargs,
-    )
-    return model, x, y
+    return quick_gp(device=device, num_epochs=2, **train_kwargs)
 
 
 _BUILDERS = pytest.mark.parametrize("build", [_protonet, _gp], ids=["protonet", "gp"])
@@ -775,16 +744,6 @@ def test_full_covariance_protonet_trains_on_the_device(device):
 @pytest.mark.parametrize("device", devices())
 def test_protonet_calibrate_temperature_accepts_float64_labels(device):
     """Labels are mapped to columns where they are, then moved as integers."""
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES),
-        CLASSES,
-        use_temperature=True,
-        device=device,
-    )
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
+    model, x, y = _protonet(device, use_temperature=True)
     model.calibrate_temperature(x[:30], y[:30].double(), num_calibration_epochs=1)
     assert torch.isfinite(model.temperature).all()

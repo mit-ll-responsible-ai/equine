@@ -31,6 +31,7 @@ from .registry import (
     _check_plain,
     _describe_error,
     _message_or_type,
+    _positive_int,
     _truncate,
     build_from_recipe,
     embedding_recipe,
@@ -510,6 +511,88 @@ def _require_whole_number_labels(
         fractional = [label for label in values if not label.is_integer()]
         if fractional:
             raise ValueError(f"{name} must be whole numbers, got {fractional[0]}.")
+
+
+def _require_same_length(
+    x: torch.Tensor, y: torch.Tensor, x_name: str, y_name: str
+) -> None:
+    """
+    Refuse rows ``x`` and labels ``y`` of different lengths.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The rows.
+    y : torch.Tensor
+        The labels.
+    x_name : str
+        What ``x`` is, named in the message.
+    y_name : str
+        What ``y`` is, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``x`` or ``y`` is 0-d, or ``len(x)`` and ``len(y)`` differ.
+    """
+    for tensor, name in ((x, x_name), (y, y_name)):
+        if tensor.dim() == 0:
+            raise ValueError(
+                f"{name} must have a row dimension; got shape (); pass a tensor "
+                "with one entry per row along its first dimension."
+            )
+    if len(x) != len(y):
+        raise ValueError(
+            f"{x_name} has {len(x)} row(s) and {y_name} {len(y)} label(s); give "
+            "one label per row."
+        )
+
+
+def _require_fraction(value: object, name: str) -> None:
+    """
+    Refuse ``value`` unless it is an int or float strictly between 0 and 1.
+
+    Parameters
+    ----------
+    value : object
+        The value to check.
+    name : str
+        What ``value`` is, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``value`` is not an int or float, or is not strictly between 0 and 1;
+        no bool, NaN or infinity is.
+    """
+    if not isinstance(value, (int, float)) or not 0.0 < value < 1.0:
+        raise ValueError(
+            f"{name} must be a number strictly between 0 and 1; got "
+            f"{_truncate(repr(value), 80)}."
+        )
+
+
+def _require_rows(x: torch.Tensor, name: str) -> None:
+    """
+    Refuse a tensor without a row dimension and a feature dimension.
+
+    Parameters
+    ----------
+    x : torch.Tensor
+        The rows.
+    name : str
+        What ``x`` is, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``x`` has fewer than 2 dimensions.
+    """
+    if x.dim() < 2:
+        raise ValueError(
+            f"{name} must have a row dimension and at least one feature dimension; "
+            f"got shape {tuple(x.shape)}."
+        )
 
 
 def _require_class_indices(y: torch.Tensor, num_classes: int, name: str) -> None:
@@ -1040,7 +1123,6 @@ def _rebuild_embedding(
     raise ValueError("Model file contains no embedding model (no recipe).")
 
 
-@icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result >= 0.0)
 @beartype
 def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
@@ -1061,7 +1143,14 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     -------
     float
         Brier score.
+
+    Raises
+    ------
+    ValueError
+        If ``y_hat`` or ``y_test`` has no row dimension, or ``y_test`` does not
+        hold one label per row of ``y_hat``.
     """
+    _require_same_length(y_hat, y_test, "y_hat", "y_test")
     _, num_classes = y_hat.size()
     one_hot_y_test = torch.nn.functional.one_hot(
         y_test.to(y_hat.device).long(), num_classes=num_classes
@@ -1070,7 +1159,6 @@ def brier_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     return bs
 
 
-@icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: result <= 1.0)
 @beartype
 def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
@@ -1088,7 +1176,14 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     -------
     float
         Brier skill score.
+
+    Raises
+    ------
+    ValueError
+        If ``y_hat`` or ``y_test`` has no row dimension, or ``y_test`` does not
+        hold one label per row of ``y_hat``.
     """
+    _require_same_length(y_hat, y_test, "y_hat", "y_test")
     _, num_classes = y_hat.size()
     random_guess = (1.0 / num_classes) * torch.ones(y_hat.size(), device=y_hat.device)
     bs0 = brier_score(random_guess, y_test)
@@ -1097,7 +1192,6 @@ def brier_skill_score(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
     return bss
 
 
-@icontract.require(lambda y_hat, y_test: y_hat.size(dim=0) == y_test.size(dim=0))
 @icontract.ensure(lambda result: (0.0 <= result) and (result <= 1.0))
 @beartype
 def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> float:
@@ -1115,7 +1209,14 @@ def expected_calibration_error(y_hat: torch.Tensor, y_test: torch.Tensor) -> flo
     -------
     float
         Expected calibration error.
+
+    Raises
+    ------
+    ValueError
+        If ``y_hat`` or ``y_test`` has no row dimension, or ``y_test`` does not
+        hold one label per row of ``y_hat``.
     """
+    _require_same_length(y_hat, y_test, "y_hat", "y_test")
     _, num_classes = y_hat.size()
     metric = MulticlassCalibrationError(num_classes=num_classes, n_bins=25, norm="l1")
     ece = metric.to(y_hat.device)(y_hat, y_test.to(y_hat.device)).item()
@@ -1163,27 +1264,6 @@ def _get_shuffle_idxs_by_class(
     return shuffled_idxs_by_class
 
 
-@icontract.require(lambda train_x, train_y: len(train_x) <= len(train_y))
-@icontract.require(
-    lambda selected_labels, train_x: (
-        (0 < len(selected_labels)) & (len(selected_labels) < len(train_x))
-    )
-)
-@icontract.require(
-    lambda support_size, train_x: (0 < support_size) & (support_size < len(train_x))
-)
-@icontract.require(
-    lambda support_size, selected_labels, train_x: (
-        support_size * len(selected_labels) <= len(train_x)
-    )
-)
-@icontract.require(
-    lambda selected_labels, shuffled_indexes: (
-        (len(shuffled_indexes.keys()) == len(selected_labels))
-        if shuffled_indexes is not None
-        else True
-    )
-)
 @icontract.ensure(
     lambda result, selected_labels: len(result.keys()) == len(selected_labels)
 )
@@ -1220,15 +1300,60 @@ def generate_support(
     Raises
     ------
     ValueError
-        If ``shuffled_indexes`` is None and a selected class has fewer than
-        ``support_size`` examples, or ``shuffled_indexes`` for a label selects
-        no example or an example of another label.
+        If ``support_size`` is not a positive integer; ``selected_labels`` is
+        empty or holds a label more than once; ``train_y`` is not 1-D or, as a
+        floating-point tensor, holds a value that is not a whole number;
+        ``train_x`` has no row dimension, or ``train_x`` and ``train_y`` hold
+        different numbers of rows; a selected
+        class has fewer than ``support_size`` examples in ``train_y``;
+        ``shuffled_indexes`` does not hold exactly one entry per label in
+        ``selected_labels``, or an entry holds fewer than ``support_size``
+        indexes; or ``shuffled_indexes`` for a label selects no example or an
+        example of another label.
     """
+    _positive_int(support_size, "support_size")
+    if not selected_labels:
+        raise ValueError(
+            "selected_labels is empty; give at least one label of train_y."
+        )
+    for position, label in enumerate(selected_labels):
+        if label in selected_labels[:position]:
+            raise ValueError(
+                f"selected_labels holds {_label_text(label)} more than once; give "
+                "each label once."
+            )
+    _require_whole_number_labels(train_y, None, "train_y")
+    _require_same_length(train_x, train_y, "train_x", "train_y")
+    for label in selected_labels:
+        count = int((train_y == label).sum())
+        if count < support_size:
+            shown = _label_text(label)
+            repair = f"leave class {shown} out of selected_labels"
+            if count > 0:
+                repair = f"pass a support_size of at most {count}, or {repair}"
+            raise ValueError(
+                f"Class {shown} has {count} example(s) in train_y; support_size "
+                f"{support_size} needs at least {support_size}; {repair}."
+            )
+    if shuffled_indexes is not None:
+        if len(shuffled_indexes) != len(selected_labels) or any(
+            label not in shuffled_indexes for label in selected_labels
+        ):
+            raise ValueError(
+                "shuffled_indexes must hold one entry per label in selected_labels "
+                f"({_truncate(str(selected_labels), 200)}); got entries for "
+                f"{_truncate(str(list(shuffled_indexes)), 200)}."
+            )
+        for label in selected_labels:
+            held = len(shuffled_indexes[label])
+            if held < support_size:
+                raise ValueError(
+                    f"shuffled_indexes[{_label_text(label)}] holds {held} index(es); "
+                    f"support_size {support_size} needs at least {support_size}; "
+                    f"give it at least {support_size} indexes, or pass a smaller "
+                    "support_size."
+                )
     if shuffled_indexes is None:
-        labels, counts = torch.unique(train_y, return_counts=True)
-        for label, count in list(zip(labels, counts)):
-            if (label in selected_labels) and (count < support_size):
-                raise ValueError(f"Not enough support examples in class {label}")
         shuffled_idxs = _get_shuffle_idxs_by_class(train_y, selected_labels)
     else:
         shuffled_idxs = shuffled_indexes
@@ -1247,11 +1372,6 @@ def generate_support(
     return support
 
 
-@icontract.require(lambda train_x: len(train_x.shape) >= 2)
-@icontract.require(lambda train_y: len(train_y.shape) == 1)
-@icontract.require(lambda support_size: support_size > 1)
-@icontract.require(lambda way: way > 0)
-@icontract.require(lambda episode_size: episode_size > 0)
 @icontract.ensure(lambda result: len(result) == 3)
 @icontract.ensure(lambda result: result[1].shape[0] == result[2].shape[0])
 @icontract.ensure(lambda way, result: len(result[0]) == way)
@@ -1295,10 +1415,20 @@ def generate_episode(
     Raises
     ------
     ValueError
-        If ``way`` exceeds the number of labels, or a selected class has no
-        more than ``support_size`` examples.
+        If ``support_size``, ``way`` or ``episode_size`` is not a positive
+        integer; ``train_x`` has fewer than 2 dimensions; ``train_y`` is not
+        1-D or, as a floating-point tensor, holds a value that is not a whole
+        number; ``train_x`` and ``train_y`` hold different numbers of rows;
+        ``way`` exceeds the number of labels; or a selected class has no more
+        than ``support_size`` examples.
     """
+    _positive_int(support_size, "support_size")
+    _positive_int(way, "way")
+    _positive_int(episode_size, "episode_size")
+    _require_rows(train_x, "train_x")
     labels, counts = torch.unique(train_y, return_counts=True)
+    _require_whole_number_labels(train_y, labels.tolist(), "train_y")
+    _require_same_length(train_x, train_y, "train_x", "train_y")
     if way > len(labels):
         raise ValueError(
             f"The way (#classes in each episode), {way}, must be <= number of labels, {len(labels)}"
@@ -1360,7 +1490,7 @@ class _EpisodeSampler:
             for label in self.labels.tolist()
         }
 
-    @icontract.require(lambda support_size: support_size > 1)
+    @icontract.require(lambda support_size: support_size >= 1)
     @icontract.require(lambda way: way > 0)
     @icontract.require(lambda episode_size: episode_size > 0)
     def sample(
@@ -1543,7 +1673,6 @@ def get_num_examples_per_label(Y: torch.Tensor) -> list[dict[str, Any]]:
     return examples_per_label
 
 
-@icontract.require(lambda train_y: train_y.shape[0] > 0)
 @beartype
 def generate_train_summary(
     model: Equine, train_y: torch.Tensor, date_trained: str
@@ -1564,7 +1693,17 @@ def generate_train_summary(
     -------
     dict[str, Any]
         Dictionary containing training summary.
+
+    Raises
+    ------
+    ValueError
+        If ``train_y`` is not 1-D or holds no label.
     """
+    if train_y.dim() != 1 or train_y.shape[0] == 0:
+        raise ValueError(
+            "train_y must be a 1-D tensor with at least one label; got shape "
+            f"{tuple(train_y.shape)}."
+        )
     train_summary = {
         "numTrainExamples": get_num_examples_per_label(train_y),
         "dateTrained": date_trained,
@@ -1647,10 +1786,6 @@ def _cholesky_with_jitter(cov: torch.Tensor) -> torch.Tensor:
     )
 
 
-@icontract.require(
-    lambda cov: cov.dim() == 3, "cov must have shape (classes, dim, dim)"
-)
-@icontract.require(lambda cov: cov.shape[-2] == cov.shape[-1])
 def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tensor:
     """
     Compute the squared Mahalanobis distance $x^T C^{-1} x$ (no square root).
@@ -1676,12 +1811,19 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
 
     Raises
     ------
+    ValueError
+        If ``cov`` does not have shape ``(classes, dim, dim)``.
     torch.linalg.LinAlgError
         If the Cholesky factorization of a covariance matrix fails. A singular
         matrix that rounding leaves positive definite gives very large
         distances instead, and a matrix that holds NaN gives NaN distances
         where the LAPACK build reports success for it (OpenBLAS does).
     """
+    if cov.dim() != 3 or cov.shape[-2] != cov.shape[-1]:
+        raise ValueError(
+            "cov must have shape (classes, dim, dim), one square matrix per class "
+            f"(a single matrix as cov.unsqueeze(0)); got shape {tuple(cov.shape)}."
+        )
     if x.dim() == 1:
         return mahalanobis_distance_nosq(x.unsqueeze(-1), cov).squeeze(-1)
     if x.dim() == 2:
@@ -1689,13 +1831,6 @@ def mahalanobis_distance_nosq(x: torch.Tensor, cov: torch.Tensor) -> torch.Tenso
     return _mahalanobis_from_factor(x, torch.linalg.cholesky(cov))
 
 
-@icontract.require(
-    lambda X, Y: X.shape[0] == Y.shape[0],
-    "X and Y must have the same number of samples.",
-)
-@icontract.require(
-    lambda test_size: 0.0 < test_size < 1.0, "test_size must be between 0 and 1."
-)
 @icontract.ensure(
     lambda result: len(result) == 4, "Function must return four elements."
 )
@@ -1729,7 +1864,8 @@ def stratified_train_test_split(
     Y : torch.Tensor
         Labels tensor of shape (n_samples,).
     test_size : float
-        Proportion of the dataset to include in the test split (between 0.0 and 1.0).
+        Proportion of the dataset to include in the test split, strictly between 0.0
+        and 1.0.
 
     Returns
     -------
@@ -1741,7 +1877,19 @@ def stratified_train_test_split(
         Training set labels.
     calib_y : torch.Tensor
         Test set labels.
+
+    Raises
+    ------
+    ValueError
+        If ``X`` or ``Y`` has no row dimension, ``Y`` does not hold one label per
+        row of ``X``, or ``test_size`` is 0.0, 1.0 or outside (0, 1). An ``int``
+        ``test_size`` raises it under ``python -O`` only.
+    beartype.roar.BeartypeCallHintParamViolation
+        If ``test_size`` is not a float, an ``int`` included, while contracts are
+        on.
     """
+    _require_same_length(X, Y, "X", "Y")
+    _require_fraction(test_size, "test_size")
     unique_classes, class_counts = torch.unique(Y, return_counts=True)
     test_counts = (class_counts.float() * test_size).round().long()
     train_indices = []

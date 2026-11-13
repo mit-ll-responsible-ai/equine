@@ -34,8 +34,6 @@ import equine.equine_gp
 import equine.equine_protonet
 import equine.utils
 from equine import _model_file
-from equine.equine_protonet import _kde_to_state
-from equine.registry import embedding_recipe
 
 
 class UnregisteredNet(torch.nn.Module):
@@ -2381,86 +2379,6 @@ def _protonet_on_labels(labels):
         episode_size=30,
     )
     return model, X
-
-
-def _write_v2_protonet_file(model, path: str, label_order=None) -> None:
-    """
-    Write ``model`` in the format-version-2 layout, built key by key: its
-    support and KDEs stored in ``label_order`` (by default the support's order).
-    The settings hold no ``ood_distance``; ``model`` must use ``"rmd_sqrt"``.
-    """
-    assert model.ood_distance == "rmd_sqrt"
-    labels = list(model.get_support()) if label_order is None else label_order
-    torch.save(
-        {
-            "equine_format_version": 2,
-            "embedding_recipe": embedding_recipe(model.model.embedding_model),
-            "embedding_state_dict": model.model.embedding_model.state_dict(),
-            "feature_names": model.feature_names,
-            "label_names": model.label_names,
-            "model_head_save": model.model.model_head.state_dict(),
-            "outlier_kde": {
-                label: _kde_to_state(model.outlier_score_kde[label]) for label in labels
-            },
-            "settings": {
-                "cov_type": model.cov_type.value,
-                "emb_out_dim": model.emb_out_dim,
-                "use_temperature": model.use_temperature,
-                "init_temperature": model.temperature.item(),
-                "relative_mahal": model.relative_mahal,
-                "device": model.device,
-            },
-            "support": {label: model.model.support[label].clone() for label in labels},
-            "train_summary": model.train_summary,
-        },
-        path,
-    )
-
-
-@pytest.mark.parametrize("labels", [(0, 1, 2), (0, 2, 5)])
-def test_v2_file_loads_with_the_saved_models_outputs(tmp_path, labels) -> None:
-    from equine.upgrade import upgrade_model_file
-
-    model, X = _protonet_on_labels(labels)
-    path = str(tmp_path / "v2.eq")
-    _write_v2_protonet_file(model, path)
-    upgrade_model_file(path)
-    loaded = eq.load_equine_model(path)
-    assert list(loaded.get_support()) == list(labels)
-    assert_same(model, loaded, X)
-
-
-def test_v2_file_columns_follow_the_stored_support_order(tmp_path) -> None:
-    from equine.upgrade import upgrade_model_file
-
-    model, X = _protonet_on_labels((0, 1, 2))
-    path = str(tmp_path / "v2.eq")
-    _write_v2_protonet_file(model, path, label_order=[2, 0, 1])
-    upgrade_model_file(path)
-    loaded = eq.load_equine_model(path)
-    assert list(loaded.get_support()) == [2, 0, 1]
-    expected = model.predict(X[:8]).classes[:, [2, 0, 1]]
-    torch.testing.assert_close(
-        loaded.predict(X[:8]).classes, expected, atol=1e-6, rtol=0
-    )
-
-
-def test_v2_file_with_reordered_support_scores_ood_like_the_saved_model(
-    tmp_path,
-) -> None:
-    from equine.upgrade import upgrade_model_file
-
-    model, X = _protonet_on_labels((0, 1, 2))
-    path = str(tmp_path / "v2.eq")
-    _write_v2_protonet_file(model, path, label_order=[2, 0, 1])
-    upgrade_model_file(path)
-    loaded = eq.load_equine_model(path)
-    torch.testing.assert_close(
-        loaded.predict(X[:8]).ood_scores,
-        model.predict(X[:8]).ood_scores,
-        atol=1e-5,
-        rtol=0,
-    )
 
 
 def test_save_load_round_trip_keeps_non_contiguous_labels(tmp_path) -> None:

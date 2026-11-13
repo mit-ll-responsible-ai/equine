@@ -182,11 +182,9 @@
   without the check, pass `allow_unchecked=True` (`--no-check`). The upgrade
   reads the file with `torch.load(weights_only=True)` first, and unpickles a
   file from an earlier release only after the recipe, the architecture, the
-  check inputs and the output path have been validated. The upgrade also
-  rewrites a format 2 or 3 file, which development builds wrote, with no
-  `--recipe`: `python -m equine.upgrade FILE`, adding `--import MODULE` when
-  its recipe names an architecture that EQUINE does not ship. Reading the old
-  layout is deprecated: `equine.upgrade` is removed in a later release.
+  check inputs and the output path have been validated. A file written by a
+  development build before format 4 is not converted; save the model again, or
+  retrain it.
 - `load_equine_model` accepts `embedding_model` (keyword-only), like
   `EquineProtonet.load` and `EquineGP.load`.
 - Requires `torch >= 2.14.1`, which has MPS kernels for the Cholesky
@@ -339,6 +337,9 @@
   and `support_size=` by keyword. A positional call emits a
   `DeprecationWarning` and then runs as the keyword call; it stops working in
   the next release (#215).
+- `equine.upgrade`: it converts files saved by EQUINE 0.1.x in this release and
+  is removed in the next release. Running it emits a `FutureWarning` (the
+  command line prints it).
 
 ### Removed
 - TorchScript in model files: `save(..., allow_executable=True)`,

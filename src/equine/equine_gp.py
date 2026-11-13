@@ -1173,9 +1173,10 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If the model has not been trained; the Laplace buffers are then
-            unchanged.
+            If ``X`` is empty or the model has not been trained; the Laplace
+            buffers are then unchanged.
         """
+        _require_examples(X, "forward")
         self._require_trained_for("forward")
         logits, _ = self._forward_with_embeddings(X)
         return logits
@@ -1226,7 +1227,7 @@ class EquineGP(Equine):
             If ``X`` is empty, the model has not been trained, or the embeddings
             of ``X`` hold a NaN or infinite value.
         """
-        _require_examples(X)
+        _require_examples(X, "predict")
         self._require_trained_for("predict")
         # One embedding pass, under no_grad.
         with _eval_mode(self), torch.no_grad():

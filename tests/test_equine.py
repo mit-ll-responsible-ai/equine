@@ -153,8 +153,31 @@ BUILDERS = pytest.mark.parametrize(
 @BUILDERS
 def test_predict_refuses_an_empty_batch(build) -> None:
     model, _, _ = build()
-    with pytest.raises(ValueError, match="X is empty"):
+    with pytest.raises(
+        ValueError, match=r"^X is empty; predict needs at least one example\.$"
+    ):
         model.predict(torch.empty(0, FEATURES))
+
+
+@BUILDERS
+@pytest.mark.parametrize("training", [False, True], ids=["eval", "train"])
+def test_forward_refuses_an_empty_batch(build, training) -> None:
+    """``model(X)`` refuses an empty batch in either mode without embedding it;
+    in eval mode, a batch of one example is embedded once."""
+    model, _, _ = build()
+    model.train(training)
+    calls: list[int] = []
+    model.embedding_model.register_forward_pre_hook(
+        lambda module, args: calls.append(args[0].shape[0])
+    )
+    with pytest.raises(
+        ValueError, match=r"^X is empty; forward needs at least one example\.$"
+    ):
+        model(torch.empty(0, FEATURES))
+    assert calls == []
+    model.eval()
+    model(torch.zeros(1, FEATURES))
+    assert calls == [1]
 
 
 @BUILDERS

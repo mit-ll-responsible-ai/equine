@@ -37,6 +37,7 @@ from .utils import (
     _plain_train_summary,
     _rebuild_embedding,
     _refuse_torchscript,
+    _require_calibration_settings,
     _require_class_indices,
     _require_device,
     _require_entries,
@@ -44,9 +45,9 @@ from .utils import (
     _require_finite_embeddings,
     _require_matching_weights,
     _require_names,
+    _require_support,
     _require_whole_number_labels,
     _support_from_file,
-    generate_support,
     generate_train_summary,
 )
 
@@ -410,7 +411,6 @@ class _Laplace(torch.nn.Module):
         """
         return self._forward_with_features(x)[0]
 
-    @icontract.require(lambda self: self.training_parameters_set)
     def _forward_with_features(
         self, x: torch.Tensor
     ) -> tuple[torch.Tensor | tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
@@ -419,9 +419,9 @@ class _Laplace(torch.nn.Module):
 
         The features are the output of ``rff`` (feature_extractor -> jl -> normalize ->
         rff), the same tensor ``EquineGP.compute_embeddings`` returns, except that a
-        single unbatched example gets a batch dimension of one here. The
-        ``training_parameters_set`` precondition is checked here, before anything is
-        computed or the precision/seen_data buffers are touched.
+        single unbatched example gets a batch dimension of one here. Requires
+        ``set_training_params`` to have been called; ``EquineGP.forward``,
+        ``predict`` and ``calibrate_model`` check that before they call it.
 
         Returns
         -------
@@ -736,13 +736,14 @@ class EquineGP(Equine):
             epoch. Each one is moved to this model's device in place and reset
             before each epoch's validation pass.
         batch_size : int, optional
-            The number of samples to use per batch.
+            The number of samples to use per batch, at most the number of
+            examples in ``dataset``.
         vis_support : bool, optional
             If True, calls ``update_support`` with the training tensors after the
             last epoch. Requires a ``TensorDataset``.
         support_size : int, optional
             Maximum number of support examples per class that ``update_support``
-            keeps when ``vis_support`` is True.
+            keeps when ``vis_support`` is True; then a positive integer.
 
         Returns
         -------
@@ -761,21 +762,30 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If the feature or label names do not match the data or the number
-            of classes, or the labels of ``dataset`` are not 1-D, not whole
-            numbers or not class indices (0 to ``num_classes - 1``). The model
-            is then unchanged.
+            If ``vis_support`` is True and ``support_size`` is not a positive
+            integer; the feature or label names do not match the data or the
+            number of classes; the labels of ``dataset`` are not 1-D, not whole
+            numbers or not class indices (0 to ``num_classes - 1``); or
+            ``batch_size`` is larger than the number of examples in ``dataset``.
+            The model is then unchanged.
 
         Notes
         -----
         Training and eval mode are toggled on this wrapper, which propagates to the
         inner module. The model is left in eval mode afterwards, ready to predict.
         """
-
+        if vis_support:
+            _positive_int(support_size, "support_size")
         self.validate_feature_label_names(dataset[0][0].shape[-1], self.num_outputs)
         train_y = dataset[:][1]
         _require_whole_number_labels(train_y, None, "dataset labels")
         _require_class_indices(train_y, self.num_outputs, "dataset labels")
+        num_data = len(cast(Sized, dataset))
+        if batch_size > num_data:
+            raise ValueError(
+                f"batch_size ({batch_size}) is larger than the dataset ({num_data} "
+                f"rows); pass a batch_size of at most {num_data}."
+            )
 
         train_loader = _batch_loader(dataset, batch_size, shuffle=True)
 
@@ -783,7 +793,7 @@ class EquineGP(Equine):
         if validation_dataset is not None:
             val_loader = _batch_loader(validation_dataset, batch_size, shuffle=False)
 
-        self.model.set_training_params(len(cast(Sized, dataset)), batch_size)
+        self.model.set_training_params(num_data, batch_size)
         val_metrics_outputs: list[list[Any]] | None = None
 
         if validation_dataset is not None and val_metrics is not None:
@@ -872,7 +882,8 @@ class EquineGP(Equine):
             Options passed by position are refused with a ``TypeError``; pass them
             by keyword.
         support_size : int
-            Maximum number of support examples to keep per class. Required,
+            Maximum number of support examples to keep per class, a positive
+            integer; a class with fewer examples keeps all of them. Required,
             keyword-only.
 
         Returns
@@ -884,9 +895,11 @@ class EquineGP(Equine):
         TypeError
             If ``support_size`` is missing or an option is passed by position.
         ValueError
-            If ``support_x`` and ``support_y`` hold different numbers of examples,
-            or ``support_y`` is not 1-D or holds a label that is not a whole number
-            or not a class index (0 to ``num_classes - 1``).
+            If ``support_size`` is not a positive integer; ``support_x`` and
+            ``support_y`` hold different numbers of examples, or none; or
+            ``support_y`` is not 1-D or holds a label that is not a whole number
+            or not a class index (0 to ``num_classes - 1``). The model is then
+            unchanged.
         """
         if args:
             raise TypeError(
@@ -899,26 +912,26 @@ class EquineGP(Equine):
                 "EquineGP.update_support() missing required keyword argument: "
                 "'support_size'"
             )
+        _positive_int(support_size, "support_size")
+        if support_x.shape[0] != support_y.shape[0]:
+            raise ValueError(
+                f"support_x has {support_x.shape[0]} examples but support_y has "
+                f"{support_y.shape[0]} labels; they must match."
+            )
+        if support_y.shape[0] == 0:
+            raise ValueError(
+                "support_x and support_y hold no examples; give at least one example "
+                "and its label."
+            )
         with _eval_mode(self):
-            if support_x.shape[0] != support_y.shape[0]:
-                raise ValueError(
-                    f"support_x has {support_x.shape[0]} examples but support_y has "
-                    f"{support_y.shape[0]} labels; they must match."
-                )
-            labels, counts = torch.unique(support_y, return_counts=True)
+            labels = torch.unique(support_y)
             _require_whole_number_labels(support_y, labels.tolist(), "support_y")
             _require_class_indices(support_y, self.num_outputs, "support_y")
             shuffled_idxs = _get_shuffle_idxs_by_class(support_y, labels.tolist())
-            support = OrderedDict()
-            for label, count in list(zip(labels.tolist(), counts.tolist())):
-                class_support = generate_support(
-                    support_x,
-                    support_y,
-                    support_size=min(count, support_size),
-                    selected_labels=[label],
-                    shuffled_indexes={label: shuffled_idxs[label]},
-                )
-                support.update(class_support)
+            support = OrderedDict(
+                (int(label), support_x[idxs[:support_size]])
+                for label, idxs in shuffled_idxs.items()
+            )
 
             # Through the model boundary: on the device and, for floating support, in
             # the model's dtype.
@@ -961,7 +974,6 @@ class EquineGP(Equine):
 
         return self.model.rff(f_reduc)
 
-    @icontract.require(lambda self: len(self.support) > 0)
     def compute_prototypes(self) -> torch.Tensor:
         """
         Method for computing class prototypes based on given support examples.
@@ -976,7 +988,13 @@ class EquineGP(Equine):
         -------
         torch.Tensor
             Tensors of prototypes for each of the given classes in the support.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
         """
+        self._require_support_for("compute_prototypes")
         embeddings = [self.compute_embeddings(x) for x in self.support.values()]
         return torch.stack([torch.mean(e, dim=0) for e in embeddings])
 
@@ -992,7 +1010,6 @@ class EquineGP(Equine):
 
         return prototypes
 
-    @icontract.require(lambda self: len(self.support) > 0)
     def get_support(self) -> OrderedDict[int, torch.Tensor]:
         """
         Method for returning support examples used in training.
@@ -1001,10 +1018,15 @@ class EquineGP(Equine):
         -------
         OrderedDict[int, torch.Tensor]
             Dictionary containing support examples for each class.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
         """
+        self._require_support_for("get_support")
         return self.support
 
-    @icontract.require(lambda self: len(self.prototypes) > 0)
     def get_prototypes(self) -> torch.Tensor:
         """
         Method for returning class prototypes.
@@ -1013,11 +1035,45 @@ class EquineGP(Equine):
         -------
         torch.Tensor
             Tensors of prototypes for each of the given classes in the support.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
         """
+        self._require_support_for("get_prototypes")
         return self.prototypes
 
-    @icontract.require(lambda num_calibration_epochs: 0 < num_calibration_epochs)
-    @icontract.require(lambda calibration_lr: calibration_lr > 0.0)
+    def _require_support_for(self, method: str) -> None:
+        """
+        Refuse a call to ``method`` on a model without a support.
+
+        Raises
+        ------
+        ValueError
+            If the model has no support.
+        """
+        _require_support(
+            self.support,
+            f"EquineGP.{method}",
+            "train_model (with vis_support=True)",
+        )
+
+    def _require_trained_for(self, method: str) -> None:
+        """
+        Refuse a call to ``method`` on a model whose training parameters are not set.
+
+        Raises
+        ------
+        ValueError
+            If neither ``train_model`` nor ``load`` has set the training parameters.
+        """
+        if not self.model.training_parameters_set:
+            raise ValueError(
+                f"EquineGP.{method} needs a trained model, and this model has not "
+                "been trained; call train_model first."
+            )
+
     def calibrate_model(
         self,
         dataset: Dataset[Any],
@@ -1038,19 +1094,29 @@ class EquineGP(Equine):
             A map-style pytorch ``Dataset`` (with ``__len__``) of
             ``(input, label)`` pairs.
         num_calibration_epochs : int, optional
-            Number of epochs to tune temperature.
+            Number of epochs to tune temperature, at least 0; 0 leaves the
+            temperature unchanged.
         calibration_lr : float, optional
-            Learning rate for temperature optimization.
+            Learning rate for temperature optimization, a finite float above 0.
         calibration_batch_size : int, optional
             Batch size of the calibration data loader.
 
         Raises
         ------
         ValueError
-            If the labels of a batch are not 1-D or hold a label that is not a
-            whole number or not a class index (0 to ``num_classes - 1``). A call
-            that raises leaves the temperature as it was.
+            If ``num_calibration_epochs`` is not an int of at least 0 (a bool is
+            refused), ``calibration_lr`` is not a finite float above 0, or the
+            model has not been trained, before anything changes; or if the labels
+            of a batch are not 1-D or hold a label that is not a whole number or
+            not a class index (0 to ``num_classes - 1``), and the temperature is
+            then restored. An ``int`` or bool ``calibration_lr`` raises it under
+            ``python -O`` only.
+        beartype.roar.BeartypeCallHintParamViolation
+            If ``num_calibration_epochs`` is not an int, or ``calibration_lr`` is
+            not a float (an ``int`` or bool included), while contracts are on.
         """
+        _require_calibration_settings(num_calibration_epochs, calibration_lr)
+        self._require_trained_for("calibrate_model")
 
         calibration_loader = _batch_loader(
             dataset, calibration_batch_size, shuffle=True
@@ -1111,7 +1177,14 @@ class EquineGP(Equine):
         -------
         torch.Tensor
             Logits divided by ``temperature``, shape (examples, classes).
+
+        Raises
+        ------
+        ValueError
+            If the model has not been trained; the Laplace buffers are then
+            unchanged.
         """
+        self._require_trained_for("forward")
         logits, _ = self._forward_with_embeddings(X)
         return logits
 
@@ -1158,9 +1231,11 @@ class EquineGP(Equine):
         Raises
         ------
         ValueError
-            If ``X`` is empty, or its embeddings hold a NaN or infinite value.
+            If ``X`` is empty, the model has not been trained, or the embeddings
+            of ``X`` hold a NaN or infinite value.
         """
         _require_examples(X)
+        self._require_trained_for("predict")
         # One embedding pass, under no_grad.
         with _eval_mode(self), torch.no_grad():
             logits, embeddings = self._forward_with_embeddings(X)

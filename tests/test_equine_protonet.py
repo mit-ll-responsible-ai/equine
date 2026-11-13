@@ -6,6 +6,7 @@ import copy
 import functools
 import math
 import pickle
+import re
 import threading
 from collections import OrderedDict
 
@@ -16,9 +17,11 @@ from beartype.roar import BeartypeCallHintParamViolation
 from conftest import (
     LABEL_KINDS,
     BasicEmbeddingModel,
+    assert_model_unchanged,
     assert_valid_prediction,
     generate_random_string_list,
     labels_of_kind,
+    model_state,
     random_dataset,
     stored_tensors,
     use_basic_embedding_model,
@@ -692,6 +695,307 @@ def test_train_model_without_episodes_accepts_any_way_and_episode_size(
         dataset, num_episodes=0, support_size=10, way=way, episode_size=episode_size
     )
     assert [len(rows) for rows in model.get_support().values()] == [10, 10, 10]
+
+
+class _FlatRows(torch.nn.Module):
+    """A linear embedding of each example flattened to a row; a 1-D input is one
+    feature per example."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.linear = torch.nn.Linear(1, CLASSES)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.linear(x.reshape(len(x), -1))
+
+
+def _one_feature_dataset(rows: bool) -> torch.utils.data.TensorDataset:
+    """The first feature of ``separable_dataset``: 1-D, or one column per row."""
+    _, x, y = separable_dataset()
+    feature = x[:, 0] + 3 * y
+    return torch.utils.data.TensorDataset(
+        feature.unsqueeze(1) if rows else feature, y.float()
+    )
+
+
+def _with_temperature() -> tuple[eq.EquineProtonet, torch.utils.data.TensorDataset]:
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, use_temperature=True
+    )
+    return model, separable_dataset()[0]
+
+
+def _without_temperature() -> tuple[eq.EquineProtonet, torch.utils.data.TensorDataset]:
+    model = eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES)
+    return model, separable_dataset()[0]
+
+
+def _one_feature_model() -> tuple[eq.EquineProtonet, torch.utils.data.TensorDataset]:
+    model = eq.EquineProtonet(_FlatRows(), CLASSES, use_temperature=True)
+    return model, _one_feature_dataset(rows=False)
+
+
+def _calib_frac_message(value: object) -> str:
+    return f"calib_frac must be a number strictly between 0 and 1; got {value!r}."
+
+
+def _epochs_message(shown: str) -> str:
+    return (
+        "num_calibration_epochs must be a non-negative integer (an int >= 0, not a "
+        f"bool; 0 leaves the temperature unchanged); got {shown}."
+    )
+
+
+def _lr_message(value: object) -> str:
+    return (
+        "calibration_lr must be a finite float above 0 (not an int or a bool), such as "
+        f"0.01 or 1.0; got {value!r}."
+    )
+
+
+_ONE_FEATURE_MESSAGE = (
+    "dataset inputs must have a row dimension and at least one feature dimension; "
+    "got shape (120,)."
+)
+
+
+@pytest.mark.parametrize(
+    ("build", "changes", "message", "repair"),
+    [
+        *[
+            pytest.param(
+                _with_temperature,
+                {"calib_frac": value},
+                _calib_frac_message(value),
+                {"calib_frac": 0.2},
+                id=f"calib_frac={value}",
+            )
+            for value in (1.5, 1.0, 0.0, -0.25, math.nan)
+        ],
+        *[
+            pytest.param(
+                _with_temperature,
+                {"num_calibration_epochs": value},
+                _epochs_message(shown),
+                {"num_calibration_epochs": 1},
+                id=f"num_calibration_epochs={value}",
+            )
+            for value, shown in ((-1, "int -1"), (True, "bool"))
+        ],
+        *[
+            pytest.param(
+                _with_temperature,
+                {"calibration_lr": value},
+                _lr_message(value),
+                {"calibration_lr": 0.01},
+                id=f"calibration_lr={value}",
+            )
+            for value in (0.0, -0.01, math.nan, math.inf)
+        ],
+        pytest.param(
+            _without_temperature,
+            {"calibration_lr": -0.01},
+            _lr_message(-0.01),
+            {"calibration_lr": 0.01},
+            id="calibration_lr=-0.01-without-use_temperature",
+        ),
+        *[
+            pytest.param(
+                _one_feature_model,
+                {"num_episodes": episodes},
+                _ONE_FEATURE_MESSAGE,
+                {"dataset": _one_feature_dataset(rows=True)},
+                id=f"1-d-inputs-num_episodes={episodes}",
+            )
+            for episodes in (3, 0)
+        ],
+    ],
+)
+def test_train_model_refuses_bad_input(build, changes, message, repair) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    model as it was; the call its message asks for trains it."""
+    torch.manual_seed(0)
+    model, dataset = build()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    args = {
+        "dataset": dataset,
+        "num_episodes": 3,
+        "calib_frac": 0.2,
+        "support_size": 5,
+        "way": 3,
+        "episode_size": 30,
+        "num_calibration_epochs": 1,
+        "calibration_lr": 0.01,
+        **changes,
+    }
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.train_model(**args)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    args.update(repair)
+    model.train_model(**args)
+    assert list(model.get_support()) == list(range(CLASSES))
+
+
+_WRONG_NUMBER_TYPES = [
+    ({"calib_frac": 0}, "int-calib_frac-0", _calib_frac_message(0)),
+    ({"calib_frac": 1}, "int-calib_frac-1", _calib_frac_message(1)),
+    ({"calibration_lr": 0}, "int-calibration_lr-0", _lr_message(0)),
+    ({"calibration_lr": 1}, "int-calibration_lr-1", _lr_message(1)),
+    ({"calibration_lr": True}, "bool-calibration_lr", _lr_message(True)),
+    (
+        {"num_calibration_epochs": 1.0},
+        "float-num_calibration_epochs",
+        _epochs_message("float"),
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("changes", "error", "message"),
+    [
+        *[
+            pytest.param(
+                changes,
+                BeartypeCallHintParamViolation,
+                None,
+                marks=pytest.mark.contracts,
+                id=f"{name}-contracts-on",
+            )
+            for changes, name, _ in _WRONG_NUMBER_TYPES
+        ],
+        *[
+            pytest.param(
+                changes,
+                ValueError,
+                message,
+                marks=pytest.mark.skipif(
+                    __debug__, reason="beartype refuses the wrong type first"
+                ),
+                id=f"{name}-python-O",
+            )
+            for changes, name, message in _WRONG_NUMBER_TYPES
+        ],
+    ],
+)
+def test_train_model_refuses_a_wrong_number_type(changes, error, message) -> None:
+    """An int ``calib_frac``, an int or bool ``calibration_lr``, or a float
+    ``num_calibration_epochs``, is a type error while contracts are on and a
+    ``ValueError`` under python -O; the model is left as it was, and the values the
+    message asks for train it."""
+    torch.manual_seed(0)
+    model, dataset = _with_temperature()
+    args = {
+        "dataset": dataset,
+        "num_episodes": 3,
+        "calib_frac": 0.2,
+        "support_size": 5,
+        "way": 3,
+        "episode_size": 30,
+        "num_calibration_epochs": 1,
+        "calibration_lr": 0.01,
+    }
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(error, match=None if message is None else re.escape(message)):
+        model.train_model(**{**args, **changes})
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    model.train_model(**args)
+    assert list(model.get_support()) == list(range(CLASSES))
+
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair"),
+    [
+        *[
+            pytest.param(
+                {"num_calibration_epochs": value},
+                _epochs_message(shown),
+                {"num_calibration_epochs": 1},
+                id=f"num_calibration_epochs={value}",
+            )
+            for value, shown in ((-1, "int -1"), (True, "bool"))
+        ],
+        *[
+            pytest.param(
+                {"calibration_lr": value},
+                _lr_message(value),
+                {"calibration_lr": 0.01},
+                id=f"calibration_lr={value}",
+            )
+            for value in (0.0, -0.01, math.nan, math.inf)
+        ],
+    ],
+)
+def test_calibrate_temperature_refuses_bad_input(changes, message, repair) -> None:
+    """Each refusal names the argument and leaves the model as it was, the
+    temperature and its ``requires_grad`` included; the call its message asks for
+    calibrates the temperature."""
+    model, x, y = _briefly_trained_protonet_with_data()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    args = {"num_calibration_epochs": 1, "calibration_lr": 0.01, **changes}
+    before = model_state(model)
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.calibrate_temperature(x, y, **args)
+    assert_model_unchanged(model, before)
+
+    args.update(repair)
+    model.calibrate_temperature(x, y, **args)
+    assert model.temperature.item() != 0.5
+    assert not model.temperature.requires_grad
+
+
+@pytest.mark.parametrize(
+    ("changes", "error", "message"),
+    [
+        *[
+            pytest.param(
+                changes,
+                BeartypeCallHintParamViolation,
+                None,
+                marks=pytest.mark.contracts,
+                id=f"{name}-contracts-on",
+            )
+            for changes, name, _ in _WRONG_NUMBER_TYPES[2:]
+        ],
+        *[
+            pytest.param(
+                changes,
+                ValueError,
+                message,
+                marks=pytest.mark.skipif(
+                    __debug__, reason="beartype refuses the wrong type first"
+                ),
+                id=f"{name}-python-O",
+            )
+            for changes, name, message in _WRONG_NUMBER_TYPES[2:]
+        ],
+    ],
+)
+def test_calibrate_temperature_refuses_a_wrong_number_type(
+    changes, error, message
+) -> None:
+    """An int or bool ``calibration_lr`` or a float ``num_calibration_epochs`` is a
+    type error while contracts are on and a ``ValueError`` under python -O; the model
+    is left as it was, and the values the message asks for calibrate the
+    temperature."""
+    model, x, y = _briefly_trained_protonet_with_data()
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    before = model_state(model)
+    with pytest.raises(error, match=None if message is None else re.escape(message)):
+        model.calibrate_temperature(x, y, **changes)
+    assert_model_unchanged(model, before)
+
+    model.calibrate_temperature(x, y, num_calibration_epochs=1, calibration_lr=0.01)
+    assert model.temperature.item() != 0.5
 
 
 def test_outlier_scores_refuse_equal_distances_and_keep_the_kdes() -> None:

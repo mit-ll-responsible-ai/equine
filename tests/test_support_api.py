@@ -11,14 +11,16 @@ a ``TypeError`` that names the keywords and leaves the model as it was.
 views of the inner model's support.
 """
 
+import math
 import pickle
+import re
 import warnings
 from collections import OrderedDict
 
-import icontract
 import pytest
 import torch
-from conftest import BasicEmbeddingModel
+from beartype.roar import BeartypeCallHintParamViolation
+from conftest import BasicEmbeddingModel, assert_model_unchanged, model_state
 from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
@@ -203,16 +205,267 @@ def test_options_passed_by_position_are_refused_naming_the_keywords(
     assert list(model.get_support()) == list(range(CLASSES))
 
 
-@pytest.mark.contracts
-def test_out_of_range_calib_frac_violates_a_contract() -> None:
+def _calibration_set(x: torch.Tensor, y: torch.Tensor) -> dict[str, torch.Tensor]:
+    return {"calib_x": x[::4].clone(), "calib_y": y[::4].clone()}
+
+
+def _rows_and_labels_message(rows: int, labels: int) -> str:
+    return (
+        f"support_x has {rows} row(s) and support_y {labels} label(s); give one "
+        "label per row."
+    )
+
+
+def _calib_frac_message(value: object) -> str:
+    return f"calib_frac must be a number strictly between 0 and 1; got {value!r}."
+
+
+def _longer(x: torch.Tensor) -> torch.Tensor:
+    return torch.cat([x, x[:10] + 100.0])
+
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair"),
+    [
+        *[
+            pytest.param(
+                lambda x, y, value=value: {"calib_frac": value},
+                _calib_frac_message(value),
+                lambda x, y: {"calib_frac": 0.5},
+                id=f"calib_frac={value}",
+            )
+            for value in (1.5, 1.0, 0.0, -0.25, math.nan)
+        ],
+        pytest.param(
+            lambda x, y: {"calib_frac": 1.5, **_calibration_set(x, y)},
+            _calib_frac_message(1.5),
+            lambda x, y: {"calib_frac": None},
+            id="calib_frac=1.5-with-calib_x",
+        ),
+        pytest.param(
+            lambda x, y: {"support_x": _longer(x)},
+            _rows_and_labels_message(130, 120),
+            lambda x, y: {"support_x": x},
+            id="support_x-longer-calib_frac",
+        ),
+        pytest.param(
+            lambda x, y: {"support_x": x[:110]},
+            _rows_and_labels_message(110, 120),
+            lambda x, y: {"support_x": x},
+            id="support_x-shorter-calib_frac",
+        ),
+        pytest.param(
+            lambda x, y: {
+                "support_x": _longer(x),
+                "calib_frac": None,
+                **_calibration_set(x, y),
+            },
+            _rows_and_labels_message(130, 120),
+            lambda x, y: {"support_x": x},
+            id="support_x-longer-calib_x",
+        ),
+        pytest.param(
+            lambda x, y: {
+                "support_x": x[:110],
+                "calib_frac": None,
+                **_calibration_set(x, y),
+            },
+            _rows_and_labels_message(110, 120),
+            lambda x, y: {"support_x": x},
+            id="support_x-shorter-calib_x",
+        ),
+        pytest.param(
+            lambda x, y: {"support_x": torch.tensor(0.0)},
+            "support_x must have a row dimension; got shape (); pass a tensor with "
+            "one entry per row along its first dimension.",
+            lambda x, y: {"support_x": x},
+            id="0-d-support_x",
+        ),
+    ],
+)
+def test_protonet_update_support_refuses_bad_input(changes, message, repair) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    model as it was; the call its message asks for replaces the support."""
     model, x, y = _trained_protonet()
-    support = {label: rows.clone() for label, rows in model.get_support().items()}
-    with pytest.raises(icontract.ViolationError, match="calib_frac"):
-        model.update_support(x, y, calib_frac=1.5)
-    assert list(model.get_support()) == list(support)
-    for label, rows in support.items():
-        assert torch.equal(model.get_support()[label], rows)
-    assert model.label_names is None
+    args = {"support_x": x, "support_y": y, "calib_frac": 0.5, **changes(x, y)}
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.update_support(**args)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    args.update(repair(x, y))
+    model.update_support(**args)
+    assert list(model.get_support()) == list(range(CLASSES))
+    assert model.outlier_score_kde[0] is not before["outlier_score_kde"][0][1]
+
+
+@pytest.mark.parametrize(
+    ("calib_frac", "error", "message"),
+    [
+        *[
+            pytest.param(
+                value,
+                BeartypeCallHintParamViolation,
+                None,
+                marks=pytest.mark.contracts,
+                id=f"int-{value}-contracts-on",
+            )
+            for value in (0, 1)
+        ],
+        *[
+            pytest.param(
+                value,
+                ValueError,
+                _calib_frac_message(value),
+                marks=pytest.mark.skipif(
+                    __debug__, reason="beartype refuses an int calib_frac first"
+                ),
+                id=f"int-{value}-python-O",
+            )
+            for value in (0, 1)
+        ],
+    ],
+)
+def test_protonet_update_support_refuses_an_int_calib_frac(
+    calib_frac, error, message
+) -> None:
+    """An int ``calib_frac`` is a type error while contracts are on and a
+    ``ValueError`` under python -O; the model is left as it was, and the float the
+    message asks for replaces the support."""
+    model, x, y = _trained_protonet()
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(error, match=None if message is None else re.escape(message)):
+        model.update_support(x, y, calib_frac=calib_frac)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    model.update_support(x, y, calib_frac=0.5)
+    assert list(model.get_support()) == list(range(CLASSES))
+
+
+def _support_size_message(shown: str) -> str:
+    return (
+        "support_size must be a positive integer (an int >= 1, not a bool); got "
+        f"{shown}."
+    )
+
+
+@pytest.mark.parametrize(
+    ("changes", "message", "repair", "rows"),
+    [
+        pytest.param(
+            lambda x, y: {"support_size": 0},
+            _support_size_message("int 0"),
+            lambda x, y: {"support_size": 5},
+            5,
+            id="support_size=0",
+        ),
+        pytest.param(
+            lambda x, y: {"support_size": -1},
+            _support_size_message("int -1"),
+            lambda x, y: {"support_size": 5},
+            5,
+            id="support_size=-1",
+        ),
+        pytest.param(
+            lambda x, y: {"support_size": True},
+            _support_size_message("bool"),
+            lambda x, y: {"support_size": 5},
+            5,
+            id="support_size=True",
+        ),
+        pytest.param(
+            lambda x, y: {"support_x": x[:0], "support_y": y[:0]},
+            "support_x and support_y hold no examples; give at least one example "
+            "and its label.",
+            lambda x, y: {"support_x": x, "support_y": y},
+            10,
+            id="no-examples",
+        ),
+    ],
+)
+def test_gp_update_support_refuses_bad_input(changes, message, repair, rows) -> None:
+    """Each refusal names the argument, draws no random numbers and leaves the
+    model as it was (its support, the support embeddings and the prototypes
+    included); the call its message asks for replaces the support."""
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    model = _gp()
+    model.update_support(x, y, support_size=10)
+    args = {"support_x": x, "support_y": y, "support_size": 10, **changes(x, y)}
+    before = model_state(model)
+    rng = torch.get_rng_state()
+    with pytest.raises(ValueError, match=re.escape(message)):
+        model.update_support(**args)
+    assert_model_unchanged(model, before)
+    assert torch.equal(torch.get_rng_state(), rng), "the refusal drew random numbers"
+
+    args.update(repair(x, y))
+    model.update_support(**args)
+    assert [len(r) for r in model.get_support().values()] == [rows] * CLASSES
+    assert model.get_prototypes().shape[0] == CLASSES
+
+
+@pytest.mark.parametrize("support_size", [40, 100])
+def test_gp_update_support_keeps_every_example_of_a_single_class(support_size) -> None:
+    """A support of one class keeps all of its examples when ``support_size`` is at
+    least their number."""
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    model = _gp()
+    model.update_support(x[:40], y[:40], support_size=support_size)
+    support = model.get_support()
+    assert list(support) == [0]
+    assert sorted(support[0][:, 0].tolist()) == sorted(x[:40, 0].tolist())
+    assert model.get_prototypes().shape[0] == 1
+
+
+def _no_support_message(method: str) -> str:
+    if method.startswith("EquineGP."):
+        train_call = "train_model (with vis_support=True)"
+    else:
+        train_call = "train_model"
+    return (
+        f"{method} needs a support, and this model has none; call {train_call} or "
+        "update_support first."
+    )
+
+
+@pytest.mark.parametrize(
+    ("build", "method"),
+    [
+        pytest.param(_gp, "compute_prototypes", id="gp-compute_prototypes"),
+        pytest.param(_gp, "get_support", id="gp-get_support"),
+        pytest.param(_gp, "get_prototypes", id="gp-get_prototypes"),
+        pytest.param(
+            lambda: _trained_gp(vis_support=False)[0],
+            "get_support",
+            id="gp-trained-without-vis_support-get_support",
+        ),
+        pytest.param(_protonet, "get_support", id="protonet-get_support"),
+        pytest.param(_protonet, "get_prototypes", id="protonet-get_prototypes"),
+    ],
+)
+def test_a_model_without_a_support_refuses_to_read_it(build, method) -> None:
+    """The refusal names the method and leaves the model as it was; after the
+    update_support call the message asks for, the method returns one entry per
+    class."""
+    _, x, y = separable_dataset()
+    model = build()
+    name = f"{type(model).__name__}.{method}"
+    before = model_state(model)
+    with pytest.raises(ValueError, match=re.escape(_no_support_message(name))):
+        getattr(model, method)()
+    assert_model_unchanged(model, before)
+
+    if isinstance(model, eq.EquineGP):
+        model.update_support(x, y, support_size=10)
+    else:
+        model.update_support(x, y.float(), calib_frac=0.5)
+    assert len(getattr(model, method)()) == CLASSES
 
 
 @pytest.mark.parametrize(

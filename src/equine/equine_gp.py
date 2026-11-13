@@ -467,6 +467,7 @@ class _Laplace(torch.nn.Module):
                     eps = 1e-7
                     jitter = eps * torch.eye(
                         self.precision.shape[1],
+                        dtype=torch.promote_types(self.precision.dtype, torch.float32),
                         device=self.precision.device,
                     )
                     covariance = cast(torch.Tensor, self.covariance)
@@ -1176,11 +1177,21 @@ class EquineGP(Equine):
             logits, embeddings = self._forward_with_embeddings(X)
             _require_finite_embeddings(embeddings)
             preds = torch.softmax(logits, dim=1)
+            # The OOD score is computed in float32 or wider, clamped to [0, 1], and
+            # takes the predictions' dtype.
+            score_dtype = torch.promote_types(preds.dtype, torch.float32)
+            probs = (
+                preds
+                if preds.dtype == score_dtype
+                else torch.softmax(logits.to(score_dtype), dim=1)
+            )
             equiprobable = (
-                torch.ones(self.num_outputs, device=logits.device) / self.num_outputs
+                torch.ones(self.num_outputs, dtype=score_dtype, device=logits.device)
+                / self.num_outputs
             )
             max_entropy = torch.sum(torch.special.entr(equiprobable))
-            ood_score = torch.sum(torch.special.entr(preds), dim=1) / max_entropy
+            entropy = torch.sum(torch.special.entr(probs), dim=1)
+            ood_score = (entropy / max_entropy).clamp(0, 1).to(preds.dtype)
         eq_out = EquineOutput(
             classes=preds, ood_scores=ood_score, embeddings=embeddings
         )

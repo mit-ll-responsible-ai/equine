@@ -112,7 +112,7 @@ def test_protonet_with_temperature_predicts(device):
 @pytest.mark.parametrize("device", devices())
 def test_protonet_update_support(device):
     model, x, y = _protonet(device)
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert_on_device(model, device)  # the new support and its embeddings too
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
 
@@ -160,7 +160,7 @@ def test_gp_predicts(device):
 @pytest.mark.parametrize("device", devices())
 def test_gp_update_support(device):
     model, x, y = _gp(device)
-    model.update_support(x, y.long(), 10)
+    model.update_support(x, y.long(), support_size=10)
     assert set(model.support) == set(range(CLASSES))
     assert model.prototypes.shape[0] == CLASSES  # one prototype per class
     assert_on_device(model, device)  # the new support and its embeddings too
@@ -449,10 +449,10 @@ def test_update_support_accepts_float64_input(build, device):
     """Support goes through the model boundary: moved to the device and cast to the embedding dtype."""
     model, x, y = build(device)
     if isinstance(model, eq.EquineProtonet):
-        model.update_support(x.double(), y.float(), 0.5)
+        model.update_support(x.double(), y.float(), calib_frac=0.5)
         support = model.model.support
     else:
-        model.update_support(x.double(), y.long(), 10)
+        model.update_support(x.double(), y.long(), support_size=10)
         support = model.support
     assert {t.dtype for t in support.values()} == {torch.float32}
     assert_on_device(model, device)
@@ -547,7 +547,7 @@ def test_protonet_identity_embedding(device):
     model = eq.EquineProtonet(torch.nn.Identity(), FEATURES, device=device)
     assert model.model.emb_out_dim == x.shape[1]
     model.eval()
-    model.update_support(x, y.float(), 0.5)
+    model.update_support(x, y.float(), calib_frac=0.5)
     assert_on_device(model, device)
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
 

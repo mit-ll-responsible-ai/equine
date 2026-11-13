@@ -143,7 +143,7 @@ def test_registered_embedding_saves_data_only_and_round_trips(
         assert isinstance(reloaded, cls)
         assert isinstance(reloaded.embedding_model, BasicEmbeddingModel)
         assert reloaded.label_names == ["a", "b", "c"]
-        support = reloaded.get_support()  # type: ignore[attr-defined]
+        support = reloaded.get_support()
         assert all(isinstance(k, int) for k in support.keys())
         assert_same(model, reloaded, X)
 

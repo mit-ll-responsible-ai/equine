@@ -106,15 +106,14 @@ def _isolated_registry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture(autouse=True)
 def _restore_torch_rng_state():
-    """Restore the torch RNG state after each test, undoing any reseeding
-    done by ``random_dataset``.
+    """Restore the torch RNG states of the CPU and of the accelerator after
+    each test, undoing any reseeding done by ``random_dataset``.
 
     Runs once per test *function*, not once per Hypothesis example inside a
     ``@given``-decorated test.
     """
-    state = torch.get_rng_state()
-    yield
-    torch.set_rng_state(state)
+    with torch.random.fork_rng(devices=range(torch.accelerator.device_count())):
+        yield
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -222,7 +221,7 @@ def random_dataset(draw):
     calib_frac = 0.2
     per_class_train = int(rows_per_class * (1 - calib_frac))
     way = min(3, num_classes)
-    support_size = min(10, per_class_train - 5)
+    support_size = 10
     episode_size = min(50, way * (per_class_train - support_size))
     train_kwargs = {
         "calib_frac": calib_frac,

@@ -82,15 +82,6 @@ def test_non_plain_constructor_argument_is_rejected_at_construction() -> None:
         Net(torch.zeros(2))
 
 
-def test_var_positional_constructor_is_rejected_at_registration() -> None:
-    class Net(torch.nn.Module):
-        def __init__(self, *sizes: int) -> None:
-            super().__init__()
-
-    with pytest.raises(TypeError, match=r"\*args"):
-        registry.register_embedding_architecture(_fresh_name("varargs"), Net)
-
-
 def test_var_keyword_arguments_are_flattened_into_recipe() -> None:
     @registry.embedding_architecture(_fresh_name("varkw"))
     class Net(torch.nn.Module):
@@ -144,9 +135,10 @@ def test_public_names_are_declared() -> None:
         "registered_architectures",
     ]
     assert architectures.__all__ == ["MLP", "SpectralResidualMLP"]
-    assert all(
-        getattr(eq, name) is getattr(registry, name) for name in registry.__all__
-    )
+    for module in (registry, architectures):
+        for name in module.__all__:
+            assert name in eq.__all__, name
+            assert getattr(eq, name) is getattr(module, name)
 
 
 # --------------------------------------------------------------------------- #
@@ -496,13 +488,29 @@ def test_mutating_returned_recipe_does_not_affect_instance_recipe() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_positional_only_constructor_parameter_is_rejected_at_registration() -> None:
-    class Net(torch.nn.Module):
-        def __init__(self, w, /) -> None:
-            super().__init__()
-
-    with pytest.raises(TypeError, match="positional-only"):
-        registry.register_embedding_architecture(_fresh_name("posonly"), Net)
+@pytest.mark.parametrize(
+    "init, message",
+    [
+        pytest.param(lambda self, *sizes: None, r"\*args", id="var-positional"),
+        pytest.param(lambda self, w, /: None, "positional-only", id="positional-only"),
+        pytest.param(
+            lambda *args, **kwargs: None,
+            "first parameter",
+            id="first-in-var-positional",
+        ),
+        pytest.param(lambda *, width: None, "first parameter", id="first-keyword-only"),
+        pytest.param(lambda **kwargs: None, "first parameter", id="first-var-keyword"),
+        pytest.param(None, "own __init__", id="inherited-init"),
+    ],
+)
+def test_unrecordable_constructor_is_rejected_at_registration(
+    request, init, message
+) -> None:
+    Net = type("Net", (torch.nn.Module,), {} if init is None else {"__init__": init})
+    with pytest.raises(TypeError, match=message):
+        registry.register_embedding_architecture(
+            _fresh_name(f"shape.{request.node.callspec.id}"), Net
+        )
 
 
 def test_first_parameter_is_skipped_by_position_not_name() -> None:
@@ -516,33 +524,6 @@ def test_first_parameter_is_skipped_by_position_not_name() -> None:
         "builder": _fresh_name("notself"),
         "kwargs": {"width": 7},
     }
-
-
-def test_first_parameter_absorbed_into_var_positional_is_rejected() -> None:
-    class Net(torch.nn.Module):
-        def __init__(*args, **kwargs) -> None:
-            torch.nn.Module.__init__(args[0])
-
-    with pytest.raises(TypeError, match="first parameter"):
-        registry.register_embedding_architecture(_fresh_name("firstvarpos"), Net)
-
-
-def test_first_parameter_keyword_only_is_rejected() -> None:
-    class Net(torch.nn.Module):
-        def __init__(*, width: int) -> None:  # no usable instance parameter
-            pass
-
-    with pytest.raises(TypeError, match="first parameter"):
-        registry.register_embedding_architecture(_fresh_name("firstkwonly"), Net)
-
-
-def test_first_parameter_var_keyword_is_rejected() -> None:
-    class Net(torch.nn.Module):
-        def __init__(**kwargs) -> None:
-            pass
-
-    with pytest.raises(TypeError, match="first parameter"):
-        registry.register_embedding_architecture(_fresh_name("firstvarkw"), Net)
 
 
 # --------------------------------------------------------------------------- #
@@ -706,28 +687,43 @@ def slow_registration(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(registry, "_validate_constructor_signature", slow_validate)
 
 
-@_TORCH_CRASHES_WITH_THREADS
-@pytest.mark.usefixtures("slow_registration")
-def test_concurrent_registration_of_distinct_names_does_not_crash() -> None:
-    errors: list[Exception] = []
+def _race(register, args) -> tuple[list, list[Exception]]:
+    """Call ``register(arg)`` for each of ``args`` in its own thread; return the args
+    whose call returned and the exceptions raised."""
+    winners: list = []
+    failures: list[Exception] = []
+    lock = threading.Lock()
 
-    def register_one(i: int) -> None:
+    def run(arg) -> None:
         try:
+            register(arg)
+        except Exception as exc:
+            with lock:
+                failures.append(exc)
+        else:
+            with lock:
+                winners.append(arg)
 
-            class Net(torch.nn.Module):
-                def __init__(self, width: int) -> None:
-                    super().__init__()
-
-            registry.register_embedding_architecture(_fresh_name(f"thread_{i}"), Net)
-        except Exception as exc:  # pragma: no cover - failure path
-            errors.append(exc)
-
-    threads = [threading.Thread(target=register_one, args=(i,)) for i in range(16)]
+    threads = [threading.Thread(target=run, args=(arg,)) for arg in args]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    assert not errors
+    return winners, failures
+
+
+@_TORCH_CRASHES_WITH_THREADS
+@pytest.mark.usefixtures("slow_registration")
+def test_concurrent_registration_of_distinct_names_does_not_crash() -> None:
+    def register_one(i: int) -> None:
+        class Net(torch.nn.Module):
+            def __init__(self, width: int) -> None:
+                super().__init__()
+
+        registry.register_embedding_architecture(_fresh_name(f"thread_{i}"), Net)
+
+    _, failures = _race(register_one, range(16))
+    assert not failures
     for i in range(16):
         assert _fresh_name(f"thread_{i}") in registry.registered_architectures()
 
@@ -738,35 +734,25 @@ def test_concurrent_registration_of_same_name_different_classes_exactly_one_wins
     None
 ):
     name = _fresh_name("thread_same_name_race")
-    winners: list[type] = []
-    failures: list[Exception] = []
-    result_lock = threading.Lock()
 
-    def register_one(i: int) -> None:
-        def __init__(self) -> None:
-            torch.nn.Module.__init__(self)
+    def __init__(self) -> None:
+        torch.nn.Module.__init__(self)
 
-        # Each thread registers a genuinely different class (a distinct __qualname__),
-        # not a "redefinition" of the same source location.
-        cls = type(f"RaceNet_{i}", (torch.nn.Module,), {"__init__": __init__})
-        try:
-            registry.register_embedding_architecture(name, cls)
-        except ValueError as exc:
-            with result_lock:
-                failures.append(exc)
-        else:
-            with result_lock:
-                winners.append(cls)
-
-    threads = [threading.Thread(target=register_one, args=(i,)) for i in range(16)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    # Each thread registers a genuinely different class (a distinct __qualname__),
+    # not a "redefinition" of the same source location.
+    classes = [
+        type(f"RaceNet_{i}", (torch.nn.Module,), {"__init__": __init__})
+        for i in range(16)
+    ]
+    winners, failures = _race(
+        lambda cls: registry.register_embedding_architecture(name, cls), classes
+    )
 
     assert len(winners) == 1
     assert len(failures) == 15
-    assert all("already registered" in str(exc) for exc in failures)
+    assert all(
+        type(exc) is ValueError and "already registered" in str(exc) for exc in failures
+    )
     assert registry._REGISTRY[name] is winners[0]
 
 
@@ -780,29 +766,16 @@ def test_concurrent_registration_of_one_class_under_many_names_exactly_one_wins(
             super().__init__()
 
     names = [_fresh_name(f"thread_one_class_{i}") for i in range(16)]
-    winners: list[str] = []
-    failures: list[Exception] = []
-    result_lock = threading.Lock()
-
-    def register_one(name: str) -> None:
-        try:
-            registry.register_embedding_architecture(name, Net)
-        except ValueError as exc:
-            with result_lock:
-                failures.append(exc)
-        else:
-            with result_lock:
-                winners.append(name)
-
-    threads = [threading.Thread(target=register_one, args=(n,)) for n in names]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    winners, failures = _race(
+        lambda name: registry.register_embedding_architecture(name, Net), names
+    )
 
     assert len(winners) == 1
     assert len(failures) == 15
-    assert all("already registered as" in str(exc) for exc in failures)
+    assert all(
+        type(exc) is ValueError and "already registered as" in str(exc)
+        for exc in failures
+    )
     assert [n for n in names if n in registry.registered_architectures()] == winners
     assert registry.embedding_recipe(Net(3)) == {
         "builder": winners[0],
@@ -811,41 +784,37 @@ def test_concurrent_registration_of_one_class_under_many_names_exactly_one_wins(
 
 
 # --------------------------------------------------------------------------- #
-# Inherited __init__
-# --------------------------------------------------------------------------- #
-
-
-def test_class_without_own_init_is_rejected_at_registration() -> None:
-    class Net(torch.nn.Module):
-        pass
-
-    with pytest.raises(TypeError, match="own __init__"):
-        registry.register_embedding_architecture(_fresh_name("noinit"), Net)
-
-
-# --------------------------------------------------------------------------- #
 # Validate recipes read from files
 # --------------------------------------------------------------------------- #
 
 
-def test_build_from_recipe_rejects_non_dict_recipe() -> None:
-    with pytest.raises(ValueError, match="Malformed"):
-        registry.build_from_recipe(["not", "a", "dict"])
-
-
-def test_build_from_recipe_rejects_non_string_builder() -> None:
-    with pytest.raises(ValueError, match="Malformed"):
-        registry.build_from_recipe({"builder": 123, "kwargs": {}})
-
-
-def test_build_from_recipe_rejects_non_string_kwargs_keys() -> None:
-    with pytest.raises(ValueError, match="Malformed embedding recipe"):
-        registry.build_from_recipe({"builder": "equine.mlp", "kwargs": {1: 6}})
-
-
-def test_build_from_recipe_rejects_non_dict_kwargs() -> None:
-    with pytest.raises(ValueError, match="'kwargs' must be a dict; got list"):
-        registry.build_from_recipe({"builder": "equine.tests.basic", "kwargs": [1]})
+@pytest.mark.parametrize(
+    "recipe, message",
+    [
+        (["not", "a", "dict"], "Malformed"),
+        ({"builder": 123, "kwargs": {}}, "Malformed"),
+        ({"builder": "equine.mlp", "kwargs": {1: 6}}, "Malformed embedding recipe"),
+        (
+            {"builder": "equine.tests.basic", "kwargs": [1]},
+            "'kwargs' must be a dict; got list",
+        ),
+        (list(range(10_000)), "list"),
+        ({"builder": list(range(10_000)), "kwargs": {}}, "Malformed"),
+    ],
+    ids=[
+        "non-dict-recipe",
+        "non-string-builder",
+        "non-string-kwargs-key",
+        "non-dict-kwargs",
+        "huge-non-dict-recipe",
+        "huge-non-string-builder",
+    ],
+)
+def test_build_from_recipe_rejects_a_malformed_recipe(recipe, message) -> None:
+    with pytest.raises(ValueError, match=message) as err:
+        registry.build_from_recipe(recipe)
+    assert "9999" not in str(err.value)  # the raw untrusted content is not embedded
+    assert len(str(err.value)) < 500
 
 
 def test_build_from_recipe_missing_kwargs_defaults_to_empty() -> None:
@@ -873,26 +842,6 @@ def test_build_from_recipe_wraps_constructor_type_error_as_value_error() -> None
     assert name in str(err.value)
 
 
-def test_build_from_recipe_reports_type_name_not_full_value_for_non_dict_recipe() -> (
-    None
-):
-    with pytest.raises(ValueError) as err:
-        registry.build_from_recipe(list(range(10_000)))
-    message = str(err.value)
-    assert "list" in message
-    assert "9999" not in message  # the raw untrusted content must not be embedded
-    assert len(message) < 500
-
-
-def test_build_from_recipe_reports_truncated_repr_for_non_string_builder() -> None:
-    with pytest.raises(ValueError) as err:
-        registry.build_from_recipe({"builder": list(range(10_000)), "kwargs": {}})
-    message = str(err.value)
-    assert "Malformed" in message
-    assert "9999" not in message
-    assert len(message) < 500
-
-
 # --------------------------------------------------------------------------- #
 # Shipped equine.mlp and public exports
 # --------------------------------------------------------------------------- #
@@ -916,27 +865,6 @@ def test_shipped_mlp_is_registered_and_records_recipe() -> None:
 def test_shipped_mlp_rejects_unknown_activation() -> None:
     with pytest.raises(ValueError, match="activation"):
         eq.MLP(6, [16], 3, activation="swish")
-
-
-def test_public_api_exports() -> None:
-    for name in (
-        "MLP",
-        "embedding_architecture",
-        "register_embedding_architecture",
-        "registered_architectures",
-        "embedding_recipe",
-    ):
-        assert name in eq.__all__, name
-    for name in (
-        "embedding_architecture",
-        "register_embedding_architecture",
-        "registered_architectures",
-        "embedding_recipe",
-    ):
-        assert getattr(eq, name) is getattr(registry, name)
-    assert eq.MLP is architectures.MLP
-    assert "SpectralResidualMLP" in eq.__all__
-    assert eq.SpectralResidualMLP is architectures.SpectralResidualMLP
 
 
 def test_mlp_state_dict_layout_is_pinned() -> None:
@@ -1157,61 +1085,23 @@ def test_spectral_residual_mlp_accepts_the_block_cap() -> None:
     assert len(sn.blocks) == architectures.MAX_HIDDEN_LAYERS
 
 
+_SRMLP_KWARGS = {"in_features": 6, "hidden_size": 16, "out_features": 3}
+
+
 @pytest.mark.parametrize(
-    "kwargs, message",
+    "change, message",
     [
-        ({"in_features": 0, "hidden_size": 16, "out_features": 3}, "in_features"),
-        ({"in_features": 6, "hidden_size": 0, "out_features": 3}, "hidden_size"),
-        ({"in_features": 6, "hidden_size": 16, "out_features": True}, "out_features"),
-        (
-            {"in_features": 6, "hidden_size": 16, "out_features": 3, "num_blocks": 0},
-            "num_blocks",
-        ),
-        (
-            {"in_features": 6, "hidden_size": 16, "out_features": 3, "num_blocks": 65},
-            "MAX_HIDDEN_LAYERS",
-        ),
-        (
-            {
-                "in_features": 6,
-                "hidden_size": 16,
-                "out_features": 3,
-                "coefficient": 1.0,
-            },
-            "coefficient",
-        ),
-        (
-            {
-                "in_features": 6,
-                "hidden_size": 16,
-                "out_features": 3,
-                "coefficient": 0.0,
-            },
-            "coefficient",
-        ),
-        (
-            {"in_features": 6, "hidden_size": 16, "out_features": 3, "coefficient": 1},
-            "coefficient",
-        ),
-        (
-            {
-                "in_features": 6,
-                "hidden_size": 16,
-                "out_features": 3,
-                "coefficient": "0.5",
-            },
-            "coefficient",
-        ),
-        (
-            {
-                "in_features": 6,
-                "hidden_size": 16,
-                "out_features": 3,
-                "coefficient": None,
-            },
-            "coefficient",
-        ),
-        (
+        pytest.param({"in_features": 0}, "in_features", id="zero-in_features"),
+        pytest.param({"hidden_size": 0}, "hidden_size", id="zero-hidden_size"),
+        pytest.param({"out_features": True}, "out_features", id="bool-out_features"),
+        pytest.param({"num_blocks": 0}, "num_blocks", id="zero-blocks"),
+        pytest.param({"num_blocks": 65}, "MAX_HIDDEN_LAYERS", id="too-many-blocks"),
+        pytest.param({"coefficient": 1.0}, "coefficient", id="coefficient-one"),
+        pytest.param({"coefficient": 0.0}, "coefficient", id="coefficient-zero"),
+        pytest.param({"coefficient": 1}, "coefficient", id="int-coefficient"),
+        pytest.param({"coefficient": "0.5"}, "coefficient", id="str-coefficient"),
+        pytest.param({"coefficient": None}, "coefficient", id="none-coefficient"),
+        pytest.param(
             {
                 "in_features": 1,
                 "hidden_size": 40_000,
@@ -1219,78 +1109,39 @@ def test_spectral_residual_mlp_accepts_the_block_cap() -> None:
                 "num_blocks": 1,
             },
             "MAX_PARAMETERS",
+            id="too-many-parameters",
         ),
-    ],
-    ids=[
-        "zero-in_features",
-        "zero-hidden_size",
-        "bool-out_features",
-        "zero-blocks",
-        "too-many-blocks",
-        "coefficient-one",
-        "coefficient-zero",
-        "int-coefficient",
-        "str-coefficient",
-        "none-coefficient",
-        "too-many-parameters",
     ],
 )
 def test_build_from_recipe_rejects_invalid_spectral_residual_mlp_kwargs(
-    kwargs: dict, message: str
+    change: dict, message: str
 ) -> None:
+    kwargs = {**_SRMLP_KWARGS, **change}
     with pytest.raises(ValueError, match=message):
         registry.build_from_recipe(
             {"builder": "equine.spectral_residual_mlp", "kwargs": kwargs}
         )
 
 
+_MLP_KWARGS = {"in_features": 6, "hidden_sizes": [16], "out_features": 3}
+
+
 @pytest.mark.parametrize(
-    "kwargs, message",
+    "change, message",
     [
+        ({"in_features": -1}, "in_features must be a positive integer"),
+        ({"in_features": 0}, "in_features must be a positive integer"),
+        ({"in_features": True}, "in_features must be a positive integer"),
+        ({"hidden_sizes": [-1]}, r"hidden_sizes\[0\] must be a positive integer"),
+        ({"hidden_sizes": [0]}, r"hidden_sizes\[0\] must be a positive integer"),
+        ({"hidden_sizes": [True]}, r"hidden_sizes\[0\] must be a positive integer"),
+        ({"hidden_sizes": "16"}, "hidden_sizes must be a list or tuple"),
+        ({"out_features": -1}, "out_features must be a positive integer"),
+        ({"out_features": 0}, "out_features must be a positive integer"),
+        ({"activation": ["relu"]}, "activation must be a str"),
         (
-            {"in_features": -1, "hidden_sizes": [16], "out_features": 3},
-            "in_features must be a positive integer",
-        ),
-        (
-            {"in_features": 0, "hidden_sizes": [16], "out_features": 3},
-            "in_features must be a positive integer",
-        ),
-        (
-            {"in_features": True, "hidden_sizes": [16], "out_features": 3},
-            "in_features must be a positive integer",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": [-1], "out_features": 3},
-            r"hidden_sizes\[0\] must be a positive integer",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": [0], "out_features": 3},
-            r"hidden_sizes\[0\] must be a positive integer",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": [True], "out_features": 3},
-            r"hidden_sizes\[0\] must be a positive integer",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": "16", "out_features": 3},
-            "hidden_sizes must be a list or tuple",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": [16], "out_features": -1},
-            "out_features must be a positive integer",
-        ),
-        (
-            {"in_features": 6, "hidden_sizes": [16], "out_features": 0},
-            "out_features must be a positive integer",
-        ),
-        (
-            {
-                "in_features": 6,
-                "hidden_sizes": [16],
-                "out_features": 3,
-                "activation": ["relu"],
-            },
-            "activation must be a str",
+            {"in_features": 1, "hidden_sizes": [1] * 65, "out_features": 1},
+            "MAX_HIDDEN_LAYERS",
         ),
     ],
     ids=[
@@ -1304,27 +1155,15 @@ def test_build_from_recipe_rejects_invalid_spectral_residual_mlp_kwargs(
         "negative-out_features",
         "zero-out_features",
         "list-activation",
+        "too-many-hidden-layers",
     ],
 )
 def test_build_from_recipe_rejects_invalid_mlp_kwargs(
-    kwargs: dict, message: str
+    change: dict, message: str
 ) -> None:
+    kwargs = {**_MLP_KWARGS, **change}
     with pytest.raises(ValueError, match=message):
         registry.build_from_recipe({"builder": "equine.mlp", "kwargs": kwargs})
-
-
-def test_build_from_recipe_rejects_too_many_hidden_layers() -> None:
-    with pytest.raises(ValueError, match="MAX_HIDDEN_LAYERS"):
-        registry.build_from_recipe(
-            {
-                "builder": "equine.mlp",
-                "kwargs": {
-                    "in_features": 1,
-                    "hidden_sizes": [1] * 65,
-                    "out_features": 1,
-                },
-            }
-        )
 
 
 def test_build_from_recipe_rejects_parameter_count_over_cap(monkeypatch) -> None:
@@ -1385,41 +1224,22 @@ def test_basic_embedding_model_fixture_is_registered() -> None:
 
 
 @pytest.mark.parametrize(
-    "kwargs",
+    "change",
     [
-        {
-            "in_features": 6,
-            "hidden_sizes": [16],
-            "out_features": 3,
-            "activation": "x" * 100_000,
-        },
-        {
-            "in_features": 6,
-            "hidden_sizes": "x" * 100_000,
-            "out_features": 3,
-        },
-        {
-            "in_features": 6,
-            "hidden_sizes": [16],
-            "out_features": 3,
-            "activation": ["x"] * 100_000,
-        },
-        {
-            "in_features": 6,
-            "hidden_sizes": [16, "x" * 100_000],
-            "out_features": 3,
-        },
-    ],
-    ids=[
-        "unknown-activation",
-        "hidden-sizes-not-a-list-or-tuple",
-        "non-string-activation",
-        "non-int-hidden-sizes-element",
+        pytest.param({"activation": "x" * 100_000}, id="unknown-activation"),
+        pytest.param(
+            {"hidden_sizes": "x" * 100_000}, id="hidden-sizes-not-a-list-or-tuple"
+        ),
+        pytest.param({"activation": ["x"] * 100_000}, id="non-string-activation"),
+        pytest.param(
+            {"hidden_sizes": [16, "x" * 100_000]}, id="non-int-hidden-sizes-element"
+        ),
     ],
 )
 def test_build_from_recipe_bounds_error_message_for_oversized_mlp_value(
-    kwargs: dict,
+    change: dict,
 ) -> None:
+    kwargs = {**_MLP_KWARGS, **change}
     with pytest.raises(ValueError, match=re.escape("'equine.mlp'")) as err:
         registry.build_from_recipe({"builder": "equine.mlp", "kwargs": kwargs})
     assert len(str(err.value)) < 1_000
@@ -1506,141 +1326,91 @@ def _quantized() -> torch.Tensor:
 _IN_INIT = "create it inside __init__ as a parameter or buffer"
 _STR_IN_INIT = "pass str(x) and convert it back inside __init__"
 _GENERIC = "build it inside __init__ from plain arguments"
+_BY_VALUE = "an enum member; pass x.value and convert it back inside __init__"
+_BY_NAME = "an enum member; pass x.name and convert it back inside __init__"
+_TOLIST = "convert with x.tolist()"
+_TENSOR = f"a tensor; {_IN_INIT}"
+
+
+def _value(x):
+    return x.value
+
+
+def _tolist(x):
+    return x.tolist()
+
+
+def _shape(x):
+    return list(x.shape)
+
+
+# Each row: id, the refused value, the hint, and the repair.
+_HINTS = [
+    ("enum", lambda: _Color.RED, _BY_VALUE, _value),
+    ("enum-with-a-non-plain-value", lambda: _Marker.START, _BY_NAME, lambda x: x.name),
+    ("cov-type", lambda: eq.CovType.FULL, _BY_VALUE, _value),
+    ("numpy-float64", lambda: numpy.float64(0.5), "convert with float(x)", float),
+    ("numpy-str", lambda: numpy.str_("a"), "convert with str(x)", str),
+    ("torch-size", lambda: torch.Size([2, 3]), "convert with tuple(x)", tuple),
+    (
+        "ordered-dict",
+        lambda: collections.OrderedDict(a=1),
+        "convert with dict(x)",
+        dict,
+    ),
+    ("dtype", lambda: torch.float32, _STR_IN_INIT, str),
+    ("device", lambda: torch.device("cpu"), _STR_IN_INIT, str),
+    ("path", lambda: pathlib.Path("w.pt"), _STR_IN_INIT, str),
+    ("numpy-array", lambda: numpy.zeros((2, 2)), _TOLIST, _tolist),
+    ("numpy-int64", lambda: numpy.int64(3), _TOLIST, _tolist),
+    ("numpy-bool", lambda: numpy.bool_(True), _TOLIST, _tolist),
+    ("numpy-float32", lambda: numpy.float32(0.5), _TOLIST, _tolist),
+    (
+        "numpy-complex",
+        lambda: numpy.complex128(1 + 2j),
+        _GENERIC,
+        lambda x: [x.real.item(), x.imag.item()],
+    ),
+    ("numpy-datetime", lambda: numpy.datetime64("2020-01-01"), _GENERIC, str),
+    (
+        "numpy-object-array",
+        lambda: numpy.array([object()], dtype=object),
+        _GENERIC,
+        len,
+    ),
+    ("numpy-longdouble", lambda: numpy.longdouble(1), _GENERIC, float),
+    (
+        "numpy-longdouble-array",
+        lambda: numpy.zeros(2, dtype=numpy.longdouble),
+        _GENERIC,
+        lambda x: [float(v) for v in x],
+    ),
+    (
+        "tensor",
+        lambda: torch.ones(2),
+        f"a tensor; pass x.tolist(), or {_IN_INIT}",
+        _tolist,
+    ),
+    (
+        "quantized-tensor",
+        _quantized,
+        f"a tensor; pass x.dequantize().tolist(), or {_IN_INIT}",
+        lambda x: x.dequantize().tolist(),
+    ),
+    ("complex-tensor", lambda: torch.ones(2, dtype=torch.complex64), _TENSOR, _shape),
+    ("sparse-tensor", lambda: torch.ones(2).to_sparse(), _TENSOR, _shape),
+    ("meta-tensor", lambda: torch.empty(2, device="meta"), _TENSOR, _shape),
+    (
+        "tensor-subclass",
+        lambda: torch.ones(2).as_subclass(_TensorSubclass),
+        _TENSOR,
+        _shape,
+    ),
+]
 
 
 @pytest.mark.parametrize(
-    "make, hint, repair",
-    [
-        pytest.param(
-            lambda: _Color.RED,
-            "an enum member; pass x.value and convert it back inside __init__",
-            lambda x: x.value,
-            id="enum",
-        ),
-        pytest.param(
-            lambda: _Marker.START,
-            "an enum member; pass x.name and convert it back inside __init__",
-            lambda x: x.name,
-            id="enum-with-a-non-plain-value",
-        ),
-        pytest.param(
-            lambda: eq.CovType.FULL,
-            "an enum member; pass x.value and convert it back inside __init__",
-            lambda x: x.value,
-            id="cov-type",
-        ),
-        pytest.param(
-            lambda: numpy.float64(0.5),
-            "convert with float(x)",
-            float,
-            id="numpy-float64",
-        ),
-        pytest.param(
-            lambda: numpy.str_("a"), "convert with str(x)", str, id="numpy-str"
-        ),
-        pytest.param(
-            lambda: torch.Size([2, 3]), "convert with tuple(x)", tuple, id="torch-size"
-        ),
-        pytest.param(
-            lambda: collections.OrderedDict(a=1),
-            "convert with dict(x)",
-            dict,
-            id="ordered-dict",
-        ),
-        pytest.param(lambda: torch.float32, _STR_IN_INIT, str, id="dtype"),
-        pytest.param(lambda: torch.device("cpu"), _STR_IN_INIT, str, id="device"),
-        pytest.param(lambda: pathlib.Path("w.pt"), _STR_IN_INIT, str, id="path"),
-        pytest.param(
-            lambda: numpy.zeros((2, 2)),
-            "convert with x.tolist()",
-            lambda x: x.tolist(),
-            id="numpy-array",
-        ),
-        pytest.param(
-            lambda: numpy.int64(3),
-            "convert with x.tolist()",
-            lambda x: x.tolist(),
-            id="numpy-int64",
-        ),
-        pytest.param(
-            lambda: numpy.bool_(True),
-            "convert with x.tolist()",
-            lambda x: x.tolist(),
-            id="numpy-bool",
-        ),
-        pytest.param(
-            lambda: numpy.float32(0.5),
-            "convert with x.tolist()",
-            lambda x: x.tolist(),
-            id="numpy-float32",
-        ),
-        pytest.param(
-            lambda: numpy.complex128(1 + 2j),
-            _GENERIC,
-            lambda x: [x.real.item(), x.imag.item()],
-            id="numpy-complex",
-        ),
-        pytest.param(
-            lambda: numpy.datetime64("2020-01-01"),
-            _GENERIC,
-            str,
-            id="numpy-datetime",
-        ),
-        pytest.param(
-            lambda: numpy.array([object()], dtype=object),
-            _GENERIC,
-            lambda x: len(x),
-            id="numpy-object-array",
-        ),
-        pytest.param(
-            lambda: numpy.longdouble(1),
-            _GENERIC,
-            float,
-            id="numpy-longdouble",
-        ),
-        pytest.param(
-            lambda: numpy.zeros(2, dtype=numpy.longdouble),
-            _GENERIC,
-            lambda x: [float(v) for v in x],
-            id="numpy-longdouble-array",
-        ),
-        pytest.param(
-            lambda: torch.ones(2),
-            f"a tensor; pass x.tolist(), or {_IN_INIT}",
-            lambda x: x.tolist(),
-            id="tensor",
-        ),
-        pytest.param(
-            _quantized,
-            f"a tensor; pass x.dequantize().tolist(), or {_IN_INIT}",
-            lambda x: x.dequantize().tolist(),
-            id="quantized-tensor",
-        ),
-        pytest.param(
-            lambda: torch.ones(2, dtype=torch.complex64),
-            f"a tensor; {_IN_INIT}",
-            lambda x: list(x.shape),
-            id="complex-tensor",
-        ),
-        pytest.param(
-            lambda: torch.ones(2).to_sparse(),
-            f"a tensor; {_IN_INIT}",
-            lambda x: list(x.shape),
-            id="sparse-tensor",
-        ),
-        pytest.param(
-            lambda: torch.empty(2, device="meta"),
-            f"a tensor; {_IN_INIT}",
-            lambda x: list(x.shape),
-            id="meta-tensor",
-        ),
-        pytest.param(
-            lambda: torch.ones(2).as_subclass(_TensorSubclass),
-            f"a tensor; {_IN_INIT}",
-            lambda x: list(x.shape),
-            id="tensor-subclass",
-        ),
-    ],
+    "make, hint, repair", [pytest.param(*row, id=name) for name, *row in _HINTS]
 )
 def test_refused_constructor_argument_hint_names_a_working_repair(
     request, make, hint, repair

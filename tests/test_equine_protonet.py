@@ -6,6 +6,7 @@ import copy
 import math
 from collections import OrderedDict
 
+import numpy as np
 import pytest
 import torch
 from beartype.roar import BeartypeCallHintParamViolation
@@ -20,6 +21,7 @@ from conftest import (
 )
 from golden_data import CLASSES, FEATURES, golden_dtype, separable_dataset
 from hypothesis import given, settings, strategies as st
+from scipy.stats import gaussian_kde
 
 import equine as eq
 from equine.equine_protonet import DEFAULT_EPSILON, Protonet
@@ -950,3 +952,98 @@ def test_ood_distance_is_checked_at_construction() -> None:
         eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance="rmd")
     with pytest.raises(BeartypeCallHintParamViolation):
         eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance=1)
+
+
+def _outlier_scores_per_sample(model, ood_dists, predictions):
+    """
+    The OOD score of each example from ``integrate_box_1d`` of its predicted
+    label's KDE, one example at a time.
+    """
+    label_order = model._label_order()
+    ood_scores = torch.zeros_like(ood_dists)
+    for i in range(len(predictions)):
+        kde = model.outlier_score_kde[label_order[int(torch.argmax(predictions[i]))]]
+        p_value = kde.integrate_box_1d(ood_dists[i].cpu().numpy(), np.inf)
+        ood_scores[i] = 1.0 - np.clip(p_value, 0.0, 1.0)
+    return ood_scores
+
+
+@pytest.mark.parametrize("bandwidth", ["scott", "silverman", 0.05, 0.3, 3.0])
+@pytest.mark.parametrize("n", [2, 3, 8, 100])
+@pytest.mark.parametrize(
+    "dtype", [torch.float32, torch.float64], ids=["float32", "float64"]
+)
+def test_outlier_scores_match_scipy_per_sample(dtype, n, bandwidth) -> None:
+    """
+    Scores from KDEs of ``n`` points with the given bandwidth, at the points,
+    across the bulk, in both tails and at infinity, for examples predicted as
+    the first or last label (none as the middle one).
+    """
+    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    gen = torch.Generator().manual_seed(n)
+    data = OrderedDict(
+        [
+            (0, 3.0 * torch.randn(n, generator=gen, dtype=torch.float64) - 1.0),
+            (2, torch.rand(n, generator=gen, dtype=torch.float64)),
+            (5, 1000.0 + torch.rand(n, generator=gen, dtype=torch.float64)),
+        ]
+    )
+    model.outlier_score_kde = OrderedDict()
+    for label, points in data.items():
+        kde = gaussian_kde(points.to(dtype).numpy())
+        kde.set_bandwidth(bandwidth)
+        model.outlier_score_kde[label] = kde
+    k = torch.tensor([5.0, 8.0, 10.0, 40.0, 1e3], dtype=torch.float64)
+    queries, columns = [], []
+    for column, label in ((0, 0), (2, 5)):
+        points = data[label].to(dtype).double()
+        h = float(np.sqrt(model.outlier_score_kde[label].covariance[0, 0]))
+        lo, hi = float(points.min()) - 3 * h, float(points.max()) + 3 * h
+        mean, std = points.mean(), points.std()
+        column_queries = torch.cat(
+            [
+                points,
+                torch.linspace(lo, hi, 50, dtype=torch.float64),
+                mean - k * std,
+                mean + k * std,
+                torch.tensor([float("inf"), float("-inf")], dtype=torch.float64),
+            ]
+        )
+        queries.append(column_queries)
+        columns.append(torch.full((len(column_queries),), column))
+    order = torch.randperm(sum(len(q) for q in queries), generator=gen)
+    ood_dists = torch.cat(queries)[order].to(dtype)
+    predictions = torch.nn.functional.one_hot(torch.cat(columns)[order], 3).to(dtype)
+
+    ood_scores = model._compute_outlier_scores(ood_dists, predictions)
+
+    assert ood_scores.dtype == dtype
+    assert ood_scores.device == ood_dists.device
+    expected = _outlier_scores_per_sample(model, ood_dists, predictions)
+    torch.testing.assert_close(ood_scores, expected, atol=1e-12, rtol=0)
+
+
+def test_outlier_scores_follow_kde_weights() -> None:
+    """A KDE with non-uniform weights scores as ``integrate_box_1d`` does."""
+    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    kde = gaussian_kde(np.array([0.0, 1.0, 2.0, 10.0]), weights=[0.7, 0.1, 0.1, 0.1])
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+    ood_dists = torch.tensor([-3.0, 1.0, 5.0, 12.0], dtype=torch.float64)
+    predictions = torch.nn.functional.one_hot(torch.tensor([0, 1, 2, 1]), 3).double()
+
+    ood_scores = model._compute_outlier_scores(ood_dists, predictions)
+
+    expected = _outlier_scores_per_sample(model, ood_dists, predictions)
+    torch.testing.assert_close(ood_scores, expected, atol=1e-12, rtol=0)
+
+
+def test_outlier_scores_refuse_a_kde_with_more_than_one_dimension() -> None:
+    model, _, _ = _protonet_trained_on_labels((0, 2, 5))
+    model.outlier_score_kde[2] = gaussian_kde(
+        np.random.default_rng(0).normal(size=(2, 9))
+    )
+    predictions = torch.nn.functional.one_hot(torch.tensor([1]), 3).double()
+    with pytest.raises(ValueError, match="KDE of support label 2 has 2 dimensions"):
+        model._compute_outlier_scores(
+            torch.tensor([0.5], dtype=torch.float64), predictions
+        )

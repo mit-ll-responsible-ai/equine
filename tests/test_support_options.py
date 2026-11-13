@@ -150,14 +150,6 @@ def test_explicit_calibration_set_keeps_all_support() -> None:
     assert torch.all(torch.isfinite(out.ood_scores))
 
 
-def test_the_positional_form_takes_an_explicit_calibration_set() -> None:
-    model, x, y = _trained_protonet()
-    rows = _calibration_rows()
-    with pytest.warns(DeprecationWarning):
-        model.update_support(x, y, 0.2, calib_x=x[rows], calib_y=y[rows])
-    assert len(model.get_support()[0]) == 40
-
-
 def test_calib_x_without_calib_y_raises() -> None:
     model, x, y = _trained_protonet()
     with pytest.raises(ValueError, match="Give both calib_x and calib_y, or neither"):

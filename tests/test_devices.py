@@ -338,6 +338,20 @@ def test_gp_train_loss_accepts_a_float64_loss_on_the_cpu(device):
 
 
 @pytest.mark.parametrize("device", devices())
+def test_gp_precision_is_built_on_the_device_from_the_final_weights(device):
+    """After train_model the float32 precision matrix is on the model's device and
+    equals the float64 sum over the training set of the final eval-mode features."""
+    model, x, _ = _gp(device)
+    precision = model.model.precision
+    assert precision.device.type == torch.device(device).type
+    assert precision.dtype == torch.float32
+    with torch.no_grad():
+        k = torch.cat([model.compute_embeddings(c).cpu().double() for c in x.split(32)])
+    expected = torch.eye(16, dtype=torch.float64) + k.t() @ k
+    torch.testing.assert_close(precision.cpu().double(), expected, rtol=1e-5, atol=1e-4)
+
+
+@pytest.mark.parametrize("device", devices())
 def test_gp_trained_under_autocast_keeps_a_positive_definite_precision(device):
     """Training a float32 GP under bfloat16 autocast leaves a precision matrix that
     predict inverts."""

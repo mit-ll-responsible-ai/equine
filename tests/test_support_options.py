@@ -457,12 +457,99 @@ def test_a_min_kde_samples_of_1_pools_a_class_with_one_example() -> None:
 def test_the_pooled_kde_refuses_too_few_distinct_distances(ood_dists, calib_y) -> None:
     model, _ = _pooled_model(5, [*range(0, 5), *range(40, 45), *range(80, 85)])
     before = model.outlier_score_kde
+    ood_dists = torch.tensor(ood_dists)
     with pytest.raises(
         ValueError,
-        match="needs at least 2 distinct calibration OOD distances; give more",
+        match="needs at least 2 calibration OOD distances that differ by more than "
+        "rounding; give more",
     ):
-        model._fit_outlier_scores(torch.tensor(ood_dists), torch.tensor(calib_y))
+        model._fit_outlier_scores(ood_dists, torch.tensor(calib_y), ood_dists.abs())
     assert model.outlier_score_kde is before
+
+
+_POOLED_REFUSAL = (
+    r"^The pooled outlier-score KDE needs at least 2 calibration OOD distances "
+    r"that differ by more than rounding; give more calibration examples with "
+    r"different OOD distances \(calib_x and calib_y, or a larger calib_frac\)\.$"
+)
+
+
+def _six_at_the_tolerance(dtype, magnitude, first, wider):
+    """Six OOD distances, two per class, that span exactly 64 machine epsilons of
+    ``dtype`` times ``magnitude`` from ``first``, or one representable value more
+    when ``wider``; their magnitudes, of which the fifth is ``magnitude`` and the
+    others are half or a quarter of it; their labels."""
+    tolerance = 64 * torch.finfo(dtype).eps * magnitude
+    last = torch.tensor(first + tolerance, dtype=dtype)
+    assert float(last) - first == tolerance
+    if wider:
+        last = torch.nextafter(last, torch.tensor(float("inf"), dtype=dtype))
+    ood_dists = torch.cat([torch.full((5,), first, dtype=dtype), last.reshape(1)])
+    magnitudes = magnitude * torch.tensor([0.5, 0.25, 0.5, 0.25, 1.0, 0.5], dtype=dtype)
+    return ood_dists, magnitudes, torch.tensor([0, 0, 1, 1, 2, 2])
+
+
+_AT_THE_TOLERANCE = pytest.mark.parametrize(
+    "magnitude, first",
+    [(1.0, -1.0), (8.0, 0.0), (2.0**20, -(2.0**20))],
+    ids=["at -1", "near 0", "at -2**20"],
+)
+_DTYPES = pytest.mark.parametrize(
+    "dtype", [torch.float32, torch.float64], ids=["float32", "float64"]
+)
+
+
+@_AT_THE_TOLERANCE
+@_DTYPES
+def test_the_pooled_kde_refuses_distances_equal_up_to_rounding(
+    dtype, magnitude, first
+) -> None:
+    """Calibration OOD distances that span exactly 64 machine epsilons of their
+    magnitude are refused and the KDEs are kept; one representable value wider,
+    every class shares the KDE fitted on them."""
+    model, _ = _pooled_model(5, [*range(0, 5), *range(40, 45), *range(80, 85)])
+    before = model.outlier_score_kde
+    ood_dists, magnitudes, calib_y = _six_at_the_tolerance(
+        dtype, magnitude, first, False
+    )
+    with pytest.raises(ValueError, match=_POOLED_REFUSAL):
+        model._fit_outlier_scores(ood_dists, calib_y, magnitudes)
+    assert model.outlier_score_kde is before
+    ood_dists, magnitudes, calib_y = _six_at_the_tolerance(
+        dtype, magnitude, first, True
+    )
+    model._fit_outlier_scores(ood_dists, calib_y, magnitudes)
+    kde = model.outlier_score_kde
+    assert kde[0] is kde[1] is kde[2]
+    assert kde[0].dataset[0].tolist() == ood_dists.tolist()
+
+
+@_AT_THE_TOLERANCE
+@_DTYPES
+def test_a_class_equal_up_to_rounding_shares_the_pooled_kde(
+    dtype, magnitude, first
+) -> None:
+    """With min_kde_samples, a class whose OOD distances span exactly 64 machine
+    epsilons of their magnitude shares the pooled KDE; one representable value
+    wider, it gets its own."""
+    model, _ = _pooled_model(2, [*range(0, 5), *range(40, 45), *range(80, 85)])
+    for wider in (False, True):
+        class_1, magnitudes_1, _ = _six_at_the_tolerance(dtype, magnitude, first, wider)
+        ood_dists = torch.cat(
+            [
+                torch.tensor([2.0, 3.0], dtype=dtype),
+                class_1[-2:],
+                torch.tensor([4.0, 5.0], dtype=dtype),
+            ]
+        )
+        magnitudes = ood_dists.abs()
+        magnitudes[2:4] = magnitudes_1[-2:]
+        model._fit_outlier_scores(
+            ood_dists, torch.tensor([0, 0, 1, 1, 2, 2]), magnitudes
+        )
+        kde = model.outlier_score_kde
+        assert kde[0].n == 2 and kde[2].n == 2
+        assert kde[1].n == (2 if wider else 6)
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf")], ids=["nan", "inf"])
@@ -476,10 +563,10 @@ def test_the_pooled_kde_refuses_a_nan_or_infinite_distance(bad) -> None:
         match="has a NaN or infinite OOD distance; fitting the outlier scores needs "
         "finite values",
     ):
-        model._fit_outlier_scores(ood_dists, calib_y)
+        model._fit_outlier_scores(ood_dists, calib_y, ood_dists.abs())
     assert model.outlier_score_kde is before
     ood_dists[1] = 0.2
-    model._fit_outlier_scores(ood_dists, calib_y)
+    model._fit_outlier_scores(ood_dists, calib_y, ood_dists.abs())
     assert model.outlier_score_kde is not before
 
 
@@ -496,7 +583,8 @@ def test_the_pooled_kde_names_a_non_finite_distance_first(ood_dists, calib_y) ->
         match="has a NaN or infinite OOD distance; fitting the outlier scores needs "
         "finite values",
     ):
-        model._fit_outlier_scores(torch.tensor(ood_dists), torch.tensor(calib_y))
+        ood_dists = torch.tensor(ood_dists)
+        model._fit_outlier_scores(ood_dists, torch.tensor(calib_y), ood_dists.abs())
     assert model.outlier_score_kde is before
 
 

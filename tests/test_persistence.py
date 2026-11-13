@@ -1651,7 +1651,7 @@ def _refuse_construction(self, *args, **kwargs) -> None:
     raise AssertionError("the model was constructed before its settings were checked")
 
 
-@pytest.mark.parametrize("e, n, c", [(3, 16, 3), (8, 4, 2), (5, 5, 1), (1, 3, 2)])
+@pytest.mark.parametrize("e, n, c", [(3, 16, 3), (8, 4, 2), (5, 5, 2), (1, 3, 2)])
 def test_expected_laplace_state_matches_the_model(e, n, c) -> None:
     """The settings-derived expectation matches what EquineGP builds exactly."""
     model = eq.EquineGP(torch.nn.Identity(), e, c, num_random_features=n)
@@ -2542,3 +2542,38 @@ def test_pickle_without_ood_distance_unpickles_as_rmd_sqrt() -> None:
     assert restored.ood_distance == "rmd_sqrt"
     model.ood_distance = "rmd_sqrt"
     assert_same(model, restored, X)
+
+
+def _one_class_gp_checkpoint(model) -> dict:
+    ckpt = model._to_checkpoint()
+    ckpt["settings"]["num_classes"] = 1
+    for key in ("beta.weight", "beta.bias"):
+        ckpt["laplace_model_save"][key] = ckpt["laplace_model_save"][key][:1]
+    return ckpt
+
+
+def test_gp_file_with_one_class_is_refused(tmp_path) -> None:
+    model, _ = train_gp(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "one_class.eq")
+    torch.save(_one_class_gp_checkpoint(model), path)
+    for loader in (eq.EquineGP.load, eq.load_equine_model):
+        with pytest.raises(ValueError, match="num_classes must be at least 2, got 1"):
+            loader(path)
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+def test_upgrade_refuses_a_one_class_gp_file(tmp_path) -> None:
+    from equine.upgrade import upgrade_model_file
+
+    model, _ = train_gp(BasicEmbeddingModel(6, 3))
+    ckpt = _one_class_gp_checkpoint(model)
+    del ckpt["equine_format_version"]
+    del ckpt["embedding_recipe"], ckpt["embedding_state_dict"]
+    ckpt["embed_jit_save"] = archive_tensor(model.embedding_model)
+    old = tmp_path / "old.eq"
+    torch.save(ckpt, str(old))
+    before = old.read_bytes()
+    with pytest.raises(ValueError, match="num_classes must be at least 2, got 1"):
+        upgrade_model_file(str(old), BasicEmbeddingModel(6, 3))
+    assert old.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["old.eq"]

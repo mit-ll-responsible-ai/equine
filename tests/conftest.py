@@ -28,6 +28,24 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "device: parametrized over available_devices() (informational)",
     )
+    config.addinivalue_line(
+        "markers",
+        "contracts: expects an icontract or beartype error (skipped under python -O)",
+    )
+
+
+CONTRACTS_SKIP_REASON = "icontract and beartype are off under python -O"
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    if __debug__:
+        return
+    skip = pytest.mark.skip(reason=CONTRACTS_SKIP_REASON)
+    for item in items:
+        if item.get_closest_marker("contracts") is not None:
+            item.add_marker(skip)
 
 
 def script_module(module: torch.nn.Module) -> torch.jit.ScriptModule:

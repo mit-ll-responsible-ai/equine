@@ -358,13 +358,22 @@ def test_save_and_load_flags_are_keyword_only(tmp_path, train, cls) -> None:
         cls.load(path, None, True)  # type: ignore[misc]
     with pytest.raises(TypeError):
         eq.load_equine_model(path, None, True)  # type: ignore[misc]
-    # A positional True lands in the device slot: beartype refuses it on the
-    # class loaders, and the device check before the file is read refuses it on
-    # load_equine_model.
-    with pytest.raises(BeartypeCallHintParamViolation):
-        cls.load(path, True)  # type: ignore[misc]
+    # A positional True lands in the device slot: the device check before the
+    # file is read refuses it on load_equine_model.
     with pytest.raises(ValueError, match="not a torch device name"):
         eq.load_equine_model(path, True)  # type: ignore[misc]
+
+
+@pytest.mark.contracts
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_a_positional_device_flag_is_refused_by_beartype(tmp_path, train, cls) -> None:
+    """A positional ``True`` lands in the device slot of the class loaders, and
+    beartype refuses it."""
+    model, _ = train(BasicEmbeddingModel(6, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    with pytest.raises(BeartypeCallHintParamViolation):
+        cls.load(path, True)  # type: ignore[misc]
 
 
 # --- precision ---------------------------------------------------------------------

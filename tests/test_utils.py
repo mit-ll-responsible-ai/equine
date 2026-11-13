@@ -678,3 +678,16 @@ def test_generate_episode_draws_the_labels_then_each_selected_class(
         assert torch.equal(query_x, train_x[torch.cat(queries)])
         assert torch.equal(query_y, torch.cat(expected_y))
         assert torch.equal(torch.get_rng_state(), state)
+
+
+def test_generate_episode_with_one_query_example() -> None:
+    train_x = torch.rand(8, 3)
+    train_y = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1])
+    support, query_x, query_y = eq.generate_episode(
+        train_x, train_y, support_size=3, way=1, episode_size=1
+    )
+    assert list(support.keys()) == [0]
+    assert query_x.shape == (1, 3)
+    assert query_y.shape == (1,)
+    assert query_y.dtype == torch.long
+    assert query_y.tolist() == [0]

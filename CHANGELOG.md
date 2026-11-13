@@ -515,3 +515,8 @@
   now computed in float32 or wider, clamped to [0, 1] and returned in the
   probabilities' dtype, and the jitter is float32, or the precision's dtype if
   wider, so `predict` gives the same results under every default (#296).
+- Under `python -O`, an `EquineProtonet` whose `cov_type` is not a `CovType`
+  member, such as the string `"full"`, raised `ValueError` without a message
+  from `train_model`. The message now names the `CovType` members and the
+  value received, and that `CovType(value)` converts `'unit'`, `'diag'` or
+  `'full'`.

@@ -1010,14 +1010,21 @@ def test_ood_distance_of_hand_computed_queries(kwargs, expected) -> None:
     [
         pytest.param({}, False, id="rmd_sq"),
         pytest.param({"ood_distance": "rmd_sqrt"}, True, id="rmd_sqrt"),
-        pytest.param({"relative_mahal": False}, True, id="absolute"),
+        pytest.param({"relative_mahal": False}, False, id="absolute"),
+        pytest.param(
+            {"relative_mahal": False, "ood_distance": "rmd_sqrt"},
+            True,
+            id="absolute-rmd_sqrt",
+        ),
     ],
 )
 def test_temperature_reaches_the_ood_scores_except_with_rmd_sq(
     kwargs, scaled_ood
 ) -> None:
     """The temperature scales the class probabilities of every model, and the
-    OOD scores of all but the relative ``"rmd_sq"`` statistic."""
+    OOD scores only of the ``"rmd_sqrt"`` statistic (relative or not), which a
+    model file without ``ood_distance`` loads with. The OOD scores are those of
+    the distances the statistic reads."""
     torch.manual_seed(0)
     dataset, x, _ = separable_dataset()
     model = eq.EquineProtonet(
@@ -1028,6 +1035,14 @@ def test_temperature_reaches_the_ood_scores_except_with_rmd_sq(
     )
     model.temperature.fill_(0.5)
     halved = model.predict(x)
+    with torch.no_grad():
+        _, dists, embeddings = model.model._forward_with_embeddings(x)
+        probs = torch.softmax(torch.negative(dists / 0.5), dim=1)
+        read = dists / 0.5 if scaled_ood else dists
+        expected = model._compute_outlier_scores(
+            model._compute_ood_dist(embeddings, probs, read), probs
+        )
+    torch.testing.assert_close(halved.ood_scores, expected)
     model.temperature.fill_(1.0)
     plain = model.predict(x)
     assert not torch.equal(halved.classes, plain.classes)

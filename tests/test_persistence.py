@@ -1793,6 +1793,10 @@ def test_gp_use_temperature_from_0_1_5_is_dropped_by_the_upgrade(
 
 
 _HUGE = "x" * 100_000
+_FILE_COV_REG_TYPE = (
+    r"settings\['cov_reg_type'\] .*; the file was not written by save\(\) or "
+    r"was changed after\. Save the model again"
+)
 
 
 @pytest.mark.parametrize(
@@ -1849,6 +1853,24 @@ _HUGE = "x" * 100_000
             {"ood_distance": 2},
             r"settings\['ood_distance'\]",
             id="ood_distance-int",
+        ),
+        pytest.param(
+            *_P,
+            {"cov_reg_type": "typo"},
+            _FILE_COV_REG_TYPE,
+            id="cov_reg_type-unknown",
+        ),
+        pytest.param(
+            *_P,
+            {"cov_reg_type": 5},
+            _FILE_COV_REG_TYPE,
+            id="cov_reg_type-int",
+        ),
+        pytest.param(
+            *_P,
+            {"cov_reg_type": "shared", "pred_cov_type": "unit"},
+            _FILE_COV_REG_TYPE,
+            id="cov_reg_type-shared-unit-both",
         ),
         pytest.param(*_G, {"device": "meta"}, "device", id="gp-meta"),
     ],

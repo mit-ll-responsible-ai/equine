@@ -109,6 +109,7 @@ class _OutlierGrid:
     REACH = 9.0
     MAX_NODES = 2**13
     MAX_PAIRS = 2**27
+    MAX_NODES_PER_ROW = 8
     WEIGHT_SUM_TOLERANCE = 1e-14
 
     def __init__(
@@ -122,11 +123,11 @@ class _OutlierGrid:
 
     @classmethod
     def build(
-        cls, points: torch.Tensor, weights: torch.Tensor, bandwidth: float
+        cls, points: torch.Tensor, weights: torch.Tensor, bandwidth: float, rows: int
     ) -> _OutlierGrid | None:
         """
         Tabulate the CDF of the KDE with these float64 ``points`` and ``weights``
-        and this ``bandwidth``.
+        and this ``bandwidth``, for a call that scores ``rows`` distances with it.
 
         Returns
         -------
@@ -136,7 +137,8 @@ class _OutlierGrid:
             their sum differs from 1 by more than ``WEIGHT_SUM_TOLERANCE``, the
             bandwidth is not a positive finite number, the grid would have zero
             width or zero node spacing, or it would need more than ``MAX_NODES``
-            nodes or more than ``MAX_PAIRS`` (node, point) pairs.
+            nodes, more than ``MAX_PAIRS`` (node, point) pairs or more than
+            ``MAX_NODES_PER_ROW`` nodes per row.
         """
         if len(points) == 0 or not bandwidth > 0.0:
             return None
@@ -152,6 +154,8 @@ class _OutlierGrid:
             return None
         nodes = math.ceil(intervals) + 1
         if nodes * len(points) > cls.MAX_PAIRS:
+            return None
+        if nodes > cls.MAX_NODES_PER_ROW * rows:
             return None
         step = (high - low) / (nodes - 1)
         if not step > 0.0:
@@ -1185,10 +1189,11 @@ class EquineProtonet(Equine):
         Each example is scored with the KDE of its predicted label: column
         ``j`` of ``predictions`` is the ``j``-th support label. The score is the
         KDE's CDF at the example's distance, computed in float64 on the CPU and
-        cast to the dtype and device of ``ood_dists``. A KDE that
-        ``_OutlierGrid.build`` tabulates is read from its grid, which is built
-        on the first call that predicts its label and kept while the KDE's
-        points, weights and bandwidth stay the same; any other KDE is summed
+        cast to the dtype and device of ``ood_dists``. A label's KDE is read
+        from the grid kept for the label when that grid was built from the KDE's
+        current points, weights and bandwidth. Otherwise ``_OutlierGrid.build``
+        is given the number of examples predicted as the label: the grid it
+        returns is kept and read, and when it returns None the KDE is summed
         directly.
 
         Parameters
@@ -1234,7 +1239,7 @@ class EquineProtonet(Equine):
             data = torch.from_numpy(kde.dataset[0]).double()
             weights = torch.from_numpy(kde.weights).double()
             bandwidth = float(np.sqrt(kde.covariance[0, 0]))
-            grid = self._outlier_grid(label, data, weights, bandwidth)
+            grid = self._outlier_grid(label, data, weights, bandwidth, len(rows))
             if grid is not None:
                 ood_scores[rows] = grid(dists[rows])
                 continue
@@ -1253,13 +1258,15 @@ class EquineProtonet(Equine):
         points: torch.Tensor,
         weights: torch.Tensor,
         bandwidth: float,
+        rows: int,
     ) -> _OutlierGrid | None:
         """
         The tabulated CDF of the outlier-score KDE of ``label``, which has these
         float64 ``points`` and ``weights`` and this ``bandwidth``.
 
         Returns the grid kept for ``label`` when it was built from the same
-        values; otherwise builds one with ``_OutlierGrid.build`` and keeps it.
+        values; otherwise builds one with ``_OutlierGrid.build`` for ``rows``
+        distances and keeps it.
         Returns None, and keeps nothing for ``label``, when ``build`` returns
         None.
         """
@@ -1268,7 +1275,7 @@ class EquineProtonet(Equine):
         kept = grids.get(label)
         if kept is not None and kept[0] == key:
             return kept[1]
-        grid = _OutlierGrid.build(points, weights, bandwidth)
+        grid = _OutlierGrid.build(points, weights, bandwidth, rows)
         if grid is None:
             grids.pop(label, None)
         else:
@@ -1332,15 +1339,21 @@ class EquineProtonet(Equine):
         ``model.embedding_model.eval()`` during fine-tuning stays frozen.
 
         The OOD scores are read from a table of the CDF of each predicted class's
-        outlier-score KDE. The first call that predicts a class builds that
-        class's table and takes longer than later calls; the table is rebuilt
-        after the class's KDE in ``outlier_score_kde`` changes. A KDE is summed
-        over its points on every call instead when its table would need more
-        than 8,192 nodes or more than 2**27 (node, point) pairs (more than 16,384
-        points at 8,192 nodes), when it has a NaN or infinite point or weight, a
-        negative weight, unequal weights that do not sum to 1, or a bandwidth
-        that is not a positive finite number, or when its points are all equal
-        and its bandwidth is too small to separate two nodes.
+        outlier-score KDE. Every call reads a class's table while the class's KDE
+        keeps the points, weights and bandwidth the table was built from; a table
+        is not read after the class's KDE in ``outlier_score_kde`` changes. A
+        call that predicts a class with no table for those values builds one when
+        it predicts the class for at least one eighth as many examples as the
+        table has nodes (1,024 examples always suffice), and that call takes
+        longer than later calls; a call with fewer examples of the class sums its
+        KDE over its points. An example's score can differ by up to 1e-13
+        depending on whether an earlier call built its class's table. A KDE is
+        summed over its points on every call instead when its table would need
+        more than 8,192 nodes or more than 2**27 (node, point) pairs (more than
+        16,384 points at 8,192 nodes), when it has a NaN or infinite point or
+        weight, a negative weight, unequal weights that do not sum to 1, or a
+        bandwidth that is not a positive finite number, or when its points are
+        all equal and its bandwidth is too small to separate two nodes.
 
         Parameters
         ----------

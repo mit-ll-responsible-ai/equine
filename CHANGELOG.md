@@ -334,6 +334,10 @@
 - The `torch < 2.10` cap; torch is now `>= 2.14.1, < 3`.
 
 ### Fixed
+- An `EquineProtonet` given its support with `update_support` alone (no
+  `train_model`, e.g. on a frozen embedding) saved a file that
+  `load_equine_model` refused with `Unknown model type ''`: `modelType` was
+  set only by `train_model`. It is now set when the model is built.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

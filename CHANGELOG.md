@@ -221,6 +221,15 @@
   `torch.unique` over all the labels once per class. The random draws are
   the same `torch.randperm` calls, in the same order, so a seed selects the
   same rows (#196, #213).
+- `EquineProtonet.train_model` finds the labels and each class's training
+  examples once per call instead of once per episode. `EquineGP.train_model`
+  (training and validation) and `calibrate_model` read a `TensorDataset` of
+  dense tensors with at most 4 dimensions and of dtype uint8, int8 to int64,
+  float16, bfloat16, float32, float64, complex64 or complex128 one batch at
+  a time instead of one example at a time; subclasses of `TensorDataset`,
+  other tensors and other datasets keep the `DataLoader`.
+  The random draws are the same, so a seed selects the same episodes and
+  batches (#284).
 - In evaluation mode (`predict`, and `forward` after `eval()`), `EquineGP`
   computes only the predictive variance of each example, the diagonal of the
   Laplace predictive covariance, instead of the whole batch-by-batch
@@ -388,3 +397,10 @@
   one-class model file raises it too. Calls that could run before and now
   raise include constructing, training and saving a one-class `EquineGP`,
   and loading a one-class file (#281).
+- `EquineProtonet.update_support` could merge labels with the same integer
+  part, such as 0 and 0.5, into one class without an error, and so could
+  `train_model` under `python -O`. Both now raise `ValueError` before the
+  model changes when the labels are not 1-D or not whole numbers (NaN and
+  infinities included). Calls that could run before and now raise include
+  those merges and, under `python -O`, `train_model` and `update_support` on
+  labels holding NaN (#289).

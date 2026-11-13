@@ -1364,17 +1364,19 @@ def test_upgrade_command_line(tmp_path, capsys) -> None:
     )
     assert "missing_dir' is not an existing directory" in capsys.readouterr().err
 
-    # In place, with the note about dropped Linear-head weights.
-    noted = str(tmp_path / "head.eq")
+    # In place; Linear-head weights are kept, without a note.
+    kept = str(tmp_path / "head.eq")
     protonet, _ = _trained_protonet()
-    _write_legacy_protonet_file(protonet, noted)
-    checkpoint = torch.load(noted, weights_only=False)
+    _write_legacy_protonet_file(protonet, kept)
+    checkpoint = torch.load(kept, weights_only=False)
     checkpoint["model_head_save"] = dict(_LINEAR_HEAD)
-    torch.save(checkpoint, noted)
-    assert main([noted, "--recipe", _RECIPE]) == 0
+    torch.save(checkpoint, kept)
+    assert main([kept, "--recipe", _RECIPE]) == 0
     captured = capsys.readouterr()
-    assert f"Upgraded {noted} in place." in captured.out
-    assert "note:" in captured.err and "Linear head" in captured.err
+    assert f"Upgraded {kept} in place." in captured.out
+    assert "note:" not in captured.err
+    head = load_checkpoint(kept)["model_head_save"]
+    assert all(torch.equal(head[k], v) for k, v in _LINEAR_HEAD.items())
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
@@ -1396,27 +1398,33 @@ def test_upgrade_converts_non_zip_files(tmp_path) -> None:
     _assert_same_predictions(model, eq.load_equine_model(old_format), X)
 
 
-_LINEAR_HEAD = {"weight": torch.eye(3), "bias": torch.zeros(3)}
+_LINEAR_HEAD = {"weight": 2 * torch.eye(3), "bias": torch.ones(3)}
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")
-def test_upgrade_drops_legacy_linear_head_weights_with_a_note(tmp_path) -> None:
-    """A legacy Linear head's weights are dropped, with a note."""
-    model, X = _trained_protonet()
+def test_upgrade_keeps_legacy_linear_head_weights(tmp_path) -> None:
+    """A legacy Linear head's weights are kept, without a note, and the upgraded
+    model's head holds them."""
+    model, _ = _trained_protonet()
     path = str(tmp_path / "legacy.eq")
     _write_legacy_protonet_file(model, path)
     checkpoint = torch.load(path, weights_only=False)
     checkpoint["model_head_save"] = dict(_LINEAR_HEAD)
     torch.save(checkpoint, path)
 
-    with pytest.warns(UserWarning, match="Linear head"):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         _upgrade(path)
 
-    assert load_checkpoint(path)["model_head_save"] == {}
-    _assert_same_predictions(model, eq.load_equine_model(path), X)
+    stored = load_checkpoint(path)["model_head_save"]
+    assert set(stored) == set(_LINEAR_HEAD)
+    assert all(torch.equal(stored[k], v) for k, v in _LINEAR_HEAD.items())
+    head = eq.load_equine_model(path).model.model_head
+    assert torch.equal(head.weight, _LINEAR_HEAD["weight"])
+    assert torch.equal(head.bias, _LINEAR_HEAD["bias"])
 
 
-def test_linear_head_weights_in_a_current_file_are_refused(tmp_path) -> None:
+def test_linear_head_weights_in_a_current_file_are_loaded(tmp_path) -> None:
     model, _ = _trained_protonet()
     path = str(tmp_path / "m.eq")
     model.save(path)
@@ -1425,10 +1433,65 @@ def test_linear_head_weights_in_a_current_file_are_refused(tmp_path) -> None:
     equine._model_file.write(path, checkpoint)
 
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
-        with pytest.raises(
-            ValueError, match="model_head_save does not match the model its settings"
-        ):
-            loader(path)
+        head = loader(path).model.model_head
+        assert torch.equal(head.weight, _LINEAR_HEAD["weight"])
+        assert torch.equal(head.bias, _LINEAR_HEAD["bias"])
+
+
+@pytest.mark.filterwarnings("ignore::FutureWarning")
+@pytest.mark.parametrize(
+    "cov_type",
+    [eq.CovType.UNIT, eq.CovType.DIAGONAL, eq.CovType.FULL],
+    ids=["unit", "diagonal", "full"],
+)
+@pytest.mark.parametrize(
+    "emb_out_dim, width",
+    [(3, 3), (1, 3), (1, 1)],
+    ids=["width", "one", "one-wide"],
+)
+def test_upgrade_of_a_file_without_head_weights(
+    tmp_path, emb_out_dim, width, cov_type
+) -> None:
+    """A legacy file whose model head holds no weights, as EquineProtonet 0.1.7 and
+    0.1.8 saved it, upgrades and predicts the same bits with the identity head. An
+    emb_out_dim of 1 with a wider embedding becomes the embedding's width, with a
+    note."""
+    dataset, X = _tiny_dataset()
+    torch.manual_seed(0)
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(6, width),
+        emb_out_dim,
+        cov_type=cov_type,
+        ood_distance="rmd_sqrt",
+    )
+    model.model.model_head = torch.nn.Identity()
+    model.train_model(
+        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
+    )
+    path = str(tmp_path / "legacy.eq")
+    _write_legacy_protonet_file(model, path)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        upgrade_model_file(path, BasicEmbeddingModel(6, width))
+    notes = [str(w.message) for w in caught if w.category is UserWarning]
+    if emb_out_dim != width:
+        assert len(notes) == 1
+        assert re.search(
+            rf"settings\['emb_out_dim'\] was 1 while its embedding model outputs "
+            rf"{width} features; it was set to {width}",
+            notes[0],
+        )
+    else:
+        assert notes == []
+
+    checkpoint = load_checkpoint(path)
+    assert checkpoint["model_head_save"] == {}
+    assert checkpoint["settings"]["emb_out_dim"] == width
+    loaded = eq.load_equine_model(path)
+    out, back = model.predict(X[1:10]), loaded.predict(X[1:10])
+    assert torch.equal(out.classes, back.classes)
+    assert torch.equal(out.ood_scores, back.ood_scores)
 
 
 @pytest.mark.filterwarnings("ignore::FutureWarning")

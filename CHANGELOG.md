@@ -223,10 +223,12 @@
   tags, nesting deeper than `save` writes, and dict keys whose hashes repeat.
   safetensors refuses tensors whose bytes overlap or run past the file. Each
   tensor is read once. Recipes or settings that describe a model larger than
-  the weights stored in the file are refused too. Known limit: the work done
-  after loading (embedding the support set) grows with the number of support
-  rows times the embedding's width, so it can exceed the file's size even for
-  an honest file.
+  the weights stored in the file are refused too, apart from the identity head
+  of an `EquineProtonet` file without head weights. Known limit: the work done
+  after loading grows with the number of support rows times the embedding's
+  width (embedding the support set) and, for an `EquineProtonet` file without
+  head weights, with the square of that width (building the identity head), so
+  it can exceed the file's size even for an honest file.
 - Settings keys that the model class does not accept are refused with a
   `ValueError`. `EquineGP` files saved by EQUINE 0.1.5 or earlier store
   `use_temperature`, which EquineGP has not accepted since 0.1.6 (such files
@@ -425,6 +427,27 @@
   temperature before the softmax, as `predict` does, and in eval mode equals
   `predict(X).classes`. With `use_temperature=False` it is unchanged.
   Training, temperature calibration and `predict` do not call it.
+- `EquineProtonet` could not train a frozen embedding model: its model head
+  (`Protonet.create_model_head`) was a `torch.nn.Identity`, so `train_model`
+  raised `RuntimeError` (element 0 of tensors does not require grad and does
+  not have a grad_fn), or `ValueError` (optimizer got an empty parameter list)
+  for an embedding model without parameters (#256). The head is now a
+  `torch.nn.Linear(emb_out_dim, emb_out_dim)` with weight `I` and bias 0,
+  built without drawing random numbers, and `train_model` trains it with the
+  embedding model. It computes in the dtype of the embedding model's output.
+  Until it is trained it returns that output unchanged (for finite values), as
+  the `Identity` did; models trained with `train_model` change. A model file
+  without head weights (`equine.upgrade` writes one for a file saved by 0.1.7
+  or 0.1.8) loads with the identity head; a file with head weights loads them
+  in their stored dtypes. `equine.upgrade` keeps the head weights of a file
+  saved by 0.1.6 or earlier, which 0.1.8 refused to load. `emb_out_dim` must
+  be the number of features the embedding model outputs: 0.1.8 also accepted
+  1, which broadcast; such a model now raises `ValueError` when it first
+  embeds, and a format-4 file with it is refused. `equine.upgrade` sets an
+  `emb_out_dim` of 1 in a file saved by 0.1.7 or 0.1.8 to the embedding's
+  output width, with a note; 0.1.x predicted with diagonal covariances, which
+  an `emb_out_dim` of 1 broadcast to the same values, so the predictions do
+  not change.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are
@@ -532,10 +555,9 @@
 - Docstrings that contradicted the code now match it: `Equine.predict`
   returns probabilities, `EquineGP.forward` returns logits,
   `EquineProtonet.forward` and `Protonet.compute_classes` return
-  probabilities, `Protonet.create_model_head` returns an `Identity`,
-  `EquineProtonet.calibrate_temperature` is run by `train_model` only when
-  `use_temperature` is True, `generate_support` and `generate_episode`
-  describe their arguments and return values, and
+  probabilities, `EquineProtonet.calibrate_temperature` is run by
+  `train_model` only when `use_temperature` is True, `generate_support` and
+  `generate_episode` describe their arguments and return values, and
   `EquineGP.train_model` documents `scheduler`, `vis_support` and
   `support_size` (#208).
 - The `EquineGP.calibrate_model` docstring said `train_model` also runs it; it

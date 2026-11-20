@@ -111,6 +111,28 @@ def test_a_file_whose_first_byte_is_a_pickle_opcode_loads(tmp_path) -> None:
     assert equine.utils.load_checkpoint(str(path))["pad"] == "a" * pad
 
 
+def test_a_pytorch_archive_is_refused_naming_both_repairs(tmp_path) -> None:
+    """The loader's refusal of a PyTorch archive names the upgrade for a file from
+    EQUINE 0.1.x and, for a development build's file, saving the model again; a model
+    saved again to the same path loads."""
+    path = tmp_path / "m.eq"
+    torch.save({"equine_format_version": 3}, path)
+    with pytest.raises(equine.utils.LegacyFormatError) as refused:
+        equine.utils.load_checkpoint(str(path))
+    assert "Rewrite it once with its embedding architecture" in str(refused.value)
+    assert "is not converted: save the model again, or retrain it." in str(
+        refused.value
+    )
+    torch.manual_seed(0)
+    X, y = torch.randn(60, 4), torch.arange(60) % 3
+    model = eq.EquineProtonet(MLP(4, (8,), 3), emb_out_dim=3)
+    model.train_model(
+        torch.utils.data.TensorDataset(X, y), 1, support_size=5, episode_size=30
+    )
+    model.save(str(path))
+    assert equine.utils.load_checkpoint(str(path))["equine_format_version"] == 4
+
+
 @pytest.mark.parametrize(
     "content, error, match",
     [

@@ -3052,7 +3052,24 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="normal">1574</span>
 <span class="normal">1575</span>
 <span class="normal">1576</span>
-<span class="normal">1577</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
+<span class="normal">1577</span>
+<span class="normal">1578</span>
+<span class="normal">1579</span>
+<span class="normal">1580</span>
+<span class="normal">1581</span>
+<span class="normal">1582</span>
+<span class="normal">1583</span>
+<span class="normal">1584</span>
+<span class="normal">1585</span>
+<span class="normal">1586</span>
+<span class="normal">1587</span>
+<span class="normal">1588</span>
+<span class="normal">1589</span>
+<span class="normal">1590</span>
+<span class="normal">1591</span>
+<span class="normal">1592</span>
+<span class="normal">1593</span>
+<span class="normal">1594</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@beartype</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">EquineProtonet</span><span class="p">(</span><span class="n">Equine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    A class representing an EQUINE model that utilizes protonets and (optionally) relative Mahalanobis distances</span>
@@ -3230,7 +3247,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        dataset : TensorDataset</span>
-<span class="sd">            Input pytorch TensorDataset of training data for model.</span>
+<span class="sd">            Input pytorch TensorDataset of training data for model, with at least</span>
+<span class="sd">            2 classes.</span>
 <span class="sd">        num_episodes : int</span>
 <span class="sd">            The desired number of episodes to use for training.</span>
 <span class="sd">        calib_frac : float, optional</span>
@@ -3265,8 +3283,9 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If ``support_size`` is below 2; if ``num_episodes`` is positive and</span>
-<span class="sd">            ``way`` is not between 2 and the number of classes, or</span>
+<span class="sd">            If ``support_size`` is below 2 or ``dataset`` has fewer than 2</span>
+<span class="sd">            classes; if ``num_episodes`` is positive and ``way`` is not between 2</span>
+<span class="sd">            and the number of classes, or</span>
 <span class="sd">            ``episode_size`` is below ``way``; or if the ``calib_frac`` split leaves a</span>
 <span class="sd">            class with fewer than 2 calibration examples or too few training</span>
 <span class="sd">            examples (more than ``support_size`` when ``num_episodes`` is</span>
@@ -3283,6 +3302,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="p">)</span>
         <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[:]</span>
         <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"dataset must hold at least 2 classes, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
         <span class="k">if</span> <span class="n">num_episodes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">way</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -3666,7 +3689,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        support_x : torch.Tensor</span>
 <span class="sd">            Tensor containing support examples for protonet.</span>
 <span class="sd">        support_y : torch.Tensor</span>
-<span class="sd">            Tensor containing labels for given support examples.</span>
+<span class="sd">            Tensor containing labels for given support examples, of at least 2</span>
+<span class="sd">            classes.</span>
 <span class="sd">        *args : Any</span>
 <span class="sd">            Deprecated: ``calib_frac`` and ``label_names`` passed by position, in</span>
 <span class="sd">            that order. Emits a ``DeprecationWarning`` and is then handled as the</span>
@@ -3684,11 +3708,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            If ``calib_frac`` is missing, an option is passed both by position and</span>
 <span class="sd">            by keyword, or more than two options are passed by position.</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the ``calib_frac`` split leaves a class with fewer than 2 support</span>
-<span class="sd">            or 2 calibration examples, a calibration example's embedding or OOD</span>
-<span class="sd">            distance holds a NaN or infinite value, or a class's calibration</span>
-<span class="sd">            examples all have the same OOD distance. A failed update leaves the</span>
-<span class="sd">            model as it was.</span>
+<span class="sd">            If ``support_y`` has fewer than 2 classes, the ``calib_frac`` split</span>
+<span class="sd">            leaves a class with fewer than 2 support or 2 calibration examples, a</span>
+<span class="sd">            calibration example's embedding or OOD distance holds a NaN or</span>
+<span class="sd">            infinite value, or a class's calibration examples all have the same</span>
+<span class="sd">            OOD distance. A failed update leaves the model as it was.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -3726,6 +3750,10 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="p">)</span>
         <span class="k">with</span> <span class="n">_eval_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
             <span class="n">all_labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">support_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"support_y must hold at least 2 classes, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+                <span class="p">)</span>
             <span class="n">support_x</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">calib_y</span> <span class="o">=</span> <span class="n">stratified_train_test_split</span><span class="p">(</span>
                 <span class="n">support_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">calib_frac</span>
             <span class="p">)</span>
@@ -3900,7 +3928,8 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            ``python -m equine.upgrade``), or names an unregistered</span>
 <span class="sd">            architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">            or above its device count, or lacks a dtype the file holds (float64</span>
-<span class="sd">            on MPS: load such a file with ``device="cpu"``).</span>
+<span class="sd">            on MPS: load such a file with ``device="cpu"``). If the file's</span>
+<span class="sd">            support holds one class.</span>
 <span class="sd">        """</span>
         <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
         <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
@@ -3944,6 +3973,11 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">"Model file's support is empty; an EquineProtonet needs at least one "</span>
                 <span class="s2">"labelled support example."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Model file's support holds one class; an EquineProtonet needs at "</span>
+                <span class="s2">"least 2."</span>
             <span class="p">)</span>
         <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">rows</span> <span class="ow">in</span> <span class="n">support</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">rows</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
@@ -4714,13 +4748,7 @@ NaN or infinite value.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">921</span>
-<span class="normal">922</span>
-<span class="normal">923</span>
-<span class="normal">924</span>
-<span class="normal">925</span>
-<span class="normal">926</span>
-<span class="normal">927</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">927</span>
 <span class="normal">928</span>
 <span class="normal">929</span>
 <span class="normal">930</span>
@@ -4766,7 +4794,13 @@ NaN or infinite value.</p>
 <span class="normal">970</span>
 <span class="normal">971</span>
 <span class="normal">972</span>
-<span class="normal">973</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calibrate_temperature</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">calib_x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
     <span class="n">calib_y</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
@@ -5010,17 +5044,17 @@ class prototypes.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1333</span>
-<span class="normal">1334</span>
-<span class="normal">1335</span>
-<span class="normal">1336</span>
-<span class="normal">1337</span>
-<span class="normal">1338</span>
-<span class="normal">1339</span>
-<span class="normal">1340</span>
-<span class="normal">1341</span>
-<span class="normal">1342</span>
-<span class="normal">1343</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1344</span>
+<span class="normal">1345</span>
+<span class="normal">1346</span>
+<span class="normal">1347</span>
+<span class="normal">1348</span>
+<span class="normal">1349</span>
+<span class="normal">1350</span>
+<span class="normal">1351</span>
+<span class="normal">1352</span>
+<span class="normal">1353</span>
+<span class="normal">1354</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the prototypes for the model (the class means of the support embeddings).</span>
@@ -5076,17 +5110,17 @@ class prototypes.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1309</span>
-<span class="normal">1310</span>
-<span class="normal">1311</span>
-<span class="normal">1312</span>
-<span class="normal">1313</span>
-<span class="normal">1314</span>
-<span class="normal">1315</span>
-<span class="normal">1316</span>
-<span class="normal">1317</span>
-<span class="normal">1318</span>
-<span class="normal">1319</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1320</span>
+<span class="normal">1321</span>
+<span class="normal">1322</span>
+<span class="normal">1323</span>
+<span class="normal">1324</span>
+<span class="normal">1325</span>
+<span class="normal">1326</span>
+<span class="normal">1327</span>
+<span class="normal">1328</span>
+<span class="normal">1329</span>
+<span class="normal">1330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_support</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Get the support examples for the model.</span>
@@ -5234,7 +5268,8 @@ embedding model as TorchScript (both are rewritten once with
 <code>python -m equine.upgrade</code>), or names an unregistered
 architecture. If <code>device</code> is unavailable here, names an index at
 or above its device count, or lacks a dtype the file holds (float64
-on MPS: load such a file with <code>device="cpu"</code>).</p>
+on MPS: load such a file with <code>device="cpu"</code>). If the file's
+support holds one class.</p>
               </div>
             </td>
           </tr>
@@ -5244,18 +5279,7 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1404</span>
-<span class="normal">1405</span>
-<span class="normal">1406</span>
-<span class="normal">1407</span>
-<span class="normal">1408</span>
-<span class="normal">1409</span>
-<span class="normal">1410</span>
-<span class="normal">1411</span>
-<span class="normal">1412</span>
-<span class="normal">1413</span>
-<span class="normal">1414</span>
-<span class="normal">1415</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1415</span>
 <span class="normal">1416</span>
 <span class="normal">1417</span>
 <span class="normal">1418</span>
@@ -5289,7 +5313,19 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="normal">1446</span>
 <span class="normal">1447</span>
 <span class="normal">1448</span>
-<span class="normal">1449</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1449</span>
+<span class="normal">1450</span>
+<span class="normal">1451</span>
+<span class="normal">1452</span>
+<span class="normal">1453</span>
+<span class="normal">1454</span>
+<span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span>
+<span class="normal">1461</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -5330,7 +5366,8 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
 <span class="sd">        ``python -m equine.upgrade``), or names an unregistered</span>
 <span class="sd">        architecture. If ``device`` is unavailable here, names an index at</span>
 <span class="sd">        or above its device count, or lacks a dtype the file holds (float64</span>
-<span class="sd">        on MPS: load such a file with ``device="cpu"``).</span>
+<span class="sd">        on MPS: load such a file with ``device="cpu"``). If the file's</span>
+<span class="sd">        support holds one class.</span>
 <span class="sd">    """</span>
     <span class="n">model_save</span> <span class="o">=</span> <span class="n">_load_checkpoint_for_device</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
     <span class="n">_refuse_torchscript</span><span class="p">(</span><span class="n">model_save</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
@@ -5450,13 +5487,7 @@ support label has no outlier-score KDE.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1138</span>
-<span class="normal">1139</span>
-<span class="normal">1140</span>
-<span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1144</span>
 <span class="normal">1145</span>
 <span class="normal">1146</span>
 <span class="normal">1147</span>
@@ -5496,7 +5527,13 @@ support label has no outlier-score KDE.</p>
 <span class="normal">1181</span>
 <span class="normal">1182</span>
 <span class="normal">1183</span>
-<span class="normal">1184</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span>
+<span class="normal">1188</span>
+<span class="normal">1189</span>
+<span class="normal">1190</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EquineOutput</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Predict function for EquineProtonet, inherited and implemented from Equine.</span>
 
 <span class="sd">    Computes in eval mode and leaves the model in the mode the caller had it in (via</span>
@@ -5633,18 +5670,7 @@ only data.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1345</span>
-<span class="normal">1346</span>
-<span class="normal">1347</span>
-<span class="normal">1348</span>
-<span class="normal">1349</span>
-<span class="normal">1350</span>
-<span class="normal">1351</span>
-<span class="normal">1352</span>
-<span class="normal">1353</span>
-<span class="normal">1354</span>
-<span class="normal">1355</span>
-<span class="normal">1356</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1356</span>
 <span class="normal">1357</span>
 <span class="normal">1358</span>
 <span class="normal">1359</span>
@@ -5659,7 +5685,18 @@ only data.</p>
 <span class="normal">1368</span>
 <span class="normal">1369</span>
 <span class="normal">1370</span>
-<span class="normal">1371</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1371</span>
+<span class="normal">1372</span>
+<span class="normal">1373</span>
+<span class="normal">1374</span>
+<span class="normal">1375</span>
+<span class="normal">1376</span>
+<span class="normal">1377</span>
+<span class="normal">1378</span>
+<span class="normal">1379</span>
+<span class="normal">1380</span>
+<span class="normal">1381</span>
+<span class="normal">1382</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Save all model parameters to a file.</span>
 
@@ -5726,7 +5763,8 @@ only data.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Input pytorch TensorDataset of training data for model.</p>
+                <p>Input pytorch TensorDataset of training data for model, with at least
+2 classes.</p>
               </div>
             </td>
             <td>
@@ -5926,8 +5964,9 @@ internal).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>support_size</code> is below 2; if <code>num_episodes</code> is positive and
-<code>way</code> is not between 2 and the number of classes, or
+                <p>If <code>support_size</code> is below 2 or <code>dataset</code> has fewer than 2
+classes; if <code>num_episodes</code> is positive and <code>way</code> is not between 2
+and the number of classes, or
 <code>episode_size</code> is below <code>way</code>; or if the <code>calib_frac</code> split leaves a
 class with fewer than 2 calibration examples or too few training
 examples (more than <code>support_size</code> when <code>num_episodes</code> is
@@ -6109,7 +6148,13 @@ scores are not refitted.</p>
 <span class="normal">916</span>
 <span class="normal">917</span>
 <span class="normal">918</span>
-<span class="normal">919</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span>
+<span class="normal">924</span>
+<span class="normal">925</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="n">calib_frac</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">train_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">dataset</span><span class="p">:</span> <span class="n">TensorDataset</span><span class="p">,</span>
@@ -6129,7 +6174,8 @@ scores are not refitted.</p>
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    dataset : TensorDataset</span>
-<span class="sd">        Input pytorch TensorDataset of training data for model.</span>
+<span class="sd">        Input pytorch TensorDataset of training data for model, with at least</span>
+<span class="sd">        2 classes.</span>
 <span class="sd">    num_episodes : int</span>
 <span class="sd">        The desired number of episodes to use for training.</span>
 <span class="sd">    calib_frac : float, optional</span>
@@ -6164,8 +6210,9 @@ scores are not refitted.</p>
 <span class="sd">    Raises</span>
 <span class="sd">    ------</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If ``support_size`` is below 2; if ``num_episodes`` is positive and</span>
-<span class="sd">        ``way`` is not between 2 and the number of classes, or</span>
+<span class="sd">        If ``support_size`` is below 2 or ``dataset`` has fewer than 2</span>
+<span class="sd">        classes; if ``num_episodes`` is positive and ``way`` is not between 2</span>
+<span class="sd">        and the number of classes, or</span>
 <span class="sd">        ``episode_size`` is below ``way``; or if the ``calib_frac`` split leaves a</span>
 <span class="sd">        class with fewer than 2 calibration examples or too few training</span>
 <span class="sd">        examples (more than ``support_size`` when ``num_episodes`` is</span>
@@ -6182,6 +6229,10 @@ scores are not refitted.</p>
         <span class="p">)</span>
     <span class="n">X</span><span class="p">,</span> <span class="n">Y</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[:]</span>
     <span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"dataset must hold at least 2 classes, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">num_episodes</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="n">way</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -6334,7 +6385,8 @@ training mode. Every submodule's mode is restored; an embedding frozen with
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tensor containing labels for given support examples.</p>
+                <p>Tensor containing labels for given support examples, of at least 2
+classes.</p>
               </div>
             </td>
             <td>
@@ -6423,11 +6475,11 @@ by keyword, or more than two options are passed by position.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the <code>calib_frac</code> split leaves a class with fewer than 2 support
-or 2 calibration examples, a calibration example's embedding or OOD
-distance holds a NaN or infinite value, or a class's calibration
-examples all have the same OOD distance. A failed update leaves the
-model as it was.</p>
+                <p>If <code>support_y</code> has fewer than 2 classes, the <code>calib_frac</code> split
+leaves a class with fewer than 2 support or 2 calibration examples, a
+calibration example's embedding or OOD distance holds a NaN or
+infinite value, or a class's calibration examples all have the same
+OOD distance. A failed update leaves the model as it was.</p>
               </div>
             </td>
           </tr>
@@ -6437,13 +6489,7 @@ model as it was.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/equine/equine_protonet.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span>
-<span class="normal">1189</span>
-<span class="normal">1190</span>
-<span class="normal">1191</span>
-<span class="normal">1192</span>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1192</span>
 <span class="normal">1193</span>
 <span class="normal">1194</span>
 <span class="normal">1195</span>
@@ -6558,7 +6604,18 @@ model as it was.</p>
 <span class="normal">1304</span>
 <span class="normal">1305</span>
 <span class="normal">1306</span>
-<span class="normal">1307</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
+<span class="normal">1307</span>
+<span class="normal">1308</span>
+<span class="normal">1309</span>
+<span class="normal">1310</span>
+<span class="normal">1311</span>
+<span class="normal">1312</span>
+<span class="normal">1313</span>
+<span class="normal">1314</span>
+<span class="normal">1315</span>
+<span class="normal">1316</span>
+<span class="normal">1317</span>
+<span class="normal">1318</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span>
     <span class="k">lambda</span> <span class="n">calib_frac</span><span class="p">:</span> <span class="p">(</span>
         <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">calib_frac</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">calib_frac</span> <span class="o">&lt;</span> <span class="mi">1</span>
     <span class="p">)</span>
@@ -6583,7 +6640,8 @@ model as it was.</p>
 <span class="sd">    support_x : torch.Tensor</span>
 <span class="sd">        Tensor containing support examples for protonet.</span>
 <span class="sd">    support_y : torch.Tensor</span>
-<span class="sd">        Tensor containing labels for given support examples.</span>
+<span class="sd">        Tensor containing labels for given support examples, of at least 2</span>
+<span class="sd">        classes.</span>
 <span class="sd">    *args : Any</span>
 <span class="sd">        Deprecated: ``calib_frac`` and ``label_names`` passed by position, in</span>
 <span class="sd">        that order. Emits a ``DeprecationWarning`` and is then handled as the</span>
@@ -6601,11 +6659,11 @@ model as it was.</p>
 <span class="sd">        If ``calib_frac`` is missing, an option is passed both by position and</span>
 <span class="sd">        by keyword, or more than two options are passed by position.</span>
 <span class="sd">    ValueError</span>
-<span class="sd">        If the ``calib_frac`` split leaves a class with fewer than 2 support</span>
-<span class="sd">        or 2 calibration examples, a calibration example's embedding or OOD</span>
-<span class="sd">        distance holds a NaN or infinite value, or a class's calibration</span>
-<span class="sd">        examples all have the same OOD distance. A failed update leaves the</span>
-<span class="sd">        model as it was.</span>
+<span class="sd">        If ``support_y`` has fewer than 2 classes, the ``calib_frac`` split</span>
+<span class="sd">        leaves a class with fewer than 2 support or 2 calibration examples, a</span>
+<span class="sd">        calibration example's embedding or OOD distance holds a NaN or</span>
+<span class="sd">        infinite value, or a class's calibration examples all have the same</span>
+<span class="sd">        OOD distance. A failed update leaves the model as it was.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -6643,6 +6701,10 @@ model as it was.</p>
         <span class="p">)</span>
     <span class="k">with</span> <span class="n">_eval_mode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">all_labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">support_y</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_labels</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"support_y must hold at least 2 classes, got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_labels</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
         <span class="n">support_x</span><span class="p">,</span> <span class="n">calib_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">calib_y</span> <span class="o">=</span> <span class="n">stratified_train_test_split</span><span class="p">(</span>
             <span class="n">support_x</span><span class="p">,</span> <span class="n">support_y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="n">calib_frac</span>
         <span class="p">)</span>

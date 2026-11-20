@@ -239,6 +239,10 @@
   batch's update can change by rounding, and inverting the precision matrix in
   `predict` can enlarge the change in the covariance, probabilities and OOD
   scores (#285).
+- `EquineGP.train_model` returns the mean of each epoch's batch losses as
+  `"train_loss"`, a list of floats. It sums the losses on their device and
+  reads the sum once per epoch, where it read every batch's loss from the
+  device and discarded the sum (#298).
 - In evaluation mode (`predict`, and `forward` after `eval()`), `EquineGP`
   computes only the predictive variance of each example, the diagonal of the
   Laplace predictive covariance, instead of the whole batch-by-batch

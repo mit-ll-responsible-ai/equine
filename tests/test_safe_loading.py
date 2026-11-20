@@ -292,10 +292,16 @@ def test_legacy_file_is_refused_and_names_the_upgrade(
     path = str(tmp_path / "legacy.eq")
     write_legacy(model, path)
 
-    with pytest.raises(ValueError, match="python -m equine.upgrade"):
+    with pytest.raises(eq.LegacyFormatError, match="python -m equine.upgrade"):
         eq.load_equine_model(path)
-    with pytest.raises(ValueError, match="python -m equine.upgrade"):
+    with pytest.raises(eq.LegacyFormatError, match="python -m equine.upgrade"):
         type(model).load(path)
+
+
+def test_legacy_format_error_is_public_and_a_value_error() -> None:
+    assert "LegacyFormatError" in eq.__all__
+    assert eq.LegacyFormatError is LegacyFormatError
+    assert issubclass(LegacyFormatError, ValueError)
 
 
 @pytest.mark.parametrize("train, write_legacy", LEGACY_CASES)

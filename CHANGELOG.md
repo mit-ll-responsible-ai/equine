@@ -166,9 +166,10 @@
   strings, NaN and infinities, `OrderedDict` and its module versions,
   `torch.Size`) are tagged, so they load back as they were saved. Loading reads
   no pickle and runs no code from the file. Files written by earlier releases
-  are refused. Rewrite each one once, passing the embedding architecture it was
-  built from (only for files you trust: the upgrade unpickles the file without
-  restrictions and loads its TorchScript):
+  are refused with `equine.LegacyFormatError`, a `ValueError`. Rewrite each one
+  once, passing the embedding architecture it was built from (only for files
+  you trust: the upgrade unpickles the file without restrictions and loads its
+  TorchScript):
 
   ```python
   # from Python

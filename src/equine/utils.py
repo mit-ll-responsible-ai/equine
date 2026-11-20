@@ -69,7 +69,16 @@ _LEGACY_FILE_ERROR = (
 
 
 class LegacyFormatError(ValueError):
-    """The file predates the current format; ``python -m equine.upgrade`` rewrites it."""
+    """
+    A model file is a PyTorch archive or a pickle, as files saved by EQUINE 0.1.x
+    are, not a safetensors file.
+
+    ``load_checkpoint`` raises it (its docstring gives the exact rule), and so do
+    ``load_equine_model``, ``EquineGP.load`` and ``EquineProtonet.load``. Exported as
+    ``equine.LegacyFormatError``. ``python -m equine.upgrade`` rewrites a file from
+    EQUINE 0.1.x once; a file written by a development build before format 4 is not
+    converted.
+    """
 
 
 # The first bytes of a PyTorch zip archive, and of a pickle (protocol 2 or later).

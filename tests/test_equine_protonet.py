@@ -316,7 +316,7 @@ def test_equine_protonet_save_load(random_dataset) -> None:
     model = eq.EquineProtonet(embedding_model, num_classes, relative_mahal=False)
     model.train_model(dataset, num_episodes=2, **train_kwargs)
 
-    use_save_load_model_tests(model, X, tmp_filename="protonet_save_load.eq")
+    use_save_load_model_tests(model, X)
 
 
 @given(random_dataset=random_dataset())
@@ -333,9 +333,7 @@ def test_equine_protonet_save_load_with_temperature(random_dataset) -> None:
     assert calibrated != before, "train_model(use_temperature=True) must calibrate"
     assert calibrated > 0
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="protonet_save_load_with_temperature.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
     assert new_model.temperature.item() == pytest.approx(calibrated), (
         "temperature changed on reload"
     )
@@ -352,9 +350,7 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
     model = eq.EquineProtonet(embedding_model, num_classes)
     model.train_model(dataset, num_episodes=2, **train_kwargs)
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="protonet_save_load_no_feature_and_label_names.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
 
     assert new_model.get_feature_names() is None, "feature_names changed on reload"
     assert new_model.get_label_names() is None, "label_names changed on reload"
@@ -371,9 +367,7 @@ def test_equine_protonet_save_load_with_feature_and_label_names(random_dataset) 
     )
     model.train_model(dataset, num_episodes=2, **train_kwargs)
 
-    new_model = use_save_load_model_tests(
-        model, X, tmp_filename="protonet_save_load_with_feature_and_label_names.eq"
-    )
+    new_model = use_save_load_model_tests(model, X)
 
     assert new_model.get_feature_names() == feature_names, (
         "feature_names changed on reload"

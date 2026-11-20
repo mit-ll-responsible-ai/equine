@@ -149,6 +149,20 @@ def test_registered_embedding_saves_data_only_and_round_trips(
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
+def test_spectral_residual_mlp_saves_data_only_and_round_trips(
+    tmp_path, train, cls
+) -> None:
+    model, X = train(eq.SpectralResidualMLP(6, 8, 3))
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    ckpt = torch.load(path, weights_only=True)  # must not raise
+    assert ckpt["embedding_recipe"]["builder"] == "equine.spectral_residual_mlp"
+    for reloaded in (cls.load(path), eq.load_equine_model(path)):
+        assert isinstance(reloaded.embedding_model, eq.SpectralResidualMLP)
+        assert_same(model, reloaded, X)
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
 def test_numpy_string_names_are_saved_as_plain_strings(tmp_path, train, cls) -> None:
     """LabelEncoder.inverse_transform yields numpy strings, which the
     weights-only unpickler refuses; save() must write plain str."""

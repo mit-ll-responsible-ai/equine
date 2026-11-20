@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.svg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -3122,7 +3122,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
             <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
         <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Protonet</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
             <span class="n">embedding_model</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
@@ -3140,7 +3140,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        ``get_support()`` returns, empty before the first support update.</span>
 <span class="sd">        Read-only.</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">support_embeddings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OrderedDict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
@@ -3148,7 +3148,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        The embeddings of the support examples, keyed by label; empty before the</span>
 <span class="sd">        first support update. Read-only.</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support_embeddings</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support_embeddings</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
@@ -3156,7 +3156,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        The class prototypes: the tensor that ``get_prototypes()`` returns, an</span>
 <span class="sd">        empty tensor before the first support update. Read-only.</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"prototypes"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"prototypes"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">())</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
@@ -3378,7 +3378,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            the support, or, in eval mode, the embeddings of ``calib_x`` hold a</span>
 <span class="sd">            NaN or infinite value.</span>
 <span class="sd">        """</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">"No support examples found; call train_model or update_support "</span>
                 <span class="s2">"before calibrate_temperature."</span>
@@ -3754,7 +3754,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">        list[int]</span>
 <span class="sd">            The support's labels.</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support_embeddings</span><span class="p">)</span>
 
     <span class="nd">@icontract</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">prototypes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_prototypes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
@@ -3789,7 +3789,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
 <span class="sd">            If the model has no support examples (neither ``train_model`` nor</span>
 <span class="sd">            ``update_support`` has run).</span>
 <span class="sd">        """</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">"The model has no support examples to save; call train_model or "</span>
                 <span class="s2">"update_support first."</span>
@@ -3834,7 +3834,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Load a previously saved EquineProtonet model.</span>
 
@@ -3880,7 +3880,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">model_save</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.</span>
 
@@ -3973,7 +3973,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="c1"># emb_out_dim must be 1 or the embedding's output width.</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-                <span class="n">probe</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span>
+                <span class="n">probe</span> <span class="o">=</span> <span class="n">eq_model</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_embeddings</span><span class="p">(</span>
                     <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">support</span><span class="o">.</span><span class="n">values</span><span class="p">()))[:</span><span class="mi">1</span><span class="p">]</span>
                 <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -3998,7 +3998,7 @@ and provides the <code>forward</code>, <code>predict</code>, <code>save</code>, 
         <span class="n">eq_model</span><span class="o">.</span><span class="n">feature_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"feature_names"</span><span class="p">)</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"label_names"</span><span class="p">)</span>
         <span class="n">eq_model</span><span class="o">.</span><span class="n">outlier_score_kde</span> <span class="o">=</span> <span class="n">outlier_kde</span>
-        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">)</span>
+        <span class="n">eq_model</span><span class="o">.</span><span class="n">train_summary</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">model_save</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"train_summary"</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">eq_model</span>
 </code></pre></div></td></tr></table></div>
@@ -4475,7 +4475,7 @@ changing <code>ood_distance</code>, refit them with <code>update_support</code> 
         <span class="s2">"temperature"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">init_temperature</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
     <span class="p">)</span>
 
-    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">:</span> <span class="n">Protonet</span> <span class="o">=</span> <span class="n">Protonet</span><span class="p">(</span>
         <span class="n">embedding_model</span><span class="p">,</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">emb_out_dim</span><span class="p">,</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cov_type</span><span class="p">,</span>
@@ -4768,7 +4768,7 @@ NaN or infinite value.</p>
 <span class="sd">        the support, or, in eval mode, the embeddings of ``calib_x`` hold a</span>
 <span class="sd">        NaN or infinite value.</span>
 <span class="sd">    """</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">"No support examples found; call train_model or update_support "</span>
             <span class="s2">"before calibrate_temperature."</span>
@@ -5264,7 +5264,7 @@ on MPS: load such a file with <code>device="cpu"</code>).</p>
     <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">embedding_model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Equine</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Load a previously saved EquineProtonet model.</span>
 
@@ -5648,7 +5648,7 @@ only data.</p>
 <span class="sd">        If the model has no support examples (neither ``train_model`` nor</span>
 <span class="sd">        ``update_support`` has run).</span>
 <span class="sd">    """</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cast</span><span class="p">(</span><span class="n">Protonet</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">support</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
             <span class="s2">"The model has no support examples to save; call train_model or "</span>
             <span class="s2">"update_support first."</span>

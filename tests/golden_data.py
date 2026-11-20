@@ -135,7 +135,10 @@ def fixture_query_batch() -> torch.Tensor:
 
 
 def fixture_protonet() -> eq.EquineProtonet:
-    """Builds the float32 model stored in tests/fixtures/protonet_v4.eq."""
+    """A float32 ``EquineProtonet`` over ``BasicEmbeddingModel(6, 3)`` with
+    ``ood_distance="rmd_sqrt"``, trained with seed 0 for 20 episodes on
+    ``fixture_dataset()``: the recipe of tests/fixtures/protonet_v4.eq. The stored
+    file is checked as stored, against expected.json."""
     torch.manual_seed(0)
     model = eq.EquineProtonet(BasicEmbeddingModel(6, 3), 3, ood_distance="rmd_sqrt")
     model.train_model(
@@ -170,7 +173,8 @@ def fixture_gp() -> eq.EquineGP:
 
 
 def fixture_protonet_nondefault() -> eq.EquineProtonet:
-    """Builds the float32 model stored in tests/fixtures/protonet_v4_nondefault.eq.
+    """The recipe of tests/fixtures/protonet_v4_nondefault.eq, which is checked as
+    stored, against expected.json.
 
     ``fixture_protonet`` with every non-default persisted setting: full
     covariance, absolute Mahalanobis distance, temperature scaling, feature and

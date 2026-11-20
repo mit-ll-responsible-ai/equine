@@ -30,8 +30,10 @@ from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     _OOD_DISTANCES,
     EQUINE_FORMAT_VERSION,
+    _adopt_stored_dtypes,
     _checked_settings,
     _cholesky_with_jitter,
+    _dtype_kind_mismatch,
     _embedding_checkpoint,
     _EpisodeSampler,
     _get_shuffle_idxs_by_class,
@@ -50,13 +52,14 @@ from .utils import (
     _require_examples,
     _require_finite_embeddings,
     _require_fraction,
-    _require_matching_weights,
     _require_names,
     _require_rows,
     _require_same_length,
     _require_support,
+    _require_weights_dict,
     _require_whole_number_labels,
     _shown,
+    _state_dict_mismatch,
     _support_from_file,
     generate_support,
     generate_train_summary,
@@ -270,6 +273,59 @@ def _require_cov_reg_type(
         )
 
 
+class _LinearHead(torch.nn.Linear):
+    """
+    ``torch.nn.Linear`` that computes in the dtype of its input: ``forward`` casts
+    the weight and bias to that dtype. ``Protonet.create_model_head`` builds it.
+    """
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        """
+        ``input @ weight.T + bias``, in ``input``'s dtype.
+
+        Raises
+        ------
+        ValueError
+            If ``input`` is 0-d or its last dimension is not ``in_features``.
+        """
+        if input.dim() == 0 or input.shape[-1] != self.in_features:
+            raise ValueError(
+                f"The embedding model's output has shape {tuple(input.shape)}, but "
+                f"the model head takes emb_out_dim={self.in_features} features in "
+                "its last dimension; build the model with emb_out_dim set to the "
+                "number of features the embedding model outputs."
+            )
+        return torch.nn.functional.linear(
+            input, self.weight.to(input.dtype), self.bias.to(input.dtype)
+        )
+
+
+def _load_head_weights(head: torch.nn.Module, stored: dict[str, Any]) -> None:
+    """
+    Load a model file's ``model_head_save`` into ``head``; each floating-point
+    tensor of ``head`` takes the dtype stored for it.
+
+    Raises
+    ------
+    ValueError
+        If the stored names, shapes, dtype kinds or extra-state entries differ
+        from ``head``'s.
+    """
+    owned = head.state_dict(keep_vars=True)
+    problem = _state_dict_mismatch(owned, stored) or _dtype_kind_mismatch(owned, stored)
+    if problem is None and set(owned) != set(stored):
+        problem = "an extra-state entry differs"
+    if problem is not None:
+        raise ValueError(
+            "Model file's model_head_save does not match the model head its "
+            f"settings build ({problem}); the file was not written by save() or was "
+            "changed after. Save the model again, or upgrade the original file "
+            "again with `python -m equine.upgrade`."
+        )
+    _adopt_stored_dtypes(head, stored, "model_head_save")
+    head.load_state_dict(stored)
+
+
 ###############################################
 
 
@@ -358,10 +414,16 @@ class Protonet(torch.nn.Module):
         _apply_to_stored_tensors(self, fn, recurse)
         return self
 
-    def create_model_head(self, emb_out_dim: int) -> torch.nn.Identity:
+    def create_model_head(self, emb_out_dim: int) -> torch.nn.Linear:
         """
-        Method for adding a PyTorch layer on top of the given embedding model. This layer
-        is intended to offer extra degrees of freedom for distance learning in the embedding space.
+        Build the model head, the layer between the embedding model's output and the
+        embeddings that the class distances are computed on: a
+        ``torch.nn.Linear(emb_out_dim, emb_out_dim)`` with weight ``I`` and bias 0,
+        built without drawing random numbers. ``train_model`` trains it with the
+        embedding model. It computes in the dtype of its input (its weight and bias
+        are cast to that dtype); until it is trained, it returns a finite input
+        unchanged. An input whose last dimension is not ``emb_out_dim`` raises
+        ``ValueError``.
 
         Parameters
         ----------
@@ -370,10 +432,18 @@ class Protonet(torch.nn.Module):
 
         Returns
         -------
-        torch.nn.Identity
-            The model head: an identity layer.
+        torch.nn.Linear
+            The model head, on the CPU in the default dtype; the constructor moves
+            it to the model's device.
         """
-        return torch.nn.Identity()  # (emb_out_dim, emb_out_dim)
+        head = cast(
+            _LinearHead, torch.nn.utils.skip_init(_LinearHead, emb_out_dim, emb_out_dim)
+        )
+        with torch.no_grad():
+            head.weight.zero_()
+            head.weight.diagonal().fill_(1)
+            head.bias.zero_()
+        return head
 
     def compute_embeddings(self, X: torch.Tensor) -> torch.Tensor:
         """
@@ -935,7 +1005,10 @@ class EquineProtonet(Equine):
         embedding_model : torch.nn.Module
             Neural Network feature embedding model.
         emb_out_dim : int
-            The number of output features from the embedding model.
+            The number of output features from the embedding model, which the model
+            head (see ``Protonet.create_model_head``) maps to as many features. A
+            model whose embedding model outputs another number of features raises
+            ``ValueError`` when it first embeds.
         cov_type : CovType, optional
             The type of covariance to use when training the protonet [UNIT, DIAG, FULL], by default CovType.UNIT.
         relative_mahal : bool, optional
@@ -2025,7 +2098,9 @@ class EquineProtonet(Equine):
 
         Loading runs no code from the file: it is a safetensors file (see
         ``utils.load_checkpoint``) and the embedding model is rebuilt from its recipe
-        through the architecture registry.
+        through the architecture registry. The model head takes the weights in the
+        file's ``model_head_save``, in their stored dtypes; when it is empty, the head
+        stays as ``Protonet.create_model_head`` builds it (the identity).
 
         Parameters
         ----------
@@ -2062,7 +2137,10 @@ class EquineProtonet(Equine):
             support holds one class. If the file's ``cov_reg_type`` is not
             ``"epsilon"`` or ``"shared"``, or is ``"shared"`` with a UNIT
             ``cov_type`` and ``pred_cov_type`` (a file without ``cov_reg_type``
-            loads as ``"epsilon"``).
+            loads as ``"epsilon"``). If the file's ``settings['emb_out_dim']`` is
+            not the number of features its embedding model outputs, or its
+            ``model_head_save`` differs from the model head's weights in names,
+            shapes or dtype kinds.
         """
         model_save = _load_checkpoint_for_device(path, device)
         return cls._from_checkpoint(model_save, device, embedding_model=embedding_model)
@@ -2185,8 +2263,31 @@ class EquineProtonet(Equine):
         else:
             _require_device(settings, hint=" (pass device= to choose another)")
 
-        # The head is an Identity, which has no weights.
-        _require_matching_weights({}, head_save, "model_head_save")
+        _require_weights_dict(head_save, "model_head_save")
+        support_error = (
+            "Model file's support could not be passed through its embedding model "
+            "({}); the file is inconsistent or was tampered with."
+        )
+        # emb_out_dim must be the embedding's output width, measured on one support
+        # row on the CPU before the model is built.
+        try:
+            with _eval_mode(embedding), torch.no_grad():
+                embedding.to("cpu")
+                probe = embedding(
+                    _input_to_model(next(iter(support.values()))[:1], embedding, "cpu")
+                )
+        except Exception as err:
+            raise ValueError(
+                support_error.format(_truncate(_describe_error(err), 200))
+            ) from err
+        width = probe.shape[-1] if probe.dim() > 0 else 1
+        if settings["emb_out_dim"] != width:
+            raise ValueError(
+                "Model file's settings['emb_out_dim'] is not the "
+                f"{width} features its embedding model outputs, which the model head "
+                f"takes; build the model with emb_out_dim={width}, give it its "
+                "support, and save it again."
+            )
         try:
             eq_model = cls(embedding, **settings)
         except Exception as err:
@@ -2196,29 +2297,9 @@ class EquineProtonet(Equine):
             ) from err
         eq_model.ood_distance = ood_distance
 
-        eq_model.model.model_head.load_state_dict(head_save)
+        if head_save:
+            _load_head_weights(eq_model.model.model_head, head_save)
         eq_model.eval()
-        support_error = (
-            "Model file's support could not be passed through its embedding model "
-            "({}); the file is inconsistent or was tampered with."
-        )
-        # emb_out_dim must be 1 or the embedding's output width.
-        try:
-            with torch.no_grad():
-                probe = eq_model.model.compute_embeddings(
-                    next(iter(support.values()))[:1]
-                )
-        except Exception as err:
-            raise ValueError(
-                support_error.format(_truncate(_describe_error(err), 200))
-            ) from err
-        width = probe.shape[-1] if probe.dim() > 0 else 1
-        if eq_model.emb_out_dim not in (1, width):
-            raise ValueError(
-                "Model file's settings['emb_out_dim'] is neither 1 nor the "
-                f"{width} features its embedding model outputs; the file is "
-                "inconsistent or was tampered with."
-            )
         try:
             with torch.no_grad():
                 eq_model.model.update_support(support)

@@ -450,9 +450,9 @@ def _input_to_model(
     return X.to(device=device, dtype=param.dtype)
 
 
-def _require_examples(X: torch.Tensor) -> None:
+def _require_examples(X: torch.Tensor, method: str) -> None:
     """
-    Refuse an empty input batch.
+    Refuse an empty input batch to ``method``.
 
     Raises
     ------
@@ -460,7 +460,7 @@ def _require_examples(X: torch.Tensor) -> None:
         If ``X`` has no elements.
     """
     if X.numel() == 0:
-        raise ValueError("X is empty; predict needs at least one example.")
+        raise ValueError(f"X is empty; {method} needs at least one example.")
 
 
 def _require_finite_embeddings(embeddings: torch.Tensor) -> None:

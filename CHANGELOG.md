@@ -477,10 +477,12 @@
   an empty result (GP), and on input whose embeddings hold NaN or infinite
   values raised an icontract error (GP) or returned finite-looking scores
   (Protonet). Both models now raise `ValueError` in both cases; an embedding
-  that maps NaN input to finite values keeps working. The same `ValueError`
-  comes from `EquineProtonet.forward` and `calibrate_temperature` in eval mode,
-  and from the calibration pass of `EquineProtonet.train_model` and
-  `update_support`; `EquineGP.forward` is unchanged (#219).
+  that maps NaN input to finite values keeps working. The non-finite check
+  also runs in `EquineProtonet.forward` and `calibrate_temperature` in eval
+  mode, and in the calibration pass of `EquineProtonet.train_model` and
+  `update_support`; `EquineGP.forward` does not run it (#219). `forward`
+  (`model(X)`) on an empty batch returned an empty tensor in both models; it
+  now raises `ValueError` in training and eval mode (#337).
 - Checks written as `assert` were skipped under `python -O`. The GP's precision
   matrix checks raise `RuntimeError` (a failed inversion raises
   `torch.linalg.LinAlgError`), and support and episode sampling raise

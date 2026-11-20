@@ -9,7 +9,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import icontract
 import numpy as np
@@ -73,7 +73,7 @@ def _kde_to_state(kde: gaussian_kde) -> dict[str, Any]:
     """Reduce a fitted ``gaussian_kde`` to tensors/scalars for safe saving."""
     return {
         "dataset": torch.as_tensor(kde.dataset).clone(),
-        "bw_factor": float(kde.factor),
+        "bw_factor": float(cast(float, kde.factor)),
     }
 
 
@@ -680,7 +680,7 @@ class EquineProtonet(Equine):
             "temperature", torch.Tensor(self.init_temperature * torch.ones(1))
         )
 
-        self.model: torch.nn.Module = Protonet(
+        self.model: Protonet = Protonet(
             embedding_model,
             self.emb_out_dim,
             self.cov_type,
@@ -698,7 +698,7 @@ class EquineProtonet(Equine):
         ``get_support()`` returns, empty before the first support update.
         Read-only.
         """
-        return cast(Protonet, self.model).support
+        return self.model.support
 
     @property
     def support_embeddings(self) -> OrderedDict[int, torch.Tensor]:
@@ -706,7 +706,7 @@ class EquineProtonet(Equine):
         The embeddings of the support examples, keyed by label; empty before the
         first support update. Read-only.
         """
-        return cast(Protonet, self.model).support_embeddings
+        return self.model.support_embeddings
 
     @property
     def prototypes(self) -> torch.Tensor:
@@ -714,7 +714,7 @@ class EquineProtonet(Equine):
         The class prototypes: the tensor that ``get_prototypes()`` returns, an
         empty tensor before the first support update. Read-only.
         """
-        return cast(Protonet, self.model).__dict__.get("prototypes", torch.Tensor())
+        return self.model.__dict__.get("prototypes", torch.Tensor())
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         """
@@ -936,7 +936,7 @@ class EquineProtonet(Equine):
             the support, or, in eval mode, the embeddings of ``calib_x`` hold a
             NaN or infinite value.
         """
-        if len(cast(Protonet, self.model).support) == 0:
+        if len(self.model.support) == 0:
             raise ValueError(
                 "No support examples found; call train_model or update_support "
                 "before calibrate_temperature."
@@ -1312,7 +1312,7 @@ class EquineProtonet(Equine):
         list[int]
             The support's labels.
         """
-        return list(cast(Protonet, self.model).support_embeddings)
+        return list(self.model.support_embeddings)
 
     @icontract.require(lambda self: len(self.model.prototypes) > 0)
     def get_prototypes(self) -> torch.Tensor:
@@ -1347,7 +1347,7 @@ class EquineProtonet(Equine):
             If the model has no support examples (neither ``train_model`` nor
             ``update_support`` has run).
         """
-        if len(cast(Protonet, self.model).support) == 0:
+        if len(self.model.support) == 0:
             raise RuntimeError(
                 "The model has no support examples to save; call train_model or "
                 "update_support first."
@@ -1392,7 +1392,7 @@ class EquineProtonet(Equine):
         device: str | None = None,
         *,
         embedding_model: torch.nn.Module | None = None,
-    ) -> Equine:
+    ) -> Self:
         """
         Load a previously saved EquineProtonet model.
 
@@ -1438,7 +1438,7 @@ class EquineProtonet(Equine):
         model_save: dict[str, Any],
         device: str | None = None,
         embedding_model: torch.nn.Module | None = None,
-    ) -> Equine:
+    ) -> Self:
         """
         Rebuild an EquineProtonet from an already-loaded checkpoint dictionary.
 
@@ -1531,7 +1531,7 @@ class EquineProtonet(Equine):
         # emb_out_dim must be 1 or the embedding's output width.
         try:
             with torch.no_grad():
-                probe = cast(Protonet, eq_model.model).compute_embeddings(
+                probe = eq_model.model.compute_embeddings(
                     next(iter(support.values()))[:1]
                 )
         except Exception as err:
@@ -1556,6 +1556,6 @@ class EquineProtonet(Equine):
         eq_model.feature_names = model_save.get("feature_names")
         eq_model.label_names = model_save.get("label_names")
         eq_model.outlier_score_kde = outlier_kde
-        eq_model.train_summary = model_save.get("train_summary")
+        eq_model.train_summary = cast(dict[str, Any], model_save.get("train_summary"))
 
         return eq_model

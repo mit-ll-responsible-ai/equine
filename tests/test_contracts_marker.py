@@ -53,7 +53,8 @@ def test_python_o_skips_a_marked_test_and_runs_an_unmarked_one(tmp_path) -> None
             "-o",
             "addopts=",
             f"--junit-xml={report}",
-            "tests/test_utils.py::test_stratified_split_invalid_test_size",
+            "tests/test_equine_protonet.py::"
+            "test_an_ood_distance_of_the_wrong_type_is_refused_by_beartype",
             "tests/test_utils.py::test_cholesky_with_jitter_stops_at_its_cap[dtype0]",
         ],
         cwd=Path(__file__).resolve().parents[1],
@@ -71,7 +72,7 @@ def test_python_o_skips_a_marked_test_and_runs_an_unmarked_one(tmp_path) -> None
         for case in ElementTree.parse(report).getroot().iter("testcase")
     }
     assert outcomes == {
-        "test_stratified_split_invalid_test_size": [
+        "test_an_ood_distance_of_the_wrong_type_is_refused_by_beartype": [
             ("skipped", "pytest.skip", CONTRACTS_SKIP_REASON)
         ],
         "test_cholesky_with_jitter_stops_at_its_cap[dtype0]": [],

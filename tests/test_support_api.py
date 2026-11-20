@@ -20,6 +20,7 @@ from collections import OrderedDict
 import pytest
 import torch
 from beartype.roar import BeartypeCallHintParamViolation
+from builders import quick_gp, quick_protonet
 from conftest import BasicEmbeddingModel, assert_model_unchanged, model_state
 from golden_data import CLASSES, FEATURES, separable_dataset
 
@@ -38,31 +39,6 @@ def _gp():
     )
 
 
-def _trained_protonet():
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = _protonet()
-    model.train_model(
-        dataset, num_episodes=5, calib_frac=0.2, support_size=10, way=3, episode_size=30
-    )
-    return model, x, y.float()
-
-
-def _trained_gp(vis_support: bool = False):
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    model = _gp()
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=1,
-        batch_size=32,
-        vis_support=vis_support,
-    )
-    return model, x, y.long()
-
-
 def test_equine_declares_the_support_methods_abstract() -> None:
     assert {"get_support", "update_support"} <= eq.Equine.__abstractmethods__
 
@@ -70,9 +46,9 @@ def test_equine_declares_the_support_methods_abstract() -> None:
 @pytest.mark.parametrize(
     "build, keywords",
     [
-        (_trained_protonet, {"calib_frac": 0.5}),
-        (_trained_protonet, {"calib_frac": 0.5, "label_names": NAMES}),
-        (_trained_gp, {"support_size": 10}),
+        (quick_protonet, {"calib_frac": 0.5}),
+        (quick_protonet, {"calib_frac": 0.5, "label_names": NAMES}),
+        (quick_gp, {"support_size": 10}),
     ],
     ids=["protonet", "protonet-label-names", "gp"],
 )
@@ -96,38 +72,38 @@ _GP_BY_POSITION = (
 
 
 def _trained_gp_with_support():
-    return _trained_gp(vis_support=True)
+    return quick_gp(vis_support=True)
 
 
 @pytest.mark.parametrize(
     "build, call, repair, message",
     [
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2),
             lambda m, x, y: m.update_support(x, y, calib_frac=0.2),
             _PROTONET_BY_POSITION.format(1),
         ),
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2, NAMES),
             lambda m, x, y: m.update_support(x, y, calib_frac=0.2, label_names=NAMES),
             _PROTONET_BY_POSITION.format(2),
         ),
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2, label_names=NAMES),
             lambda m, x, y: m.update_support(x, y, calib_frac=0.2, label_names=NAMES),
             _PROTONET_BY_POSITION.format(1),
         ),
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2, calib_frac=0.2),
             lambda m, x, y: m.update_support(x, y, calib_frac=0.2),
             _PROTONET_BY_POSITION.format(1),
         ),
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2, calib_x=x[::4], calib_y=y[::4]),
             lambda m, x, y: m.update_support(
                 x, y, calib_frac=0.2, calib_x=x[::4], calib_y=y[::4]
@@ -135,7 +111,7 @@ def _trained_gp_with_support():
             _PROTONET_BY_POSITION.format(1),
         ),
         (
-            _trained_protonet,
+            quick_protonet,
             lambda m, x, y: m.update_support(x, y, 0.2, calib_x=x[::4]),
             lambda m, x, y: m.update_support(
                 x, y, calib_frac=0.2, calib_x=x[::4], calib_y=y[::4]
@@ -286,7 +262,7 @@ def _longer(x: torch.Tensor) -> torch.Tensor:
 def test_protonet_update_support_refuses_bad_input(changes, message, repair) -> None:
     """Each refusal names the argument, draws no random numbers and leaves the
     model as it was; the call its message asks for replaces the support."""
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     args = {"support_x": x, "support_y": y, "calib_frac": 0.5, **changes(x, y)}
     before = model_state(model)
     rng = torch.get_rng_state()
@@ -334,7 +310,7 @@ def test_protonet_update_support_refuses_an_int_calib_frac(
     """An int ``calib_frac`` is a type error while contracts are on and a
     ``ValueError`` under python -O; the model is left as it was, and the float the
     message asks for replaces the support."""
-    model, x, y = _trained_protonet()
+    model, x, y = quick_protonet()
     before = model_state(model)
     rng = torch.get_rng_state()
     with pytest.raises(error, match=None if message is None else re.escape(message)):
@@ -441,7 +417,7 @@ def _no_support_message(method: str) -> str:
         pytest.param(_gp, "get_support", id="gp-get_support"),
         pytest.param(_gp, "get_prototypes", id="gp-get_prototypes"),
         pytest.param(
-            lambda: _trained_gp(vis_support=False)[0],
+            lambda: quick_gp()[0],
             "get_support",
             id="gp-trained-without-vis_support-get_support",
         ),
@@ -531,7 +507,7 @@ def _assert_attributes_are_the_support(model) -> None:
 
 
 def test_protonet_support_attributes_after_train_model_and_load(tmp_path) -> None:
-    model, _, _ = _trained_protonet()
+    model, _, _ = quick_protonet()
     _assert_attributes_are_the_support(model)
     path = str(tmp_path / "protonet.eq")
     model.save(path)
@@ -552,7 +528,7 @@ def test_protonet_given_only_its_support_saves_a_file_that_loads(tmp_path) -> No
 
 
 def test_protonet_support_attributes_follow_a_dtype_cast() -> None:
-    model, _, _ = _trained_protonet()
+    model, _, _ = quick_protonet()
     model.to(torch.float64)
     _assert_attributes_are_the_support(model)
     for tensors in (model.support.values(), model.support_embeddings.values()):
@@ -561,7 +537,7 @@ def test_protonet_support_attributes_follow_a_dtype_cast() -> None:
 
 
 def test_gp_load_keeps_the_support_embeddings(tmp_path) -> None:
-    model, _, _ = _trained_gp(vis_support=True)
+    model, _, _ = quick_gp(vis_support=True)
     path = str(tmp_path / "gp.eq")
     model.save(path)
     loaded = eq.EquineGP.load(path)

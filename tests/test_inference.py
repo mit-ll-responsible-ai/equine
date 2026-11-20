@@ -16,41 +16,25 @@ from collections import OrderedDict
 
 import pytest
 import torch
+from builders import quick_gp, quick_protonet
 from conftest import CountingEmbedding, assert_model_unchanged, model_state
 from golden_data import CLASSES, FEATURES, separable_dataset
 
 import equine as eq
 
 
+def _counting():
+    return CountingEmbedding(FEATURES, CLASSES)
+
+
 def _protonet():
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    emb = CountingEmbedding(FEATURES, CLASSES)
-    model = eq.EquineProtonet(emb, CLASSES, use_temperature=True)
-    model.train_model(
-        dataset,
-        num_episodes=5,
-        calib_frac=0.2,
-        support_size=10,
-        way=3,
-        episode_size=30,
-    )
-    return model, emb, x, y
+    model, x, y = quick_protonet(_counting, use_temperature=True)
+    return model, model.embedding_model, x, y.long()
 
 
 def _gp():
-    torch.manual_seed(0)
-    dataset, x, y = separable_dataset()
-    emb = CountingEmbedding(FEATURES, CLASSES)
-    model = eq.EquineGP(emb, CLASSES, CLASSES, num_random_features=16)
-    model.train_model(
-        dataset,
-        torch.nn.CrossEntropyLoss(),
-        torch.optim.SGD(model.parameters(), lr=0.05),
-        num_epochs=2,
-        batch_size=32,
-    )
-    return model, emb, x, y
+    model, x, y = quick_gp(_counting, num_epochs=2)
+    return model, model.embedding_model, x, y
 
 
 _BUILDERS = pytest.mark.parametrize("build", [_protonet, _gp], ids=["protonet", "gp"])

@@ -8,6 +8,7 @@ import math
 import pickle
 import re
 import threading
+import warnings
 from collections import OrderedDict
 
 import numpy as np
@@ -79,28 +80,31 @@ def test_update_support_rejects_wrong_label_names_length() -> None:
 
 
 @pytest.mark.parametrize(
-    "num_episodes, num_deep_features, kwargs, cov_reg_type",
+    "num_episodes, num_deep_features, kwargs",
     [
-        pytest.param(10, 32, {}, None, id="unit"),
+        pytest.param(10, 32, {}, id="unit"),
         pytest.param(
-            10, 32, {"cov_type": eq.CovType.DIAGONAL}, "shared", id="shared_reg"
+            10,
+            32,
+            {"cov_type": eq.CovType.DIAGONAL, "cov_reg_type": "shared"},
+            id="shared_reg",
         ),
-        pytest.param(5, 4, {"cov_type": eq.CovType.FULL}, "epsilon", id="full_cov"),
-        pytest.param(10, 32, {"use_temperature": True}, None, id="with_temperature"),
+        pytest.param(
+            5,
+            4,
+            {"cov_type": eq.CovType.FULL, "cov_reg_type": "epsilon"},
+            id="full_cov",
+        ),
+        pytest.param(10, 32, {"use_temperature": True}, id="with_temperature"),
     ],
 )
 @given(random_dataset=random_dataset())
 @settings(deadline=None)
-def test_train_episodes(
-    random_dataset, num_episodes, num_deep_features, kwargs, cov_reg_type
-):
+def test_train_episodes(random_dataset, num_episodes, num_deep_features, kwargs):
     dataset, num_classes, train_kwargs = random_dataset
     X, Y = dataset.tensors
     embed_model = BasicEmbeddingModel(X.shape[1], num_deep_features)
     model = eq.EquineProtonet(embed_model, num_deep_features, **kwargs)
-    if cov_reg_type is not None:
-        model.cov_reg_type = cov_reg_type
-        model.model.cov_reg_type = cov_reg_type
     before = model.temperature.item()
     assert before == 1.0, "init_temperature defaults to 1.0"
     train_dict = model.train_model(dataset, num_episodes=num_episodes, **train_kwargs)
@@ -321,13 +325,21 @@ def test_full_covariance_trains_with_a_rank_deficient_embedding():
     assert_valid_prediction(model.predict(x[:10]), 10, 3)
 
 
-def test_shared_regularization_of_a_unit_covariance_falls_back_to_epsilon() -> None:
+def _protonet_warnings(caught) -> list[str]:
+    """The messages of the warnings in ``caught`` raised in equine_protonet.py."""
+    return [str(w.message) for w in caught if w.filename.endswith("equine_protonet.py")]
+
+
+def test_shared_regularization_uses_a_unit_covariance_as_is() -> None:
     torch.manual_seed(0)
     proto = Protonet(torch.nn.Identity(), 3, eq.CovType.UNIT, "shared", 1e-5)
     support = OrderedDict({0: torch.randn(5, 3), 1: torch.randn(5, 3)})
     proto.train()
-    with pytest.warns(UserWarning, match="reverting to epsilon regularization"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         proto.update_support(support)
+    ours = _protonet_warnings(caught)
+    assert not ours, f"equine_protonet warned: {ours}"
     assert torch.equal(proto.covariance, torch.ones(2, 3))
 
 
@@ -346,6 +358,286 @@ def test_shared_regularization_blends_full_covariances() -> None:
     torch.testing.assert_close(shared, shared.transpose(1, 2))
     assert not torch.allclose(shared, covariances["epsilon"])
     assert not torch.allclose(shared[0], shared[1])
+
+
+@pytest.mark.parametrize(
+    "cov_type, pred_cov_type",
+    [
+        pytest.param(eq.CovType.DIAGONAL, None, id="diag"),
+        pytest.param(eq.CovType.FULL, None, id="full-train-diag-pred"),
+        pytest.param(eq.CovType.FULL, eq.CovType.FULL, id="full"),
+        pytest.param(eq.CovType.UNIT, None, id="unit-train-diag-pred"),
+        pytest.param(eq.CovType.DIAGONAL, eq.CovType.UNIT, id="diag-train-unit-pred"),
+    ],
+)
+def test_a_shared_model_reloads_with_its_classes_and_ood_scores(
+    cov_type, pred_cov_type
+) -> None:
+    model, x, _ = quick_protonet(
+        cov_type=cov_type, pred_cov_type=pred_cov_type, cov_reg_type="shared"
+    )
+    loaded = use_save_load_model_tests(model, x)
+    assert loaded.cov_reg_type == "shared"
+    assert loaded.model.cov_reg_type == "shared"
+
+
+@pytest.mark.parametrize(
+    "cov_type, pred_cov_type",
+    [
+        pytest.param(eq.CovType.UNIT, None, id="unit-train-diag-pred"),
+        pytest.param(eq.CovType.UNIT, eq.CovType.FULL, id="unit-train-full-pred"),
+        pytest.param(eq.CovType.DIAGONAL, eq.CovType.UNIT, id="diag-train-unit-pred"),
+        pytest.param(eq.CovType.FULL, eq.CovType.UNIT, id="full-train-unit-pred"),
+    ],
+)
+def test_shared_with_one_unit_covariance_type_trains_without_a_warning(
+    cov_type, pred_cov_type
+) -> None:
+    """``"shared"`` with one UNIT covariance type is accepted; training and
+    ``update_support`` use the UNIT covariance as is and do not warn."""
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        cov_type=cov_type,
+        pred_cov_type=pred_cov_type,
+        cov_reg_type="shared",
+    )
+    dataset, x, y = separable_dataset()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        model.train_model(
+            dataset, num_episodes=2, support_size=10, way=3, episode_size=30
+        )
+        model.update_support(x, y, calib_frac=0.2)
+    ours = _protonet_warnings(caught)
+    assert not ours, f"equine_protonet warned: {ours}"
+    assert model.model.cov_reg_type == "shared"
+    assert_valid_prediction(model.predict(x), len(x), CLASSES)
+
+
+def _assert_same_predictions(loaded, out, x) -> None:
+    """Fail unless ``loaded`` predicts ``out``'s classes and OOD scores for ``x``."""
+    again = loaded.predict(x)
+    assert torch.allclose(again.classes, out.classes, atol=1e-6)
+    assert torch.allclose(again.ood_scores, out.ood_scores, atol=1e-6)
+
+
+def test_save_refuses_shared_set_on_a_model_whose_covariance_types_are_unit(
+    tmp_path,
+) -> None:
+    """``"shared"`` set by attribute on a model whose ``cov_type`` and
+    ``pred_cov_type`` are UNIT is refused by ``save``, which writes nothing; with
+    ``"epsilon"``, as the message asks, the file reloads to the classes and OOD
+    scores the model gave with ``"shared"``, which has no effect there."""
+    model, x, y = quick_protonet(pred_cov_type=eq.CovType.UNIT)
+    model.model.cov_reg_type = "shared"
+    torch.manual_seed(0)
+    model.update_support(x, y, calib_frac=0.2)
+    shared = model.predict(x)
+    path = tmp_path / "m.eq"
+    with pytest.raises(ValueError) as err:
+        model.save(str(path))
+    assert str(err.value) == (
+        "model.model.cov_reg_type is 'shared', which pools DIAGONAL or FULL "
+        "covariances, and cov_type and pred_cov_type are CovType.UNIT; set "
+        "model.model.cov_reg_type to 'epsilon', then save."
+    )
+    assert not path.exists()
+
+    model.model.cov_reg_type = "epsilon"
+    model.save(str(path))
+    loaded = eq.load_equine_model(str(path))
+    assert loaded.model.cov_reg_type == "epsilon"
+    _assert_same_predictions(loaded, shared, x)
+
+
+@pytest.mark.parametrize(
+    "pred_cov_type, value, shown, repair",
+    [
+        pytest.param(
+            None, "typo", "'typo'", "set it to 'epsilon' or 'shared'", id="typo"
+        ),
+        pytest.param(None, 5, "a int", "set it to 'epsilon' or 'shared'", id="int"),
+        pytest.param(
+            eq.CovType.UNIT,
+            "typo",
+            "'typo'",
+            "set model.model.cov_reg_type to 'epsilon'",
+            id="typo-unit-both",
+        ),
+    ],
+)
+def test_save_refuses_an_unknown_cov_reg_type_set_by_attribute(
+    tmp_path, pred_cov_type, value, shown, repair
+) -> None:
+    """An unknown ``model.model.cov_reg_type`` set after training is refused by
+    ``save``, which writes nothing; on a model whose covariance types are both
+    UNIT the message offers only ``"epsilon"``. The value the message asks for
+    saves a file that reloads to the same classes and OOD scores."""
+    model, x, _ = quick_protonet(pred_cov_type=pred_cov_type)
+    out = model.predict(x)
+    model.model.cov_reg_type = value
+    path = tmp_path / "m.eq"
+    with pytest.raises(ValueError) as err:
+        model.save(str(path))
+    assert str(err.value) == (
+        "model.model.cov_reg_type must be one of ['epsilon', 'shared']; got "
+        f"{shown}; {repair}, then save."
+    )
+    assert not path.exists()
+
+    model.model.cov_reg_type = "epsilon"
+    model.save(str(path))
+    _assert_same_predictions(eq.load_equine_model(str(path)), out, x)
+
+
+def _unknown_cov_reg_type(shown: str) -> str:
+    return f"cov_reg_type must be one of ['epsilon', 'shared']; got {shown}."
+
+
+_UNKNOWN_WITH_UNIT = (
+    "cov_reg_type must be one of ['epsilon', 'shared']; got 'typo'; pass "
+    "cov_reg_type='epsilon', or 'shared' with a cov_type or pred_cov_type of "
+    "CovType.DIAGONAL or CovType.FULL."
+)
+
+
+_SHARED_WITH_UNIT = (
+    "cov_reg_type is 'shared', which pools DIAGONAL or FULL covariances, and "
+    "cov_type and pred_cov_type are CovType.UNIT; pass a cov_type or pred_cov_type "
+    "of CovType.DIAGONAL or CovType.FULL, or cov_reg_type='epsilon'."
+)
+
+
+@pytest.mark.parametrize(
+    ("changes", "error", "message", "repair"),
+    [
+        pytest.param(
+            {"cov_reg_type": "typo"},
+            ValueError,
+            _unknown_cov_reg_type("'typo'"),
+            {"cov_reg_type": "epsilon"},
+            id="unknown",
+        ),
+        *[
+            pytest.param(
+                {"cov_reg_type": "typo", "pred_cov_type": eq.CovType.UNIT},
+                ValueError,
+                _UNKNOWN_WITH_UNIT,
+                repair,
+                id=f"unknown-unit-both-repair-{name}",
+            )
+            for name, repair in (
+                ("epsilon", {"cov_reg_type": "epsilon"}),
+                (
+                    "shared-cov_type",
+                    {"cov_reg_type": "shared", "cov_type": eq.CovType.DIAGONAL},
+                ),
+                (
+                    "shared-pred_cov_type",
+                    {"cov_reg_type": "shared", "pred_cov_type": eq.CovType.FULL},
+                ),
+            )
+        ],
+        pytest.param(
+            {"cov_reg_type": "shared", "pred_cov_type": eq.CovType.UNIT},
+            ValueError,
+            _SHARED_WITH_UNIT,
+            {"cov_type": eq.CovType.DIAGONAL},
+            id="shared-unit-both-repair-cov_type",
+        ),
+        pytest.param(
+            {"cov_reg_type": "shared", "pred_cov_type": eq.CovType.UNIT},
+            ValueError,
+            _SHARED_WITH_UNIT,
+            {"pred_cov_type": eq.CovType.FULL},
+            id="shared-unit-both-repair-pred_cov_type",
+        ),
+        pytest.param(
+            {
+                "cov_reg_type": "shared",
+                "cov_type": eq.CovType.UNIT,
+                "pred_cov_type": eq.CovType.UNIT,
+            },
+            ValueError,
+            _SHARED_WITH_UNIT,
+            {"cov_reg_type": "epsilon"},
+            id="shared-unit-both-repair-epsilon",
+        ),
+        pytest.param(
+            {"cov_reg_type": 5},
+            BeartypeCallHintParamViolation,
+            None,
+            {"cov_reg_type": "epsilon"},
+            marks=pytest.mark.contracts,
+            id="int-contracts-on",
+        ),
+        pytest.param(
+            {"cov_reg_type": 5},
+            ValueError,
+            _unknown_cov_reg_type("a int"),
+            {"cov_reg_type": "epsilon"},
+            marks=pytest.mark.skipif(
+                __debug__, reason="beartype refuses the wrong type first"
+            ),
+            id="int-python-O",
+        ),
+    ],
+)
+def test_cov_reg_type_is_checked_at_construction(
+    changes, error, message, repair
+) -> None:
+    """An unknown ``cov_reg_type``, or ``"shared"`` with a UNIT ``cov_type`` and
+    ``pred_cov_type``, is refused; the settings the message asks for train."""
+    with pytest.raises(error) as err:
+        eq.EquineProtonet(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, **changes)
+    if message is not None:
+        assert str(err.value) == message
+
+    repaired = {**changes, **repair}
+    model = eq.EquineProtonet(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, **repaired
+    )
+    dataset, x, _ = separable_dataset()
+    model.train_model(dataset, num_episodes=2, support_size=10, way=3, episode_size=30)
+    assert model.cov_reg_type == repaired["cov_reg_type"]
+    assert model.model.cov_reg_type == repaired["cov_reg_type"]
+    assert_valid_prediction(model.predict(x), len(x), CLASSES)
+
+
+@pytest.mark.parametrize("cov_type", list(eq.CovType))
+@pytest.mark.parametrize(
+    "cov_reg_type, shown",
+    [
+        pytest.param("typo", "'typo'", id="typo"),
+        pytest.param(
+            5,
+            "a int",
+            marks=pytest.mark.skipif(
+                __debug__, reason="beartype refuses the wrong type first"
+            ),
+            id="int-python-O",
+        ),
+    ],
+)
+def test_protonet_refuses_an_unknown_cov_reg_type(
+    cov_type, cov_reg_type, shown
+) -> None:
+    """``regularize_covariance`` refuses an unknown ``cov_reg_type`` given to a
+    ``Protonet`` directly; ``"epsilon"`` regularizes the same support."""
+    torch.manual_seed(0)
+    support = OrderedDict({0: torch.randn(5, 3), 1: torch.randn(5, 3)})
+    proto = Protonet(torch.nn.Identity(), 3, cov_type, cov_reg_type, 1e-5)
+    proto.train()
+    with pytest.raises(ValueError) as err:
+        proto.update_support(support)
+    assert str(err.value) == _unknown_cov_reg_type(shown)
+
+    repaired = Protonet(torch.nn.Identity(), 3, cov_type, "epsilon", 1e-5)
+    repaired.train()
+    repaired.update_support(support)
+    assert repaired.covariance.shape[0] == 2
+    assert torch.isfinite(repaired.covariance).all()
 
 
 def _three_class_data(sizes: tuple[int, int, int]):

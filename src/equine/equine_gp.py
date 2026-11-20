@@ -354,6 +354,15 @@ class _Laplace(torch.nn.Module):
         self.train_batch_size: int = batch_size
         self.training_parameters_set: bool = True
 
+    def clear_training_params(self) -> None:
+        """
+        Set ``num_data`` and the training batch size to 0 and mark the training
+        parameters as not set, as in a newly built ``_Laplace``.
+        """
+        self.num_data = 0
+        self.train_batch_size = 0
+        self.training_parameters_set = False
+
     @icontract.require(lambda mean_field_factor: mean_field_factor is not None)
     def mean_field_logits(
         self, logits: torch.Tensor, pred_var: torch.Tensor, mean_field_factor: float
@@ -508,14 +517,22 @@ def _row_major_batch(batch: Sequence[torch.Tensor]) -> list[torch.Tensor]:
     return [tensor.contiguous().view(-1).view(tensor.shape) for tensor in batch]
 
 
-def _batch_loader(dataset: Dataset[Any], batch_size: int, shuffle: bool) -> DataLoader:
+def _batch_loader(
+    dataset: Dataset[Any],
+    batch_size: int,
+    shuffle: bool,
+    generator: torch.Generator | None = None,
+) -> DataLoader:
     """
-    ``DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)``.
+    ``DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False,
+    generator=generator)``.
 
     A ``TensorDataset``, not a subclass, of strided, non-nested tensors with at most 4
     dimensions and a dtype in ``_BATCH_DTYPES`` is read with one ``dataset[indices]``
     per batch, with row-major strides; the batches and the random draws are those of
-    that ``DataLoader``.
+    that ``DataLoader``. Each iteration draws one number from ``generator``, or from
+    the global generator when it is ``None``, and a shuffled loader draws its order
+    from the same generator.
     """
     if type(dataset) is TensorDataset and all(
         tensor.layout == torch.strided
@@ -524,14 +541,25 @@ def _batch_loader(dataset: Dataset[Any], batch_size: int, shuffle: bool) -> Data
         and tensor.dtype in _BATCH_DTYPES
         for tensor in dataset.tensors
     ):
-        sampler = RandomSampler(dataset) if shuffle else SequentialSampler(dataset)
+        sampler = (
+            RandomSampler(dataset, generator=generator)
+            if shuffle
+            else SequentialSampler(dataset)
+        )
         return DataLoader(
             dataset,
             sampler=BatchSampler(sampler, batch_size, drop_last=False),
             batch_size=None,
             collate_fn=_row_major_batch,
+            generator=generator,
         )
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=False)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        drop_last=False,
+        generator=generator,
+    )
 
 
 _DEFAULT_NUM_RANDOM_FEATURES = 1024
@@ -771,7 +799,21 @@ class EquineGP(Equine):
         Notes
         -----
         Training and eval mode are toggled on this wrapper, which propagates to the
-        inner module. The model is left in eval mode afterwards, ready to predict.
+        inner module. After one or more epochs the model is left in eval mode, ready
+        to predict.
+
+        After the last epoch's training pass and before its validation pass, the
+        precision matrix is rebuilt with the final weights; the validation passes of
+        earlier epochs use the precision matrix of their own training pass. The
+        rebuild resets the precision matrix and passes every example of ``dataset``
+        through the model once, in dataset order and in batches of ``batch_size``,
+        under ``torch.no_grad()``. The embedding model runs in eval mode and only the
+        Laplace head adds the features to the precision matrix. The rebuild's batch
+        loader draws no number from the global random number generator. If the
+        rebuild raises, the error propagates and the model counts as untrained:
+        ``forward``, ``predict``, ``calibrate_model`` and ``save`` refuse it until
+        ``train_model`` returns. A ``num_epochs`` of 0 or less runs no epoch and no
+        rebuild, and leaves the precision matrix and the training mode as they were.
         """
         if vis_support:
             _positive_int(support_size, "support_size")
@@ -802,7 +844,7 @@ class EquineGP(Equine):
             val_metrics_outputs = [[] for _ in val_metrics]
 
         train_loss: list[float] = []
-        for _ in tqdm(range(num_epochs)):
+        for epoch in tqdm(range(num_epochs)):
             self.train()  # wrapper and inner module together
             self.model.reset_precision_matrix()
             epoch_loss = torch.zeros((), dtype=torch.float32, device=self.device)
@@ -824,6 +866,8 @@ class EquineGP(Equine):
             if scheduler is not None:
                 scheduler.step()
             self.eval()
+            if epoch == num_epochs - 1:
+                self._rebuild_precision(dataset, batch_size)
             # compute the validation metrics
             if (
                 validation_dataset is not None
@@ -857,6 +901,36 @@ class EquineGP(Equine):
             return_dict["val_metrics"] = val_metrics_outputs
 
         return return_dict
+
+    def _rebuild_precision(self, dataset: Dataset[Any], batch_size: int) -> None:
+        """
+        Reset the precision matrix and add to it the features of every example of
+        ``dataset``, computed with the current weights.
+
+        The examples pass through the model once, in dataset order and in batches of
+        ``batch_size``, under ``torch.no_grad()``. The whole model is in eval mode
+        except the Laplace head's own training flag, with which the head adds each
+        batch's features to the precision matrix: the embedding model's BatchNorm
+        statistics are not updated and its dropout is off. The batch loader draws
+        from a generator of its own, not from the global one. The head is back in
+        eval mode afterwards. If the pass raises, the training parameters are cleared
+        (the model then counts as untrained) and the error propagates.
+        """
+        self.eval()
+        self.model.reset_precision_matrix()
+        self.model.training = True
+        try:
+            loader = _batch_loader(
+                dataset, batch_size, shuffle=False, generator=torch.Generator()
+            )
+            with torch.no_grad():
+                for xs, _ in loader:
+                    self.model(self._input_to_model(xs))
+        except BaseException:
+            self.model.clear_training_params()
+            raise
+        finally:
+            self.model.training = False
 
     def update_support(
         self,

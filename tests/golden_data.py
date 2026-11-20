@@ -6,11 +6,12 @@
 Everything here is seeded. The golden helpers build, train and query in float64 inside
 ``golden_dtype()``. tests/test_golden.py pins their outputs.
 
-The ``fixture_*`` functions build the float32 models stored in tests/fixtures/
-from their own data (``fixture_dataset``) and share no code with the golden
-helpers. ``FIXTURES_0_1_8_SCRIPT`` holds the script that wrote the fixtures saved by
-EQUINE 0.1.8. tests/test_fixtures.py checks the stored files against
-tests/fixtures/expected.json on ``fixture_query_batch()``.
+The ``fixture_*`` functions are the recipes (architecture, data, training) of the
+float32 models stored in tests/fixtures/. They use their own data (``fixture_dataset``)
+and share no code with the golden helpers. ``FIXTURES_0_1_8_SCRIPT`` holds the script
+that wrote the fixtures saved by EQUINE 0.1.8. tests/test_fixtures.py checks the
+stored files as stored, against tests/fixtures/expected.json on
+``fixture_query_batch()``.
 """
 
 import contextlib
@@ -149,7 +150,11 @@ def fixture_protonet() -> eq.EquineProtonet:
 
 
 def fixture_gp() -> eq.EquineGP:
-    """Builds the float32 model stored in tests/fixtures/gp_v4.eq."""
+    """The recipe of the float32 model in tests/fixtures/gp_v4.eq: an ``EquineGP``
+    with 16 random features over ``BasicEmbeddingModel(6, 3)``, trained with SGD (lr
+    0.05) for 40 epochs in batches of 32 on ``fixture_dataset()``, with a support of
+    10 examples per class. The stored file is checked as stored, against
+    tests/fixtures/expected.json."""
     torch.manual_seed(0)
     model = eq.EquineGP(BasicEmbeddingModel(6, 3), 3, 3, num_random_features=16)
     model.train_model(
@@ -194,10 +199,11 @@ def fixture_protonet_nondefault() -> eq.EquineProtonet:
 
 
 def fixture_gp_nondefault() -> eq.EquineGP:
-    """Builds the float32 model stored in tests/fixtures/gp_v4_nondefault.eq.
+    """The recipe of the float32 model in tests/fixtures/gp_v4_nondefault.eq.
 
     ``fixture_gp`` with feature and label names, then ``calibrate_model``; the persisted
-    temperature differs from 1.0.
+    temperature differs from 1.0. The stored file is checked as stored, against
+    tests/fixtures/expected.json.
     """
     torch.manual_seed(0)
     model = eq.EquineGP(

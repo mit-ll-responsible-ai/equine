@@ -357,19 +357,13 @@ def test_train_model_accumulates_the_precision_in_the_promoted_dtype(
 ) -> None:
     """After train_model under ``default_dtype`` the precision matrix has
     ``precision_dtype`` and equals the identity plus the sum of ``k.t() @ k`` over
-    the epoch's features to within the rounding of ``precision_dtype``."""
+    the training set, with ``k`` the eval-mode features of the final weights, to
+    within the rounding of ``precision_dtype``."""
     torch.manual_seed(0)
     dataset, x, y = separable_dataset()
     model = eq.EquineGP(
         BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
     ).to(dtype)
-    features = []
-
-    def record(module, inputs, output):
-        if model.model.training:
-            features.append(output.detach().double())
-
-    model.model.rff.register_forward_hook(record)
     previous = torch.get_default_dtype()
     torch.set_default_dtype(default_dtype)
     try:
@@ -382,6 +376,8 @@ def test_train_model_accumulates_the_precision_in_the_promoted_dtype(
         )
     finally:
         torch.set_default_dtype(previous)
+    with torch.no_grad():
+        features = [model.compute_embeddings(c).double() for c in x.to(dtype).split(32)]
     expected = torch.eye(16, dtype=torch.float64) + sum(k.t() @ k for k in features)
     precision = model.model.precision
     assert precision.dtype == precision_dtype
@@ -407,6 +403,273 @@ def test_a_float64_gp_with_a_float32_precision_accumulates_in_float64() -> None:
         batch_size=32,
     )
     assert model.model.precision.dtype == torch.float64
+
+
+def _batchnorm_dropout_embedding() -> torch.nn.Sequential:
+    """An embedding from ``FEATURES`` to ``CLASSES`` with BatchNorm and dropout."""
+    return torch.nn.Sequential(
+        torch.nn.Linear(FEATURES, 16),
+        torch.nn.BatchNorm1d(16),
+        torch.nn.ReLU(),
+        torch.nn.Dropout(0.5),
+        torch.nn.Linear(16, CLASSES),
+    )
+
+
+def _independent_precision(model: eq.EquineGP, x: torch.Tensor) -> torch.Tensor:
+    """The ridge identity plus the sum of ``k.t() @ k`` in float64 on the CPU, with
+    ``k`` the eval-mode ``compute_embeddings`` of ``x`` in batches of 32."""
+    model.eval()
+    with torch.no_grad():
+        k = torch.cat([model.compute_embeddings(c).cpu().double() for c in x.split(32)])
+    eye = torch.eye(k.shape[1], dtype=torch.float64)
+    return model.model.ridge_penalty * eye + k.t() @ k
+
+
+@pytest.mark.parametrize(
+    "make_embedding, rows, batch_size",
+    [
+        (lambda: BasicEmbeddingModel(FEATURES, CLASSES), ROWS, 32),
+        (_batchnorm_dropout_embedding, ROWS, 32),
+        (lambda: BasicEmbeddingModel(FEATURES, CLASSES), 1, 1),
+    ],
+    ids=["basic", "batchnorm_dropout", "one_row"],
+)
+def test_train_model_builds_the_precision_from_the_final_weights(
+    make_embedding, rows, batch_size
+) -> None:
+    """After train_model the precision matrix of a float64 GP is the ridge identity
+    plus the sum of ``k.t() @ k`` over every training example, with ``k`` the
+    eval-mode features of the final weights. 120 rows in batches of 32 end with a
+    batch of 24."""
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    x, y = x[:rows].double(), y[:rows]
+    model = eq.EquineGP(
+        make_embedding(), CLASSES, CLASSES, num_random_features=16
+    ).double()
+    model.train_model(
+        torch.utils.data.TensorDataset(x, y),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.Adam(model.parameters(), lr=1e-2),
+        num_epochs=3,
+        batch_size=batch_size,
+    )
+    assert model.model._seen_count == int(model.model.seen_data) == rows
+    torch.testing.assert_close(
+        model.model.precision, _independent_precision(model, x), rtol=1e-12, atol=1e-12
+    )
+
+
+def test_precision_rebuild_runs_the_embedding_in_eval_mode() -> None:
+    """After 3 epochs of 4 training batches, the embedding runs 4 more batches in
+    eval mode with gradients off; its BatchNorm buffers are those left by the last
+    training batch, and every module is in eval mode afterwards."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    embedding = _batchnorm_dropout_embedding()
+    batchnorm = embedding[1]
+    modes: list[bool] = []
+    grads: list[bool] = []
+    buffers: list[dict[str, torch.Tensor]] = []
+
+    def record_buffers(module, args, output):
+        if module.training:
+            buffers.append({k: v.clone() for k, v in module.named_buffers()})
+
+    embedding.register_forward_pre_hook(
+        lambda module, args: modes.append(module.training)
+    )
+    embedding.register_forward_pre_hook(
+        lambda module, args: grads.append(torch.is_grad_enabled())
+    )
+    batchnorm.register_forward_hook(record_buffers)
+    model = eq.EquineGP(embedding, CLASSES, CLASSES, num_random_features=16)
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.Adam(model.parameters(), lr=1e-2),
+        num_epochs=3,
+        batch_size=32,
+    )
+    assert modes == [True] * 12 + [False] * 4
+    assert len(grads) == 16 and all(grads[:12])
+    assert grads[12:] == [False] * 4
+    assert int(batchnorm.num_batches_tracked) == 12
+    for name, value in batchnorm.named_buffers():
+        assert torch.equal(value, buffers[-1][name]), name
+    assert not any(module.training for module in model.modules())
+
+
+@pytest.mark.parametrize("subset", [False, True], ids=["tensor_dataset", "subset"])
+def test_precision_rebuild_draws_no_global_random_numbers(subset) -> None:
+    """Rebuilding the precision of a trained GP in training mode whose embedding has
+    BatchNorm and dropout leaves the global random number generator's state as it
+    was, through either kind of batch loader, gives the precision train_model left,
+    and leaves every module in eval mode."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    if subset:
+        dataset = torch.utils.data.Subset(dataset, list(range(ROWS)))
+    model = eq.EquineGP(
+        _batchnorm_dropout_embedding(), CLASSES, CLASSES, num_random_features=16
+    )
+    model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=2,
+        batch_size=32,
+    )
+    trained = model.model.precision.clone()
+    model.train()
+    state = torch.get_rng_state()
+    model._rebuild_precision(dataset, 32)
+    assert torch.equal(torch.get_rng_state(), state)
+    assert torch.equal(model.model.precision, trained)
+    assert not any(module.training for module in model.modules())
+
+
+class _FailingInEvalMode(torch.nn.Module):
+    """``BasicEmbeddingModel`` whose ``fail_at``-th eval-mode forward, counted in
+    ``eval_calls``, raises ``RuntimeError``."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.inner = BasicEmbeddingModel(FEATURES, CLASSES)
+        self.fail_at: int | None = None
+        self.eval_calls = 0
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if not self.training:
+            self.eval_calls += 1
+            if self.eval_calls == self.fail_at:
+                raise RuntimeError("embedding failed")
+        return self.inner(x)
+
+
+@pytest.mark.parametrize("trained_before", [False, True], ids=["fresh", "trained"])
+def test_a_failed_precision_rebuild_leaves_the_model_untrained(
+    trained_before, tmp_path
+) -> None:
+    """The rebuild raises on its last batch of 24, after 96 of 120 rows. train_model
+    raises; forward, predict, calibrate_model and save refuse the model as untrained;
+    every module is in eval mode. train_model then trains it again."""
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    embedding = _FailingInEvalMode()
+    model = eq.EquineGP(embedding, CLASSES, CLASSES, num_random_features=16)
+
+    def train() -> None:
+        model.train_model(
+            dataset,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=2,
+            batch_size=32,
+        )
+
+    if trained_before:
+        train()
+    embedding.eval_calls = 0
+    embedding.fail_at = 4
+    with pytest.raises(RuntimeError, match="^embedding failed$"):
+        train()
+    assert model.model._seen_count == 96
+    assert not any(module.training for module in model.modules())
+    for method, call in (
+        ("forward", lambda: model(x)),
+        ("predict", lambda: model.predict(x)),
+        ("calibrate_model", lambda: model.calibrate_model(dataset)),
+    ):
+        with pytest.raises(
+            ValueError,
+            match=rf"^EquineGP\.{method} needs a trained model, and this model has "
+            r"not been trained; call train_model first\.$",
+        ):
+            call()
+    with pytest.raises(
+        RuntimeError,
+        match=r"^The model has not been trained; call train_model before save\.$",
+    ):
+        model.save(str(tmp_path / "model.eq"))
+    assert not (tmp_path / "model.eq").exists()
+    embedding.fail_at = None
+    train()
+    torch.testing.assert_close(
+        model.model.precision.double(),
+        _independent_precision(model, x),
+        rtol=1e-5,
+        atol=1e-4,
+    )
+    assert_valid_prediction(model.predict(x), ROWS, CLASSES)
+
+
+class _SumOfTopProbabilities(torchmetrics.Metric):
+    """The sum over the examples of the largest softmax probability of ``preds``."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.add_state(
+            "total", default=torch.zeros((), dtype=torch.float64), dist_reduce_fx="sum"
+        )
+
+    def update(self, preds: torch.Tensor, target: torch.Tensor) -> None:
+        self.total += torch.softmax(preds.double(), dim=1).max(dim=1).values.sum()
+
+    def compute(self) -> torch.Tensor:
+        return self.total
+
+
+def test_the_last_validation_pass_uses_the_rebuilt_precision() -> None:
+    """The last epoch's validation metric equals the same metric computed afterwards
+    from the returned model's logits, in the same batches of 32."""
+    torch.manual_seed(0)
+    dataset, _, _ = separable_dataset()
+    validation, x_val, _ = separable_dataset(seed=5)
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    result = model.train_model(
+        dataset,
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=3,
+        batch_size=32,
+        validation_dataset=validation,
+        val_metrics=[_SumOfTopProbabilities()],
+    )
+    metric = _SumOfTopProbabilities()
+    with torch.no_grad():
+        for batch in x_val.split(32):
+            metric.update(model(batch), torch.empty(0))
+    torch.testing.assert_close(
+        result["val_metrics"][0][-1], metric.compute(), rtol=0, atol=1e-9
+    )
+
+
+@pytest.mark.parametrize("num_epochs", [0, -1])
+def test_train_model_without_epochs_leaves_the_precision_and_mode(num_epochs) -> None:
+    """With no epoch to run, train_model passes nothing through the embedding and
+    leaves the precision matrix and the training mode as they were."""
+    model, x, y = quick_gp()
+    model.train()
+    calls: list[int] = []
+    model.embedding_model.register_forward_pre_hook(
+        lambda module, args: calls.append(args[0].shape[0])
+    )
+    precision = model.model.precision.clone()
+    result = model.train_model(
+        torch.utils.data.TensorDataset(x, y),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=num_epochs,
+        batch_size=32,
+    )
+    assert calls == []
+    assert torch.equal(model.model.precision, precision)
+    assert result["train_loss"] == []
+    assert model.training
 
 
 def _bfloat16_gp(classes: int):
@@ -1576,17 +1839,19 @@ def test_train_model_on_a_tensor_dataset_matches_a_subset_of_it() -> None:
         assert torch.equal(states[0][key], states[1][key]), key
 
 
-def test_training_and_calibration_batches_are_shuffled_and_validation_batches_are_not(
+def test_training_and_calibration_batches_are_shuffled_and_validation_and_rebuild_batches_are_not(
     monkeypatch,
 ) -> None:
+    """The loaders in order: training (shuffled), validation, the precision rebuild
+    over the training set (its own generator), calibration (shuffled)."""
     import equine.equine_gp as equine_gp
 
     calls = []
     batch_loader = equine_gp._batch_loader
 
-    def recording_batch_loader(dataset, batch_size, shuffle):
-        calls.append((dataset, shuffle))
-        return batch_loader(dataset, batch_size, shuffle)
+    def recording_batch_loader(dataset, batch_size, shuffle, generator=None):
+        calls.append((dataset, shuffle, generator is None))
+        return batch_loader(dataset, batch_size, shuffle, generator)
 
     monkeypatch.setattr(equine_gp, "_batch_loader", recording_batch_loader)
     train, _, _ = separable_dataset()
@@ -1609,10 +1874,13 @@ def test_training_and_calibration_batches_are_shuffled_and_validation_batches_ar
         val_metrics=[torchmetrics.Accuracy(task="multiclass", num_classes=CLASSES)],
     )
     model.calibrate_model(calibration, calibration_batch_size=16)
-    expected = [(train, True), (validation, False), (calibration, True)]
+    expected = [
+        (train, True, True),
+        (validation, False, True),
+        (train, False, False),
+        (calibration, True, True),
+    ]
     assert len(calls) == len(expected)
-    for (dataset, shuffle), (expected_dataset, expected_shuffle) in zip(
-        calls, expected
-    ):
-        assert dataset is expected_dataset
-        assert shuffle is expected_shuffle
+    for call, expected_call in zip(calls, expected):
+        assert call[0] is expected_call[0]
+        assert call[1:] == expected_call[1:]

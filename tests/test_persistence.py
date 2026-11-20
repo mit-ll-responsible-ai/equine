@@ -8,6 +8,7 @@ file that stores its embedding as TorchScript is refused. The file-reading
 layer underneath (``load_checkpoint``) is tested in test_safe_loading.py.
 """
 
+import enum
 import os
 import pickle
 import subprocess
@@ -1545,6 +1546,102 @@ def test_save_refuses_a_training_summary_the_loader_would_refuse(
     assert "train_summary['device']" in str(err.value)
     assert "got device" in str(err.value)
     assert not path.exists()
+
+
+class _TensorSubclass(torch.Tensor):
+    pass
+
+
+class _Marker(enum.Enum):
+    START = (object(),)
+
+
+def _same(a: Any, b: Any) -> bool:
+    if isinstance(a, torch.Tensor):
+        return type(a) is type(b) and torch.equal(a, b)
+    return a == b
+
+
+# Each row: the refused value, the hint, and the stored value its repair gives.
+_OTHER_CONTEXT_REPAIRS = [
+    pytest.param(
+        lambda: torch.nn.Linear(2, 2),
+        "a module; store plain values that describe it instead",
+        lambda x: {"in_features": x.in_features, "out_features": x.out_features},
+        id="module",
+    ),
+    pytest.param(
+        lambda: eq.CovType.FULL,
+        "an enum member; store x.value",
+        lambda x: x.value,
+        id="enum",
+    ),
+    pytest.param(lambda: torch.float64, "store str(x)", str, id="dtype"),
+    pytest.param(
+        object,
+        "store plain values that describe it instead",
+        lambda x: type(x).__name__,
+        id="other",
+    ),
+    pytest.param(
+        lambda: torch.relu,
+        "a class or function; store a plain value such as its name instead",
+        lambda x: x.__name__,
+        id="function",
+    ),
+    pytest.param(
+        lambda: _Marker.START,
+        "an enum member; store x.name",
+        lambda x: x.name,
+        id="enum-with-a-non-plain-value",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "make, hint, repair",
+    [
+        *_OTHER_CONTEXT_REPAIRS,
+        pytest.param(
+            lambda: torch.ones(2).as_subclass(_TensorSubclass),
+            "a tensor subclass; store x.as_subclass(torch.Tensor)",
+            lambda x: x.as_subclass(torch.Tensor),
+            id="tensor-subclass",
+        ),
+    ],
+)
+def test_save_refusing_a_training_summary_entry_names_a_working_repair(
+    tmp_path, make, hint, repair
+) -> None:
+    model, _ = train_protonet(eq.MLP(6, [8], 3))
+    value = make()
+    model.train_summary["entry"] = value
+    path = str(tmp_path / "m.eq")
+    with pytest.raises(ValueError, match="Training summary entry") as err:
+        model.save(path)
+    assert f"({hint})." in str(err.value)
+    assert "__init__" not in str(err.value)
+    model.train_summary["entry"] = repair(value)
+    model.save(path)
+    loaded = eq.EquineProtonet.load(path).train_summary["entry"]
+    assert _same(loaded, repair(value))
+
+
+@pytest.mark.parametrize("train, cls", TRAINERS)
+@pytest.mark.parametrize("make, hint, repair", _OTHER_CONTEXT_REPAIRS)
+def test_save_refusing_extra_state_names_a_working_repair(
+    tmp_path, train, cls, make, hint, repair
+) -> None:
+    value = make()
+    model, _ = train(_with_extra_state({"setting": value}))
+    path = str(tmp_path / "m.eq")
+    with pytest.raises(ValueError, match="Extra state") as err:
+        model.save(path)
+    assert f"({hint})." in str(err.value)
+    assert "__init__" not in str(err.value)
+    repaired, _ = train(_with_extra_state({"setting": repair(value)}))
+    repaired.save(path)
+    assert cls.load(path).embedding_model.restored == {"setting": repair(value)}
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)

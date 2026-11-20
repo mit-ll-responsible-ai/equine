@@ -782,16 +782,19 @@ class EquineProtonet(Equine):
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...])
         ood_distance : str, optional
-            The OOD statistic used when ``relative_mahal`` is True, by default
-            ``"rmd_sq"``: the squared Mahalanobis distance to the predicted class
-            prototype minus the squared Mahalanobis distance to the mean of the
-            support embeddings, both computed without the temperature.
-            ``"rmd_sqrt"`` subtracts the distances themselves, and with
-            ``use_temperature`` divides the class distance by the temperature
-            first. A model file without this setting loads as ``"rmd_sqrt"``.
-            The outlier-score KDEs are fitted for the statistic in use: after
-            changing ``ood_distance``, refit them with ``update_support`` or
-            ``train_model``.
+            The OOD statistic, by default ``"rmd_sq"``. With ``relative_mahal``:
+            the squared Mahalanobis distance to the predicted class prototype
+            minus the squared Mahalanobis distance to the mean of the support
+            embeddings; without it, the Mahalanobis distance to the predicted
+            class prototype. Both are computed without the temperature.
+            ``"rmd_sqrt"``: with ``relative_mahal`` it subtracts the distances
+            themselves, and with ``use_temperature`` it divides the class
+            distance by the temperature first, in both modes. A model file
+            without this setting loads as ``"rmd_sqrt"``. With
+            ``relative_mahal``, the outlier-score KDEs are fitted for the
+            statistic in use: after changing ``ood_distance``, refit them with
+            ``update_support`` or ``train_model``. Without it, the KDEs are the
+            same for both values.
 
         Raises
         ------
@@ -1394,9 +1397,9 @@ class EquineProtonet(Equine):
             if self.use_temperature:
                 scaled = dists / self.temperature
                 preds = torch.softmax(torch.negative(scaled), dim=1)
-                # The relative "rmd_sq" statistic reads the unscaled distances;
-                # the other statistics read the scaled ones.
-                if not (self.relative_mahal and self.ood_distance == "rmd_sq"):
+                # "rmd_sq" reads the unscaled distances; "rmd_sqrt" reads the
+                # scaled ones.
+                if self.ood_distance == "rmd_sqrt":
                     dists = scaled
             ood_dist = self._compute_ood_dist(X_embed, preds, dists)
             ood_scores = self._compute_outlier_scores(ood_dist, preds)

@@ -342,6 +342,13 @@
   drive the temperature to zero or below with more epochs or a larger
   learning rate, which reverses every class ranking. Both now keep it at or
   above 1e-3.
+- With `relative_mahal=False` and a temperature, `EquineProtonet` scored OOD
+  on temperature-scaled distances against outlier-score KDEs fitted on
+  unscaled ones, so changing the temperature moved the OOD scores (#279).
+  With `ood_distance="rmd_sq"`, the default for new models, the OOD
+  statistic now reads unscaled distances whether or not `relative_mahal` is
+  set. A model file without `ood_distance` loads as `"rmd_sqrt"`, the 0.1.8
+  statistic, and keeps its OOD scores.
 - Opening an untrusted `.eq` file could execute arbitrary code (#168).
 - Saved files could contain the training rows that the support examples were
   sliced from, not just the support examples themselves. Support tensors are

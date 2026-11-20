@@ -397,6 +397,19 @@ def test_protonet_support_attributes_after_train_model_and_load(tmp_path) -> Non
     _assert_attributes_are_the_support(eq.EquineProtonet.load(path))
 
 
+def test_protonet_given_only_its_support_saves_a_file_that_loads(tmp_path) -> None:
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    model = _protonet()
+    assert model.train_summary["modelType"] == "EquineProtonet"
+    model.update_support(x, y, calib_frac=0.2, label_names=NAMES)
+    path = str(tmp_path / "support_only.eq")
+    model.save(path)
+    loaded = eq.load_equine_model(path)
+    assert isinstance(loaded, eq.EquineProtonet)
+    assert loaded.get_label_names() == NAMES
+
+
 def test_protonet_support_attributes_follow_a_dtype_cast() -> None:
     model, _, _ = _trained_protonet()
     model.to(torch.float64)

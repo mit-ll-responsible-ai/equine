@@ -730,21 +730,28 @@ class Protonet(torch.nn.Module):
 
 
 def _require_examples_per_class(
-    y: torch.Tensor, labels: list[int], part: str, minimum: int
+    y: torch.Tensor,
+    labels: list[int],
+    part: str,
+    minimum: int,
+    where: str = "after the calib_frac split",
 ) -> None:
     """
-    Refuse a ``calib_frac`` split that leaves a class with too few examples.
+    Refuse a class with too few examples on one side of a ``calib_frac`` split or
+    in an explicit calibration set.
 
     Parameters
     ----------
     y : torch.Tensor
-        Labels of one side of the split.
+        Labels of one side.
     labels : list[int]
         Every class the model is given.
     part : str
-        The side of the split, named in the message.
+        The side, named in the message.
     minimum : int
         The fewest examples each class needs on this side.
+    where : str, optional
+        Where the examples come from, named in the message.
 
     Raises
     ------
@@ -755,9 +762,45 @@ def _require_examples_per_class(
         count = int((y == label).sum())
         if count < minimum:
             raise ValueError(
-                f"Class {_label_text(label)} has {count} {part} example(s) after the "
-                f"calib_frac split; it needs at least {minimum}."
+                f"Class {_label_text(label)} has {count} {part} example(s) {where}; "
+                f"it needs at least {minimum}."
             )
+
+
+def _require_calibration_set(
+    support_x: torch.Tensor,
+    labels: list[int],
+    calib_x: torch.Tensor,
+    calib_y: torch.Tensor,
+) -> None:
+    """
+    Refuse an explicit calibration set that does not match the support.
+
+    Raises
+    ------
+    ValueError
+        If ``calib_y`` is not 1-D or not whole numbers, ``calib_x`` and ``calib_y``
+        differ in length, ``calib_x``'s rows are shaped unlike ``support_x``'s, or
+        ``calib_y`` holds a label that is not in ``labels``.
+    """
+    _require_whole_number_labels(calib_y, None, "calib_y")
+    if len(calib_x) != len(calib_y):
+        raise ValueError(
+            f"calib_x has {len(calib_x)} rows and calib_y {len(calib_y)} labels; give "
+            "one label per row."
+        )
+    if calib_x.shape[1:] != support_x.shape[1:]:
+        raise ValueError(
+            f"calib_x's rows have shape {tuple(calib_x.shape[1:])} and support_x's "
+            f"{tuple(support_x.shape[1:])}; give calibration examples shaped like the "
+            "support."
+        )
+    unknown = sorted(set(torch.unique(calib_y).tolist()) - set(labels))
+    if unknown:
+        raise ValueError(
+            f"calib_y holds label {_label_text(unknown[0])}, which support_y does not; "
+            "give calibration examples of the support's classes only."
+        )
 
 
 ###############################################
@@ -1465,6 +1508,8 @@ class EquineProtonet(Equine):
         *args: Any,
         calib_frac: float | None = None,
         label_names: list[str] | None = None,
+        calib_x: torch.Tensor | None = None,
+        calib_y: torch.Tensor | None = None,
     ) -> None:
         """Function to update protonet support examples with given examples.
 
@@ -1486,23 +1531,33 @@ class EquineProtonet(Equine):
             keywords.
         calib_frac : float
             Fraction of given support data to use for OOD calibration. Required,
-            keyword-only.
+            keyword-only, unless ``calib_x`` is given.
         label_names : list[str], optional
             List of strings of the names of the labels (ex ["streaming", "voip", ...]).
             Keyword-only.
+        calib_x : torch.Tensor, optional
+            An explicit calibration set for the OOD densities, keyword-only. When
+            given, all of ``support_x`` is the support and no ``calib_frac`` split is
+            made.
+        calib_y : torch.Tensor, optional
+            Labels of ``calib_x``; given exactly when ``calib_x`` is.
 
         Raises
         ------
         TypeError
-            If ``calib_frac`` is missing, an option is passed both by position and
-            by keyword, or more than two options are passed by position.
+            If ``calib_frac`` is missing (and no ``calib_x`` is given), an option is
+            passed both by position and by keyword, or more than two options are
+            passed by position.
         ValueError
             If ``support_y`` has fewer than 2 classes, is not 1-D or holds a
-            label that is not a whole number; if the ``calib_frac`` split leaves
-            a class with fewer than 2 support or 2 calibration examples; or if a
-            calibration example's embedding or OOD distance holds a NaN or
-            infinite value, or a class's calibration examples all have the same
-            OOD distance. A failed update leaves the model as it was.
+            label that is not a whole number; if only one of ``calib_x`` and
+            ``calib_y`` is given; if ``calib_y`` is not 1-D, not whole numbers, not
+            one label per ``calib_x`` row or holds a label ``support_y`` does not,
+            or ``calib_x``'s rows are shaped unlike ``support_x``'s; if a class has
+            fewer than 2 support examples or fewer than 2 calibration examples; or
+            if a calibration example's embedding or OOD distance holds a NaN or
+            infinite value, or a class's calibration examples all have the same OOD
+            distance. A failed update leaves the model as it was.
         """
         if len(args) > 2:
             raise TypeError(
@@ -1531,9 +1586,13 @@ class EquineProtonet(Equine):
                 support_y,
                 calib_frac=args[0],
                 label_names=args[1] if len(args) == 2 else label_names,
+                calib_x=calib_x,
+                calib_y=calib_y,
             )
             return
-        if calib_frac is None:
+        if (calib_x is None) != (calib_y is None):
+            raise ValueError("Give both calib_x and calib_y, or neither.")
+        if calib_frac is None and calib_x is None:
             raise TypeError(
                 "EquineProtonet.update_support() missing required keyword argument: "
                 "'calib_frac'"
@@ -1545,11 +1604,17 @@ class EquineProtonet(Equine):
                     f"support_y must hold at least 2 classes, got {len(all_labels)}."
                 )
             _require_whole_number_labels(support_y, all_labels, "support_y")
-            support_x, calib_x, support_y, calib_y = stratified_train_test_split(
-                support_x, support_y, test_size=calib_frac
-            )
-            _require_examples_per_class(support_y, all_labels, "support", 2)
-            _require_examples_per_class(calib_y, all_labels, "calibration", 2)
+            if calib_x is None or calib_y is None:
+                assert calib_frac is not None
+                support_x, calib_x, support_y, calib_y = stratified_train_test_split(
+                    support_x, support_y, test_size=calib_frac
+                )
+                where = ("after the calib_frac split",) * 2
+            else:
+                _require_calibration_set(support_x, all_labels, calib_x, calib_y)
+                where = ("in support_y", "in calib_y")
+            _require_examples_per_class(support_y, all_labels, "support", 2, where[0])
+            _require_examples_per_class(calib_y, all_labels, "calibration", 2, where[1])
             # Restored if a later step raises.
             state, model_state = dict(vars(self)), dict(vars(self.model))
             try:

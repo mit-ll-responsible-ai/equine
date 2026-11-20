@@ -1022,6 +1022,10 @@ def test_ood_distance_is_checked_at_construction() -> None:
         ValueError, match=r"ood_distance must be one of \['rmd_sq', 'rmd_sqrt'\]"
     ):
         eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance="rmd")
+
+
+@pytest.mark.contracts
+def test_an_ood_distance_of_the_wrong_type_is_refused_by_beartype() -> None:
     with pytest.raises(BeartypeCallHintParamViolation):
         eq.EquineProtonet(BasicEmbeddingModel(2, 2), 2, ood_distance=1)
 

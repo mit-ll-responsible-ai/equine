@@ -10,6 +10,14 @@
 - **`update_support(calib_x=, calib_y=)`**: an explicit calibration set for
   the outlier scores, so the whole support is kept and the split is
   reproducible. Keyword-only; both or neither.
+- **`EquineProtonet(min_kde_samples=k)`**: a class with fewer than `k`
+  calibration examples, or whose calibration OOD distances are all equal (a
+  single example always is), shares one outlier-score KDE fitted on every
+  calibration example, in `update_support` and `train_model`. In 0.1.8 a
+  class with fewer than 2 calibration examples or equal distances failed
+  with a scipy error; `None` (the default) refuses such a class with a
+  message naming it. With a UNIT `pred_cov_type`, `update_support` accepts a
+  class with one support example.
 - **`SpectralResidualMLP`, SNGP's embedding** (registered as
   `equine.spectral_residual_mlp`). A linear projection and `num_blocks`
   residual blocks `h + coefficient * relu(W h + b)` whose weights are

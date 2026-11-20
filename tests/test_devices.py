@@ -390,9 +390,40 @@ def test_gp_inverse_helper_stays_on_the_device(device):
     assert inverse.device == a.device
     torch.testing.assert_close((a @ inverse).cpu(), torch.eye(2))
     with pytest.raises(
-        torch.linalg.LinAlgError, match="Precision matrix inversion failed"
+        torch.linalg.LinAlgError, match="Precision matrix inversion failed!"
     ):
         _inverse_via_cholesky(-a)
+    with pytest.raises(torch.linalg.LinAlgError, match="holds NaN or infinite"):
+        _inverse_via_cholesky(torch.full_like(a, float("nan")))
+    infinite = a.clone()
+    infinite[1, 1] = float("inf")
+    with pytest.raises(torch.linalg.LinAlgError, match="holds NaN or infinite"):
+        _inverse_via_cholesky(infinite)
+
+
+@pytest.mark.parametrize("device", devices())
+def test_gp_trained_under_autocast_keeps_a_positive_definite_precision(device):
+    """Training a float32 GP under bfloat16 autocast leaves a precision matrix that
+    predict inverts."""
+    torch.manual_seed(0)
+    gen = torch.Generator().manual_seed(0)
+    x = torch.cat([torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(3)])
+    y = torch.arange(3).repeat_interleave(200).float()
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
+    )
+    model = eq.EquineGP(embedding, 8, 3, device=device)
+    with torch.autocast(device, dtype=torch.bfloat16):
+        model.train_model(
+            torch.utils.data.TensorDataset(x, y),
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=1e-2),
+            num_epochs=3,
+            batch_size=32,
+        )
+    precision = model.model.precision.cpu().double()
+    assert torch.linalg.eigvalsh(precision).min() >= 0.99
+    assert bool(torch.isfinite(model.predict(x[:20]).ood_scores).all())
 
 
 @pytest.mark.parametrize("device", devices())

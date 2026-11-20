@@ -530,52 +530,54 @@ def test_precision_rebuild_draws_no_global_random_numbers(subset) -> None:
     assert not any(module.training for module in model.modules())
 
 
-class _FailingInEvalMode(torch.nn.Module):
-    """``BasicEmbeddingModel`` whose ``fail_at``-th eval-mode forward, counted in
-    ``eval_calls``, raises ``RuntimeError``."""
+class _Failing(torch.nn.Module):
+    """``BasicEmbeddingModel`` whose ``fail_at``-th forward in the mode ``fail_in``
+    (``"train"`` or ``"eval"``, counted in ``calls``) raises ``error``."""
 
     def __init__(self) -> None:
         super().__init__()
         self.inner = BasicEmbeddingModel(FEATURES, CLASSES)
+        self.fail_in = "train"
         self.fail_at: int | None = None
-        self.eval_calls = 0
+        self.error: BaseException = RuntimeError("embedding failed")
+        self.calls = {"train": 0, "eval": 0}
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if not self.training:
-            self.eval_calls += 1
-            if self.eval_calls == self.fail_at:
-                raise RuntimeError("embedding failed")
+        mode = "train" if self.training else "eval"
+        self.calls[mode] += 1
+        if mode == self.fail_in and self.calls[mode] == self.fail_at:
+            raise self.error
         return self.inner(x)
 
 
-@pytest.mark.parametrize("trained_before", [False, True], ids=["fresh", "trained"])
-def test_a_failed_precision_rebuild_leaves_the_model_untrained(
-    trained_before, tmp_path
-) -> None:
-    """The rebuild raises on its last batch of 24, after 96 of 120 rows. train_model
-    raises; forward, predict, calibrate_model and save refuse the model as untrained;
-    every module is in eval mode. train_model then trains it again."""
-    torch.manual_seed(0)
-    dataset, x, _ = separable_dataset()
-    embedding = _FailingInEvalMode()
-    model = eq.EquineGP(embedding, CLASSES, CLASSES, num_random_features=16)
+class _Boom(Exception):
+    """The error raised at a failure point."""
 
-    def train() -> None:
-        model.train_model(
-            dataset,
-            torch.nn.CrossEntropyLoss(),
-            torch.optim.SGD(model.parameters(), lr=0.05),
-            num_epochs=2,
-            batch_size=32,
-        )
 
-    if trained_before:
-        train()
-    embedding.eval_calls = 0
-    embedding.fail_at = 4
-    with pytest.raises(RuntimeError, match="^embedding failed$"):
-        train()
-    assert model.model._seen_count == 96
+def _fail_on_call(function, n: int, error: BaseException):
+    """``function``, except that its ``n``-th call raises ``error``."""
+    calls = [0]
+
+    def wrapped(*args, **kwargs):
+        calls[0] += 1
+        if calls[0] == n:
+            raise error
+        return function(*args, **kwargs)
+
+    return wrapped
+
+
+def _assert_untrained(model: eq.EquineGP, dataset, x, tmp_path) -> None:
+    """The training parameters are cleared, the precision matrix is the ridge
+    identity with no rows seen, no module is in training mode, and forward, predict,
+    calibrate_model and save refuse the model."""
+    laplace = model.model
+    assert laplace.training_parameters_set is False
+    assert (laplace.num_data, laplace.train_batch_size) == (0, 0)
+    assert laplace._seen_count == 0
+    assert int(laplace.seen_data) == 0
+    identity = torch.eye(laplace.precision.shape[0], dtype=laplace.precision.dtype)
+    assert torch.equal(laplace.precision, identity * laplace.ridge_penalty)
     assert not any(module.training for module in model.modules())
     for method, call in (
         ("forward", lambda: model(x)),
@@ -594,7 +596,110 @@ def test_a_failed_precision_rebuild_leaves_the_model_untrained(
     ):
         model.save(str(tmp_path / "model.eq"))
     assert not (tmp_path / "model.eq").exists()
+
+
+_FAILURE_POINTS = [
+    "embedding_second_batch",
+    "embedding_last_batch",
+    "keyboard_interrupt",
+    "loss",
+    "optimizer_step",
+    "scheduler_step",
+    "validation_metric",
+    "precision_rebuild",
+    "update_support",
+    "train_summary",
+]
+
+
+@pytest.mark.parametrize("trained_before", [False, True], ids=["fresh", "trained"])
+@pytest.mark.parametrize("point", _FAILURE_POINTS)
+def test_an_error_in_train_model_leaves_the_model_untrained(
+    point, trained_before, tmp_path, monkeypatch
+) -> None:
+    """2 epochs of 4 batches (32, 32, 32 and 24 rows). train_model raises the error
+    of each failure point: the embedding on epoch 2's second or last training batch,
+    a KeyboardInterrupt on epoch 1's second batch, the loss or the optimizer step on
+    the sixth batch, the scheduler after epoch 1, a validation metric in epoch 2,
+    the embedding on the precision rebuild's last batch, update_support
+    (vis_support) and the train summary. The model is then untrained, and
+    train_model with no epochs leaves no rows in its precision matrix. train_model
+    then trains it again."""
+    torch.manual_seed(0)
+    dataset, x, _ = separable_dataset()
+    embedding = _Failing()
+    model = eq.EquineGP(embedding, CLASSES, CLASSES, num_random_features=16)
+
+    def train(**options) -> dict:
+        options = {"num_epochs": 2, "batch_size": 32, **options}
+        loss_fn = options.pop("loss_fn", torch.nn.CrossEntropyLoss())
+        opt = options.pop("opt", None) or torch.optim.SGD(model.parameters(), lr=0.05)
+        return model.train_model(dataset, loss_fn, opt, **options)
+
+    if trained_before:
+        train()
+    error: BaseException = (
+        KeyboardInterrupt() if point == "keyboard_interrupt" else _Boom(point)
+    )
+    options: dict = {}
+    if point in (
+        "embedding_second_batch",
+        "embedding_last_batch",
+        "keyboard_interrupt",
+        "precision_rebuild",
+    ):
+        embedding.calls = {"train": 0, "eval": 0}
+        embedding.fail_in = "eval" if point == "precision_rebuild" else "train"
+        embedding.fail_at = {
+            "embedding_second_batch": 6,
+            "embedding_last_batch": 8,
+            "keyboard_interrupt": 2,
+            "precision_rebuild": 4,
+        }[point]
+        embedding.error = error
+    elif point == "loss":
+        options["loss_fn"] = _fail_on_call(torch.nn.CrossEntropyLoss(), 6, error)
+    elif point == "optimizer_step":
+        opt = torch.optim.SGD(model.parameters(), lr=0.05)
+        opt.step = _fail_on_call(opt.step, 6, error)
+        options["opt"] = opt
+    elif point == "scheduler_step":
+        opt = torch.optim.SGD(model.parameters(), lr=0.05)
+        scheduler = torch.optim.lr_scheduler.StepLR(opt, 1)
+        scheduler.step = _fail_on_call(scheduler.step, 1, error)
+        options.update(opt=opt, scheduler=scheduler)
+    elif point == "validation_metric":
+        metric = _SumOfTopProbabilities()
+        metric.update = _fail_on_call(metric.update, 5, error)
+        options.update(validation_dataset=dataset, val_metrics=[metric])
+    elif point == "update_support":
+        monkeypatch.setattr(
+            eq.EquineGP,
+            "update_support",
+            _fail_on_call(eq.EquineGP.update_support, 1, error),
+        )
+        options.update(vis_support=True, support_size=10)
+    else:
+        monkeypatch.setattr(
+            eq.equine_gp,
+            "generate_train_summary",
+            _fail_on_call(eq.equine_gp.generate_train_summary, 1, error),
+        )
+
+    with pytest.raises(type(error)) as raised:
+        train(**options)
+    assert raised.value is error
     embedding.fail_at = None
+    monkeypatch.undo()
+    _assert_untrained(model, dataset, x, tmp_path)
+
+    train(num_epochs=0)
+    assert model.model._seen_count == 0
+    with pytest.raises(
+        RuntimeError, match=r"^Not seen sufficient data for precision matrix$"
+    ):
+        model.predict(x)
+
     train()
     torch.testing.assert_close(
         model.model.precision.double(),
@@ -603,6 +708,86 @@ def test_a_failed_precision_rebuild_leaves_the_model_untrained(
         atol=1e-4,
     )
     assert_valid_prediction(model.predict(x), ROWS, CLASSES)
+
+
+@pytest.mark.parametrize("trained_before", [False, True], ids=["fresh", "trained"])
+def test_an_error_before_the_first_epoch_leaves_the_model_unchanged(
+    trained_before,
+) -> None:
+    """A validation metric whose ``to`` raises: train_model raises the error before
+    it sets the training parameters, and the model is unchanged, including a model
+    trained before on 96 of the 120 rows."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    if trained_before:
+        model.train_model(
+            torch.utils.data.TensorDataset(x[:96], y[:96].float()),
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=2,
+            batch_size=32,
+        )
+    before = model_state(model)
+    metric = _SumOfTopProbabilities()
+    error = _Boom("to")
+    metric.to = _fail_on_call(metric.to, 1, error)
+    with pytest.raises(_Boom) as raised:
+        model.train_model(
+            dataset,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=2,
+            batch_size=32,
+            validation_dataset=dataset,
+            val_metrics=[metric],
+        )
+    assert raised.value is error
+    assert_model_unchanged(model, before)
+
+
+@pytest.mark.parametrize("trained_before", [False, True], ids=["fresh", "trained"])
+def test_train_model_refuses_vis_support_without_tensors(trained_before) -> None:
+    """vis_support=True with a Subset is refused before training, and the model is
+    unchanged. Both repairs the message names work: a TensorDataset with
+    vis_support=True, and vis_support=False followed by update_support."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    subset = torch.utils.data.Subset(dataset, list(range(ROWS)))
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+
+    def train(data, **options) -> dict:
+        return model.train_model(
+            data,
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=2,
+            batch_size=32,
+            **options,
+        )
+
+    if trained_before:
+        train(dataset)
+    before = model_state(model)
+    with pytest.raises(
+        ValueError,
+        match=r"^vis_support=True takes the support from dataset\.tensors, and a "
+        r"Subset has no tensors; pass a TensorDataset, or pass vis_support=False "
+        r"and call update_support\(support_x, support_y, support_size=\.\.\.\) "
+        r"after train_model\.$",
+    ):
+        train(subset, vis_support=True, support_size=10)
+    assert_model_unchanged(model, before)
+
+    train(dataset, vis_support=True, support_size=10)
+    assert sorted(model.support) == list(range(CLASSES))
+    train(subset)
+    model.update_support(x, y, support_size=10)
+    assert sorted(model.support) == list(range(CLASSES))
 
 
 class _SumOfTopProbabilities(torchmetrics.Metric):

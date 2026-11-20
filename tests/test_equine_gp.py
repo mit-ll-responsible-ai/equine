@@ -552,6 +552,138 @@ def test_a_bfloat16_gp_predicts_after_training() -> None:
     assert bool(torch.isfinite(output.ood_scores).all())
 
 
+@pytest.mark.parametrize(
+    "default_dtype", [torch.float16, torch.bfloat16, torch.float64]
+)
+def test_predict_does_not_depend_on_the_default_dtype(default_dtype) -> None:
+    """A float32 GP's first predict under ``default_dtype`` gives the probabilities,
+    OOD scores and covariance it gives under float32."""
+    model, x = _gp_trained_on_cpu()
+    reference = copy.deepcopy(model)
+    expected = reference.predict(x)
+    previous = torch.get_default_dtype()
+    torch.set_default_dtype(default_dtype)
+    try:
+        output = model.predict(x)
+    finally:
+        torch.set_default_dtype(previous)
+    assert torch.equal(output.classes, expected.classes)
+    assert torch.equal(output.ood_scores, expected.ood_scores)
+    assert torch.equal(model.model.covariance, reference.model.covariance)
+
+
+def test_a_float64_gp_computes_predict_in_float64() -> None:
+    """A float64 GP's covariance is the inverse of its precision plus a float64
+    jitter, and its OOD scores are normalized by the float64 maximum entropy."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    ).double()
+    model.train_model(
+        torch.utils.data.TensorDataset(x.double(), y.float()),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    output = model.predict(x.double())
+    precision = model.model.precision
+    jitter = 1e-7 * torch.eye(16, dtype=torch.float64)
+    assert torch.equal(
+        model.model.covariance, eq.equine_gp._inverse_via_cholesky(precision + jitter)
+    )
+    uniform = torch.full((CLASSES,), 1 / CLASSES, dtype=torch.float64)
+    expected = (
+        torch.special.entr(output.classes).sum(1) / torch.special.entr(uniform).sum()
+    )
+    assert output.ood_scores.dtype == torch.float64
+    assert torch.equal(output.ood_scores, expected)
+
+
+def test_a_float32_gp_computes_predict_in_float32() -> None:
+    """A float32 GP's covariance is the inverse of its precision plus a float32
+    jitter, and its OOD scores are the float32 entropy ratio of its probabilities,
+    clamped to [0, 1]."""
+    model, x = _gp_trained_on_cpu()
+    output = model.predict(x)
+    precision = model.model.precision
+    jitter = 1e-7 * torch.eye(16, dtype=torch.float32)
+    assert torch.equal(
+        model.model.covariance, eq.equine_gp._inverse_via_cholesky(precision + jitter)
+    )
+    uniform = torch.ones(CLASSES, dtype=torch.float32) / CLASSES
+    entropy = torch.special.entr(output.classes).sum(1)
+    expected = (entropy / torch.special.entr(uniform).sum()).clamp(0, 1)
+    assert output.ood_scores.dtype == torch.float32
+    assert torch.equal(output.ood_scores, expected)
+
+
+def test_a_bfloat16_gp_computes_ood_scores_in_float32() -> None:
+    """A bfloat16 GP's OOD scores are the float32 entropy ratio of its logits, clamped
+    to [0, 1] and cast to bfloat16."""
+    classes = 10
+    torch.manual_seed(0)
+    gen = torch.Generator().manual_seed(0)
+    x = torch.cat(
+        [torch.randn(200, 4, generator=gen) + 3.0 * i for i in range(classes)]
+    )
+    y = torch.arange(classes).repeat_interleave(200).float()
+    embedding = torch.nn.Sequential(
+        torch.nn.Linear(4, 16), torch.nn.ReLU(), torch.nn.Linear(16, 8)
+    )
+    model = eq.EquineGP(embedding, 8, classes).to(torch.bfloat16)
+    model.train_model(
+        torch.utils.data.TensorDataset(x.bfloat16(), y),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=1e-2),
+        num_epochs=3,
+        batch_size=32,
+    )
+    queries = torch.cat(
+        [x, torch.randn(2000, 4, generator=gen) * 3.0 * classes]
+    ).bfloat16()
+    scores = model.predict(queries).ood_scores
+    with torch.no_grad():
+        logits, _ = model._forward_with_embeddings(queries)
+    entropy = torch.special.entr(torch.softmax(logits.float(), dim=1)).sum(1)
+    uniform = torch.ones(classes, dtype=torch.float32) / classes
+    expected = (entropy / torch.special.entr(uniform).sum()).clamp(0, 1).bfloat16()
+    assert scores.dtype == torch.bfloat16
+    assert torch.equal(scores, expected)
+    assert bool(((scores >= 0) & (scores <= 1)).all())
+
+
+def test_a_gp_cast_to_bfloat16_after_training_predicts() -> None:
+    """A trained GP cast to bfloat16, whose precision matrix is then bfloat16,
+    predicts with OOD scores in [0, 1]."""
+    model, x = _gp_trained_on_cpu()
+    model.to(torch.bfloat16)
+    assert model.model.precision.dtype == torch.bfloat16
+    scores = model.predict(x.bfloat16()).ood_scores
+    assert bool(((scores >= 0) & (scores <= 1)).all())
+
+
+def test_nearly_equal_logits_keep_ood_scores_at_most_one() -> None:
+    """A float64 GP whose logits are nearly equal (a temperature of 1e9) gives OOD
+    scores in [0, 1]."""
+    torch.manual_seed(0)
+    dataset, x, y = separable_dataset()
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    ).double()
+    model.train_model(
+        torch.utils.data.TensorDataset(x.double(), y.float()),
+        torch.nn.CrossEntropyLoss(),
+        torch.optim.SGD(model.parameters(), lr=0.05),
+        num_epochs=1,
+        batch_size=32,
+    )
+    model.temperature.fill_(1e9)
+    scores = model.predict(x.double()).ood_scores
+    assert bool(((scores >= 0) & (scores <= 1)).all())
+
+
 def test_predict_refuses_a_model_that_has_seen_too_little_data() -> None:
     model = eq.EquineGP(BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES)
     model.model.set_training_params(120, 32)

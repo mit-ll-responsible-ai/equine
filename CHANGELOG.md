@@ -117,7 +117,7 @@
   samples its episodes and support where the dataset is and moves each batch
   at that boundary. `EquineGP.device`
   is a `str` like `EquineProtonet.device`; `EquineGP.device_type` is
-  deprecated (see below). `model.to(...)`, like `cpu()`, `cuda()` and the
+  removed (see below). `model.to(...)`, like `cpu()`, `cuda()` and the
   dtype casts, also moves the support, its embeddings, the prototypes and the
   covariances. Afterwards `device` (and the inner `Protonet`'s) names the
   device they are on: it is unchanged when it already names that device, and
@@ -244,8 +244,8 @@
   support_y, *args, **kwargs)` as abstract methods, so a subclass of `Equine`
   must implement both. `update_support` on both model classes takes its
   options by keyword: `calib_frac` and `label_names` on `EquineProtonet`,
-  `support_size` on `EquineGP` (passing them by position is deprecated, see
-  below) (#215).
+  `support_size` on `EquineGP` (passing them by position raises a
+  `TypeError`, see below) (#215).
 - `EquineProtonet.support`, `support_embeddings` and `prototypes` return the
   model's support examples, their embeddings and the class prototypes (the
   objects `get_support()` and `get_prototypes()` return; empty, and an empty
@@ -327,16 +327,6 @@
   checks (`tox -e pyright`) (#172, #208, #233).
 
 ### Deprecated
-- `EquineGP.device_type`: read `EquineGP.device` (a `str`) instead. Reading
-  or assigning it emits a `DeprecationWarning`; assigning it moves the model
-  with `model.to(value)` and then sets `device` to `value`. To move a model,
-  call `model.to(value)`.
-- Passing the options of `update_support` by position, as in
-  `EquineProtonet.update_support(x, y, 0.2)` or
-  `EquineGP.update_support(x, y, 25)`: pass `calib_frac=`, `label_names=`
-  and `support_size=` by keyword. A positional call emits a
-  `DeprecationWarning` and then runs as the keyword call; it stops working in
-  the next release (#215).
 - `equine.upgrade`: it converts files saved by EQUINE 0.1.x in this release and
   is removed in the next release. Running it emits a `FutureWarning` (the
   command line prints it).
@@ -348,6 +338,14 @@
   is refused with a message that points to `equine.upgrade`, which converts
   it.
 - The `torch < 2.10` cap; torch is now `>= 2.14.1, < 3`.
+- Passing `update_support`'s options by position, as in 0.1.8's
+  `EquineProtonet.update_support(x, y, 0.2)` and
+  `EquineGP.update_support(x, y, 25)`: pass `calib_frac=`, `label_names=`
+  and `support_size=` by keyword. A call that passes one option by position
+  raises a `TypeError` naming them.
+- `EquineGP.device_type`: read `EquineGP.device` (a `str`); to move a model,
+  call `model.to(device)`. Assigning `device_type` raises an `AttributeError`
+  that says so.
 
 ### Fixed
 - An `EquineProtonet` given its support with `update_support` alone (no

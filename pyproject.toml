@@ -219,26 +219,26 @@ commands = pyright src/ --level=error
 
 [testenv:format]
 description = Applies ruff's autofixes (e.g. removes unused imports) and formats
-              the source files and test suite in-place. Running this can help fix a
-              failing `enforce-format` run.
+              the source files, the test suite and docs/gen_ref_nav.py in-place.
+              Running this can help fix a failing `enforce-format` run.
 skip_install=true
 deps =
     # keep in sync with the ruff rev in .pre-commit-config.yaml
     ruff==0.16.9
 commands =
-    ruff check --fix src/ tests/
-    ruff format src/ tests/
+    ruff check --fix src/ tests/ docs/gen_ref_nav.py
+    ruff format src/ tests/ docs/gen_ref_nav.py
 
 [testenv:enforce-format]
-description = Ensures that the source code and test suite adhere to formatting
-              and code-quality standards.
+description = Ensures that the source code, the test suite and docs/gen_ref_nav.py
+              adhere to formatting and code-quality standards.
 skip_install=true
 basepython=python3.11
 deps={[testenv:format]deps}
      codespell==2.4.3
 commands=
-    ruff format src/ tests/ --diff --check
-    ruff check src/ tests/
+    ruff format src/ tests/ docs/gen_ref_nav.py --diff --check
+    ruff check src/ tests/ docs/gen_ref_nav.py
     codespell src/
 
 [testenv:docs]

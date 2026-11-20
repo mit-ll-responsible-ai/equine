@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import math
 import sys
 import warnings
 from collections import OrderedDict
@@ -76,6 +77,127 @@ def _kde_to_state(kde: gaussian_kde) -> dict[str, Any]:
         "dataset": torch.as_tensor(kde.dataset).clone(),
         "bw_factor": float(cast(float, kde.factor)),
     }
+
+
+def _upper_tail(z: torch.Tensor, weights: torch.Tensor, uniform: bool) -> torch.Tensor:
+    """
+    A KDE's mass above each row's distance, from the standardized differences
+    ``z`` (one row per distance, one column per KDE point): the mean of
+    ``1 - Phi(z)`` over the columns when ``uniform``, otherwise its
+    ``weights``-weighted sum clamped to [0, 1].
+    """
+    upper = 1.0 - torch.special.ndtr(z)
+    if uniform:
+        return upper.mean(dim=1)
+    return (upper @ weights).clamp(0.0, 1.0)
+
+
+class _OutlierGrid:
+    """
+    The CDF ``F(d) = sum_i w_i Phi((d - x_i) / h)`` of a one-dimensional KDE with
+    points ``x_i``, weights ``w_i`` and bandwidth ``h``, tabulated in float64.
+
+    ``F`` (1 minus ``_upper_tail``), ``F'`` and ``F''`` are tabulated at evenly
+    spaced nodes at most ``h / NODES_PER_BANDWIDTH`` apart over
+    ``[min x - REACH * h, max x + REACH * h]``. Between two nodes, ``F`` is the
+    quintic Hermite interpolant that matches the three values at both nodes,
+    clamped to [0, 1]. Below the first node it is 0, above ``max x + REACH * h``
+    1, and at NaN it is NaN.
+    """
+
+    NODES_PER_BANDWIDTH = 32
+    REACH = 9.0
+    MAX_NODES = 2**13
+    MAX_PAIRS = 2**27
+    WEIGHT_SUM_TOLERANCE = 1e-14
+
+    def __init__(
+        self, low: float, step: float, table: torch.Tensor, high: float
+    ) -> None:
+        self.low = low
+        self.step = step
+        self.high = high
+        # One row per node: F, step * F' and step**2 * F''.
+        self.table = table
+
+    @classmethod
+    def build(
+        cls, points: torch.Tensor, weights: torch.Tensor, bandwidth: float
+    ) -> _OutlierGrid | None:
+        """
+        Tabulate the CDF of the KDE with these float64 ``points`` and ``weights``
+        and this ``bandwidth``.
+
+        Returns
+        -------
+        _OutlierGrid | None
+            The grid; None when the KDE has no points, a point or weight is NaN
+            or infinite, a weight is negative, the weights are not all equal and
+            their sum differs from 1 by more than ``WEIGHT_SUM_TOLERANCE``, the
+            bandwidth is not a positive finite number, the grid would have zero
+            width or zero node spacing, or it would need more than ``MAX_NODES``
+            nodes or more than ``MAX_PAIRS`` (node, point) pairs.
+        """
+        if len(points) == 0 or not bandwidth > 0.0:
+            return None
+        if not (bool(torch.isfinite(weights).all()) and bool((weights >= 0.0).all())):
+            return None
+        uniform = bool((weights == weights[0]).all())
+        if not uniform and abs(float(weights.sum()) - 1.0) > cls.WEIGHT_SUM_TOLERANCE:
+            return None
+        low = float(points.min()) - cls.REACH * bandwidth
+        high = float(points.max()) + cls.REACH * bandwidth
+        intervals = (high - low) / bandwidth * cls.NODES_PER_BANDWIDTH
+        if not 0.0 < intervals <= cls.MAX_NODES - 1:
+            return None
+        nodes = math.ceil(intervals) + 1
+        if nodes * len(points) > cls.MAX_PAIRS:
+            return None
+        step = (high - low) / (nodes - 1)
+        if not step > 0.0:
+            return None
+        ratio = step / bandwidth
+        offsets = points - low
+        table = torch.empty(nodes, 3, dtype=torch.float64)
+        # At most 2**22 (node, point) pairs at a time
+        size = max(1, 2**22 // len(points))
+        for start in range(0, nodes, size):
+            stop = min(start + size, nodes)
+            node_offsets = torch.arange(start, stop, dtype=torch.float64) * step
+            z = (node_offsets[:, None] - offsets) / bandwidth
+            density = torch.exp(-0.5 * z * z) / math.sqrt(2.0 * math.pi)
+            curvature = -z * density
+            if uniform:
+                density, curvature = density.mean(dim=1), curvature.mean(dim=1)
+            else:
+                density, curvature = density @ weights, curvature @ weights
+            table[start:stop, 0] = 1.0 - _upper_tail(z, weights, uniform)
+            table[start:stop, 1] = ratio * density
+            table[start:stop, 2] = ratio * ratio * curvature
+        return cls(low, step, table, high)
+
+    def __call__(self, distances: torch.Tensor) -> torch.Tensor:
+        """``F`` at each of the float64 ``distances``."""
+        last = len(self.table) - 1
+        position = (distances - self.low) / self.step
+        index = position.clamp(0.0, last - 1.0).nan_to_num().floor()
+        t = (position - index).clamp(0.0, 1.0)
+        start = self.table[index.long()]
+        end = self.table[index.long() + 1]
+        t2 = t * t
+        t3 = t2 * t
+        u = 1.0 - t
+        value = (
+            start[:, 0]
+            + t3 * (10.0 - 15.0 * t + 6.0 * t2) * (end[:, 0] - start[:, 0])
+            + (t - t3 * (6.0 - 8.0 * t + 3.0 * t2)) * start[:, 1]
+            - t3 * (4.0 - 7.0 * t + 3.0 * t2) * end[:, 1]
+            + 0.5 * t2 * u * u * u * start[:, 2]
+            + 0.5 * t3 * u * u * end[:, 2]
+        )
+        value = torch.where(position < 0.0, 0.0, value)
+        value = torch.where(distances > self.high, 1.0, value)
+        return value.clamp(0.0, 1.0)
 
 
 COV_REG_TYPE = "epsilon"
@@ -674,6 +796,10 @@ class EquineProtonet(Equine):
         self.emb_out_dim = emb_out_dim
         self.epsilon = DEFAULT_EPSILON
         self.outlier_score_kde: OrderedDict[int, gaussian_kde] = OrderedDict()
+        # Per label: the KDE's points, weights and bandwidth, and their grid.
+        self._outlier_grids: dict[
+            int, tuple[tuple[bytes, bytes, float], _OutlierGrid]
+        ] = {}
         self.model_summary: dict[str, Any] = dict()
         self.use_temperature = use_temperature
         self.init_temperature = init_temperature
@@ -717,16 +843,26 @@ class EquineProtonet(Equine):
         """
         return self.model.__dict__.get("prototypes", torch.Tensor())
 
+    def __getstate__(self) -> dict[str, Any]:
+        """
+        The state that pickling and ``copy.deepcopy`` copy: the instance dict
+        without the tabulated outlier scores.
+        """
+        state = super().__getstate__()
+        state.pop("_outlier_grids", None)
+        return state
+
     def __setstate__(self, state: dict[str, Any]) -> None:
         """
         Restore a pickled model; a pickle without ``ood_distance`` uses
         ``"rmd_sqrt"``. ``support``, ``support_embeddings`` and ``prototypes``
         entries in its instance dict are dropped: these names are read-only
-        properties.
+        properties. The model starts with no tabulated outlier scores.
         """
         state.setdefault("ood_distance", "rmd_sqrt")
         for name in ("support", "support_embeddings", "prototypes"):
             state.pop(name, None)
+        state["_outlier_grids"] = {}
         super().__setstate__(state)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
@@ -989,7 +1125,7 @@ class EquineProtonet(Equine):
         Private function to fit outlier scores with a kernel density estimate (KDE).
 
         Replaces ``outlier_score_kde`` with one KDE per support label, keyed
-        by label, in support order.
+        by label, in support order, and drops the tabulated outlier scores.
 
         Parameters
         ----------
@@ -1031,13 +1167,20 @@ class EquineProtonet(Equine):
             for label, dists in class_ood_dists.items()
         )
         self.outlier_score_kde = fitted
+        self._outlier_grids = {}
 
     def _compute_outlier_scores(self, ood_dists, predictions) -> torch.Tensor:
         """
         Private function to compute OOD scores using the calculated kernel density estimate (KDE).
 
         Each example is scored with the KDE of its predicted label: column
-        ``j`` of ``predictions`` is the ``j``-th support label.
+        ``j`` of ``predictions`` is the ``j``-th support label. The score is the
+        KDE's CDF at the example's distance, computed in float64 on the CPU and
+        cast to the dtype and device of ``ood_dists``. A KDE that
+        ``_OutlierGrid.build`` tabulates is read from its grid, which is built
+        on the first call that predicts its label and kept while the KDE's
+        points, weights and bandwidth stay the same; any other KDE is summed
+        directly.
 
         Parameters
         ----------
@@ -1066,7 +1209,7 @@ class EquineProtonet(Equine):
                 f"No outlier-score KDE for support labels {missing}; refit the "
                 "outlier scores with EquineProtonet.update_support."
             )
-        dists = ood_dists.detach().cpu()
+        dists = ood_dists.detach().cpu().double()
         columns = torch.argmax(predictions, dim=1).cpu()
         ood_scores = torch.zeros(len(dists), dtype=torch.float64)
         for column, label in enumerate(label_order):
@@ -1079,22 +1222,49 @@ class EquineProtonet(Equine):
                     f"The outlier-score KDE of support label {label} has {kde.d} "
                     "dimensions; it must have one."
                 )
-            data = torch.from_numpy(kde.dataset[0])
-            weights = torch.from_numpy(kde.weights)
-            uniform = bool((weights == weights[0]).all())
+            data = torch.from_numpy(kde.dataset[0]).double()
+            weights = torch.from_numpy(kde.weights).double()
             bandwidth = float(np.sqrt(kde.covariance[0, 0]))
+            grid = self._outlier_grid(label, data, weights, bandwidth)
+            if grid is not None:
+                ood_scores[rows] = grid(dists[rows])
+                continue
+            uniform = bool((weights == weights[0]).all())
             # 1 minus the KDE's mass above each distance, for at most 2**22
             # (distance, KDE point) pairs at a time
             for chunk in rows.split(max(1, 2**22 // len(data))):
-                z = (dists[chunk, None] - data).double() / bandwidth
-                upper = 1.0 - torch.special.ndtr(z)
-                if uniform:
-                    tail = upper.mean(dim=1)
-                else:
-                    tail = (upper @ weights).clamp(0.0, 1.0)
-                ood_scores[chunk] = 1.0 - tail
+                z = (dists[chunk, None] - data) / bandwidth
+                ood_scores[chunk] = 1.0 - _upper_tail(z, weights, uniform)
 
         return ood_scores.to(dtype=ood_dists.dtype, device=ood_dists.device)
+
+    def _outlier_grid(
+        self,
+        label: int,
+        points: torch.Tensor,
+        weights: torch.Tensor,
+        bandwidth: float,
+    ) -> _OutlierGrid | None:
+        """
+        The tabulated CDF of the outlier-score KDE of ``label``, which has these
+        float64 ``points`` and ``weights`` and this ``bandwidth``.
+
+        Returns the grid kept for ``label`` when it was built from the same
+        values; otherwise builds one with ``_OutlierGrid.build`` and keeps it.
+        Returns None, and keeps nothing for ``label``, when ``build`` returns
+        None.
+        """
+        grids = self._outlier_grids
+        key = (points.numpy().tobytes(), weights.numpy().tobytes(), bandwidth)
+        kept = grids.get(label)
+        if kept is not None and kept[0] == key:
+            return kept[1]
+        grid = _OutlierGrid.build(points, weights, bandwidth)
+        if grid is None:
+            grids.pop(label, None)
+        else:
+            grids[label] = (key, grid)
+        return grid
 
     @icontract.ensure(lambda result: len(result) > 0)
     def _compute_ood_dist(
@@ -1151,6 +1321,17 @@ class EquineProtonet(Equine):
         ``train()``/``eval()``); a prediction is the same whatever mode the caller left
         the model in. Every submodule's mode is restored; an embedding frozen with
         ``model.embedding_model.eval()`` during fine-tuning stays frozen.
+
+        The OOD scores are read from a table of the CDF of each predicted class's
+        outlier-score KDE. The first call that predicts a class builds that
+        class's table and takes longer than later calls; the table is rebuilt
+        after the class's KDE in ``outlier_score_kde`` changes. A KDE is summed
+        over its points on every call instead when its table would need more
+        than 8,192 nodes or more than 2**27 (node, point) pairs (more than 16,384
+        points at 8,192 nodes), when it has a NaN or infinite point or weight, a
+        negative weight, unequal weights that do not sum to 1, or a bandwidth
+        that is not a positive finite number, or when its points are all equal
+        and its bandwidth is too small to separate two nodes.
 
         Parameters
         ----------

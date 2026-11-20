@@ -137,20 +137,6 @@ class _ProtonetWithoutOodDistance(eq.EquineProtonet):
         )
 
 
-def test_v4_fixture_loads_into_a_subclass_without_ood_distance() -> None:
-    """A subclass whose ``__init__`` does not take ``ood_distance`` loads a file
-    without the setting, which scores with ``"rmd_sqrt"``."""
-    model = _ProtonetWithoutOodDistance.load(_fixture("protonet_v4.eq"))
-    assert model.ood_distance == "rmd_sqrt"
-    out = model.predict(fixture_query_batch())
-    assert torch.allclose(
-        out.ood_scores,
-        torch.tensor(EXPECTED["protonet"]["ood_scores"]),
-        atol=1e-5,
-        rtol=0,
-    )
-
-
 def test_subclass_without_ood_distance_refuses_a_file_with_the_setting(
     tmp_path,
 ) -> None:
@@ -222,19 +208,6 @@ class _ProtonetSwallowingKwargs(eq.EquineProtonet):
         )
 
 
-def test_subclass_swallowing_kwargs_scores_with_the_files_statistic() -> None:
-    """A subclass whose ``**kwargs`` drops ``ood_distance`` still scores a file
-    without the setting with ``"rmd_sqrt"``."""
-    path = _fixture("protonet_v4.eq")
-    model = _ProtonetSwallowingKwargs.load(path)
-    assert model.ood_distance == "rmd_sqrt"
-    queries = fixture_query_batch()
-    assert torch.equal(
-        model.predict(queries).ood_scores,
-        eq.EquineProtonet.load(path).predict(queries).ood_scores,
-    )
-
-
 class _PassThroughProtonet(_ProtonetWithoutOodDistance):
     """A subclass that passes ``*args`` and ``**kwargs`` to a parent whose
     ``__init__`` does not take ``ood_distance``."""
@@ -243,13 +216,17 @@ class _PassThroughProtonet(_ProtonetWithoutOodDistance):
         super().__init__(*args, **kwargs)
 
 
-def test_pass_through_subclass_of_a_narrow_parent_loads_a_file_without_the_setting() -> (
-    None
-):
-    """A ``*args, **kwargs`` subclass of a class whose ``__init__`` does not take
-    ``ood_distance`` loads a file without the setting."""
+@pytest.mark.parametrize(
+    "cls",
+    [_ProtonetWithoutOodDistance, _ProtonetSwallowingKwargs, _PassThroughProtonet],
+    ids=["without-ood-distance", "swallowing-kwargs", "pass-through"],
+)
+def test_subclass_loads_a_file_without_ood_distance(cls) -> None:
+    """A subclass whose ``__init__`` does not take ``ood_distance``, whose
+    ``**kwargs`` drops it, or that passes ``*args, **kwargs`` to a parent that does
+    not take it loads a file without the setting and scores with ``"rmd_sqrt"``."""
     path = _fixture("protonet_v4.eq")
-    model = _PassThroughProtonet.load(path)
+    model = cls.load(path)
     assert model.ood_distance == "rmd_sqrt"
     queries = fixture_query_batch()
     assert torch.equal(

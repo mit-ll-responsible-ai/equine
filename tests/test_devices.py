@@ -52,6 +52,15 @@ def _gp(device: str, **train_kwargs):
 
 _BUILDERS = pytest.mark.parametrize("build", [_protonet, _gp], ids=["protonet", "gp"])
 
+_WITH_SUPPORT = pytest.mark.parametrize(
+    "build",
+    [
+        lambda device: _protonet(device, use_temperature=True),
+        lambda device: _gp(device, vis_support=True, support_size=10),
+    ],
+    ids=["protonet", "gp"],
+)
+
 
 def _assert_same_predictions(
     expected: eq.EquineOutput, actual: eq.EquineOutput
@@ -64,76 +73,38 @@ def _assert_same_predictions(
     )
 
 
-# --- EquineProtonet -----------------------------------------------------------
-
-
-@pytest.mark.parametrize("device", devices())
-def test_protonet_trains_and_predicts(device):
-    model, x, _ = _protonet(device)
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
-def test_protonet_with_temperature_predicts(device):
-    model, x, _ = _protonet(device, use_temperature=True)
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
-def test_protonet_update_support(device):
-    model, x, y = _protonet(device)
-    model.update_support(x, y.float(), calib_frac=0.5)
-    assert_on_device(model, device)  # the new support and its embeddings too
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
-def test_protonet_save_load_round_trip(device, tmp_path):
-    model, x, _ = _protonet(device)
-    before = model.predict(x[:5])
-    path = str(tmp_path / "protonet.eq")
-    model.save(path)
-
-    generic = eq.load_equine_model(path)  # lands on the saved device
-    assert_on_device(generic, device)
-    _assert_same_predictions(before, generic.predict(x[:5]))
-
-    explicit = eq.EquineProtonet.load(path, device)
-    _assert_same_predictions(before, explicit.predict(x[:5]))
-
-
 # --- both classes -------------------------------------------------------------
+
+
+@_WITH_SUPPORT
+@pytest.mark.parametrize("device", devices())
+def test_trained_model_is_on_the_device_and_predicts(build, device):
+    model, x, _ = build(device)
+    assert_on_device(model, device)
+    assert isinstance(model.device, str)
+    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
+    assert_valid_prediction(model.predict(x[:5].double()), 5, CLASSES)
+    if isinstance(model, eq.EquineGP):
+        assert set(model.support) == set(range(CLASSES))
 
 
 @_BUILDERS
 @pytest.mark.parametrize("device", devices())
-def test_stored_tensors_on_device(build, device):
-    model, _, _ = build(device)
+def test_save_load_round_trip(build, device, tmp_path):
+    model, x, _ = build(device)
     assert_on_device(model, device)
+    before = model.predict(x[:5])
+    assert_valid_prediction(before, 5, CLASSES)
+    path = str(tmp_path / "m.eq")
+    model.save(path)
+    # load_equine_model without device= loads onto the saved device.
+    for loaded in (eq.load_equine_model(path), type(model).load(path, device)):
+        # Every stored tensor is on the device, seen_data included.
+        assert_on_device(loaded, device)
+        _assert_same_predictions(before, loaded.predict(x[:5]))
 
 
 # --- EquineGP -----------------------------------------------------------------
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_trains(device):
-    model, _, _ = _gp(device)
-    assert model.model.precision.device.type == torch.device(device).type
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_predicts(device):
-    model, x, _ = _gp(device)
-    assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_update_support(device):
-    model, x, y = _gp(device)
-    model.update_support(x, y.long(), support_size=10)
-    assert set(model.support) == set(range(CLASSES))
-    assert model.prototypes.shape[0] == CLASSES  # one prototype per class
-    assert_on_device(model, device)  # the new support and its embeddings too
 
 
 @pytest.mark.parametrize("device", devices())
@@ -200,53 +171,6 @@ def test_gp_seen_count_follows_load_state_dict(device):
     assert fresh.model._seen_count == len(dataset)
     fresh.eval()
     _assert_same_predictions(trained.predict(x[:5]), fresh.predict(x[:5]))
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_vis_support_training(device):
-    model, _, _ = _gp(device, vis_support=True, support_size=10)
-    assert set(model.support) == set(range(CLASSES))
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_save_load_round_trip(device, tmp_path):
-    model, x, _ = _gp(device)
-    before = model.predict(x[:5])
-    path = str(tmp_path / "gp.eq")
-    model.save(path)
-
-    generic = eq.load_equine_model(path)  # lands on the saved device
-    # Every stored tensor is on the device, seen_data included.
-    assert_on_device(generic, device)
-    _assert_same_predictions(before, generic.predict(x[:5]))
-
-
-@pytest.mark.parametrize("device", devices())
-def test_gp_load_onto_device(device, tmp_path):
-    model, x, _ = _gp("cpu")
-    before = model.predict(x[:5])
-    path = str(tmp_path / "gp.eq")
-    model.save(path)
-
-    loaded = eq.EquineGP.load(path, device)
-    assert loaded.device == device
-    assert_on_device(loaded, device)
-    _assert_same_predictions(before, loaded.predict(x[:5]))
-
-    generic = eq.load_equine_model(path, device=device)
-    assert generic.device == device
-    assert_on_device(generic, device)
-    _assert_same_predictions(before, generic.predict(x[:5]))
-
-
-_WITH_SUPPORT = pytest.mark.parametrize(
-    "build",
-    [
-        lambda device: _protonet(device, use_temperature=True),
-        lambda device: _gp(device, vis_support=True, support_size=10),
-    ],
-    ids=["protonet", "gp"],
-)
 
 
 @_WITH_SUPPORT
@@ -329,6 +253,7 @@ def test_loaders_read_the_file_onto_the_cpu(build, device, tmp_path, monkeypatch
     monkeypatch.setattr(equine.utils, "load_checkpoint", spy)
     for loader in (type(model).load, eq.load_equine_model):
         loaded = loader(path, device)
+        assert loaded.device == device
         assert_on_device(loaded, device)
         _assert_same_predictions(before, loaded.predict(x[:5]))
     assert read_onto == ["cpu", "cpu"]
@@ -487,15 +412,20 @@ def test_predict_accepts_float64_input(build, device):
 
 @_BUILDERS
 @pytest.mark.parametrize("device", devices())
-def test_update_support_accepts_float64_input(build, device):
+@pytest.mark.parametrize(
+    "dtype", [torch.float32, torch.float64], ids=["float32", "float64"]
+)
+def test_update_support_on_the_device(build, device, dtype):
     """Support goes through the model boundary: moved to the device and cast to the embedding dtype."""
     model, x, y = build(device)
     if isinstance(model, eq.EquineProtonet):
-        model.update_support(x.double(), y.float(), calib_frac=0.5)
+        model.update_support(x.to(dtype), y.float(), calib_frac=0.5)
         support = model.model.support
     else:
-        model.update_support(x.double(), y.long(), support_size=10)
+        model.update_support(x.to(dtype), y.long(), support_size=10)
         support = model.support
+        assert set(support) == set(range(CLASSES))
+        assert model.prototypes.shape[0] == CLASSES
     assert {t.dtype for t in support.values()} == {torch.float32}
     assert_on_device(model, device)
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
@@ -544,14 +474,15 @@ def test_gp_calibrate_model_accepts_integer_labels_on_the_device(device, dtype):
 
 @pytest.mark.parametrize("device", devices())
 def test_protonet_train_model_accepts_float64_dataset(device):
-    """Episodes, support and the calibration split all cross the model boundary."""
+    """Episodes, support and the calibration split all cross the model boundary;
+    ``calib_x``/``calib_y`` come back on the CPU in the dataset's dtypes."""
     torch.manual_seed(0)
     _, x, y = separable_dataset()
     dataset = torch.utils.data.TensorDataset(x.double(), y)
     model = eq.EquineProtonet(
         BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, device=device
     )
-    model.train_model(
+    result = model.train_model(
         dataset,
         num_episodes=5,
         calib_frac=0.2,
@@ -561,28 +492,6 @@ def test_protonet_train_model_accepts_float64_dataset(device):
     )
     assert_on_device(model, device)
     assert_valid_prediction(model.predict(x[:5]), 5, CLASSES)
-
-
-@pytest.mark.parametrize("device", devices())
-def test_protonet_train_model_returns_the_callers_calibration_split(device):
-    """``calib_x``/``calib_y`` come back as the caller split them.
-
-    The copies moved to the device and cast to the model dtype are internal to
-    ``train_model``; the returned tensors stay on the CPU in the dataset's dtypes.
-    """
-    torch.manual_seed(0)
-    _, x, y = separable_dataset()
-    model = eq.EquineProtonet(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, device=device
-    )
-    result = model.train_model(
-        torch.utils.data.TensorDataset(x.double(), y),
-        num_episodes=5,
-        calib_frac=0.2,
-        support_size=10,
-        way=3,
-        episode_size=30,
-    )
     assert set(result) == {"train_summary", "calib_x", "calib_y"}
     assert result["calib_x"].device.type == result["calib_y"].device.type == "cpu"
     assert result["calib_x"].dtype == torch.float64

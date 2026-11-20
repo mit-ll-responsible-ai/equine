@@ -455,29 +455,21 @@ def draw_two_tensors(draw: st.DrawFn) -> tuple[torch.Tensor, torch.Tensor]:
     return yh, true_class
 
 
-@given(draw_two_tensors())
+@pytest.mark.parametrize(
+    "metric, in_bounds",
+    [
+        (eq.utils.brier_score, lambda value: value >= 0.0),
+        (eq.utils.brier_skill_score, lambda value: value <= 1.0),
+        (eq.utils.expected_calibration_error, lambda value: value <= 1.0),
+    ],
+    ids=["brier", "brier-skill", "ece"],
+)
+@given(two_tensors=draw_two_tensors())
 @settings(deadline=None)
-def test_brier_score(two_tensors) -> None:
+def test_metric_bounds(metric, in_bounds, two_tensors) -> None:
     yh, yt = two_tensors
-    assert eq.utils.brier_score(yh, yt) >= 0.0
-    yt = yt.int()  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
-    assert eq.utils.brier_score(yh, yt) >= 0.0
-
-
-@given(draw_two_tensors())
-@settings(deadline=None)
-def test_brier_skill_score(two_tensors) -> None:
-    yh, yt = two_tensors
-    assert eq.utils.brier_skill_score(yh, yt) <= 1.0
-    yt = yt.int()  # Regression test to make sure one-hot encoding function doesn't need a LongTensor
-    assert eq.utils.brier_skill_score(yh, yt) <= 1.0
-
-
-@given(draw_two_tensors())
-@settings(deadline=None)
-def test_ece(two_tensors) -> None:
-    yh, yt = two_tensors
-    assert eq.utils.expected_calibration_error(yh, yt) <= 1.0
+    assert in_bounds(metric(yh, yt))
+    assert in_bounds(metric(yh, yt.int()))  # int32 labels as well as int64
 
 
 @pytest.mark.parametrize(
@@ -574,35 +566,24 @@ def test_metric_summary(two_tensors) -> None:
     assert "expectedCalibrationError" in metrics
 
 
-def test_mahalanobis():
-    eps = 10 ** (-4)
+EPS = 1e-4
 
-    cov = torch.eye(10) * (1 + eps)
-    cov = torch.unsqueeze(cov, 0)
-    diff = torch.ones((10, 1))
 
-    dist = eq.mahalanobis_distance_nosq(diff, cov)
-    target_val = torch.tensor(10 * (1 / (1 + eps)), dtype=dist.dtype)
-    assert torch.isclose(dist[0, 0], target_val)
-
-    cov = torch.eye(10) * eps
-    cov[0, 0] = cov[0, 0] + 1
-    cov = torch.unsqueeze(cov, 0)
-    diff = torch.ones((10, 1))
-
-    dist = eq.mahalanobis_distance_nosq(diff, cov)
-    target_val = torch.tensor(9 / eps + (1 / (1 + eps)), dtype=dist.dtype)
-    assert torch.isclose(dist[0, 0], target_val)
-
-    cov = torch.eye(10) * eps + torch.ones((10, 10))
-    cov = torch.unsqueeze(cov, 0)
-    diff = torch.ones((10, 1))
-
-    dist = eq.mahalanobis_distance_nosq(diff, cov)
-    target_val = torch.tensor(
-        (1 / eps) * 10.0 - (100.0) / (eps**2 + eps * 10), dtype=dist.dtype
-    )
-    assert torch.isclose(dist[0, 0], target_val)
+@pytest.mark.parametrize(
+    "cov, target",
+    [
+        (torch.eye(10) * (1 + EPS), 10 / (1 + EPS)),
+        (torch.diag(torch.tensor([1 + EPS] + [EPS] * 9)), 9 / EPS + 1 / (1 + EPS)),
+        (
+            torch.eye(10) * EPS + torch.ones(10, 10),
+            10 / EPS - 100 / (EPS**2 + EPS * 10),
+        ),
+    ],
+    ids=["identity", "one-unit-variance", "ones-plus-ridge"],
+)
+def test_mahalanobis(cov, target):
+    dist = eq.mahalanobis_distance_nosq(torch.ones((10, 1)), cov.unsqueeze(0))
+    assert torch.isclose(dist[0, 0], torch.tensor(target, dtype=dist.dtype))
 
 
 _SPLIT_X = torch.arange(20.0).unsqueeze(1)

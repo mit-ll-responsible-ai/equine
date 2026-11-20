@@ -115,14 +115,9 @@ def test_gp_predict_after_train_mode_does_not_touch_precision():
     torch.testing.assert_close(model.model.seen_data, seen_data, atol=0, rtol=0)
 
 
-def test_gp_train_model_leaves_wrapper_and_inner_in_eval():
-    model, _, _ = _gp()
-    assert model.training is False
-    assert model.model.training is False
-
-
-def test_protonet_train_model_leaves_wrapper_and_inner_in_eval():
-    model, _, _ = _protonet()
+@_BUILDERS
+def test_train_model_leaves_wrapper_and_inner_in_eval(build):
+    model, _, _ = build()
     assert model.training is False
     assert model.model.training is False
 

@@ -81,6 +81,8 @@ TRAINERS = [
     pytest.param(train_protonet, eq.EquineProtonet, id="protonet"),
     pytest.param(train_gp, eq.EquineGP, id="gp"),
 ]
+_P = (train_protonet, eq.EquineProtonet)
+_G = (train_gp, eq.EquineGP)
 
 
 @pytest.fixture
@@ -131,7 +133,6 @@ def test_registered_embedding_saves_data_only_and_round_trips(
     ckpt = _model_file.read(path)  # must not raise
     assert ckpt["equine_format_version"] == equine.utils.EQUINE_FORMAT_VERSION
     assert "contains_executable" not in ckpt and "embed_jit_save" not in ckpt
-    assert "embed_jit_save" not in ckpt
     assert ckpt["embedding_recipe"] == {
         "builder": "equine.tests.basic",
         "kwargs": {"tensor_dim": 6, "num_classes": 3},
@@ -201,25 +202,17 @@ def test_caller_supplied_architecture_overrides_recipe(tmp_path, train, cls) -> 
         assert len(str(err.value)) < 1000
 
 
-def test_protonet_load_onto_an_explicit_device_round_trips(tmp_path) -> None:
-    model, X = train_protonet(BasicEmbeddingModel(6, 3))
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_load_onto_an_explicit_device_round_trips(tmp_path, train, cls) -> None:
+    model, X = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
-    reloaded = eq.EquineProtonet.load(path, device="cpu")
-    assert reloaded.device == "cpu"
-    assert {p.device.type for p in reloaded.embedding_model.parameters()} == {"cpu"}
-    assert_same(model, reloaded, X)
-
-
-def test_generic_loader_takes_a_device_for_a_gp_file(tmp_path) -> None:
-    model, X = train_gp(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    reloaded = eq.load_equine_model(path, device="cpu")
-    assert isinstance(reloaded, eq.EquineGP)
-    assert reloaded.device == "cpu"
-    assert {p.device.type for p in reloaded.embedding_model.parameters()} == {"cpu"}
-    assert_same(model, reloaded, X)
+    for loader in (cls.load, eq.load_equine_model):
+        reloaded = loader(path, device="cpu")
+        assert isinstance(reloaded, cls)
+        assert reloaded.device == "cpu"
+        assert {p.device.type for p in reloaded.embedding_model.parameters()} == {"cpu"}
+        assert_same(model, reloaded, X)
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
@@ -471,15 +464,6 @@ def test_supplied_embedding_takes_the_files_precision(
         assert torch.equal(output.ood_scores, expected.ood_scores)
 
 
-_ACCELERATOR = (
-    "cuda"
-    if torch.cuda.is_available()
-    else "mps"
-    if torch.backends.mps.is_available()
-    else None
-)
-
-
 @pytest.mark.accelerator
 @pytest.mark.skipif(_ACCELERATOR is None, reason="needs a CUDA or MPS device")
 @pytest.mark.parametrize(
@@ -533,27 +517,12 @@ def test_embedding_with_mixed_precision_round_trips(tmp_path, train, cls) -> Non
 @pytest.mark.parametrize(
     "train, cls, key, name",
     [
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            "embedding_state_dict",
-            "linear_relu_stack.0.weight",
-            id="protonet-embedding",
-        ),
-        pytest.param(
-            train_gp,
-            eq.EquineGP,
-            "embedding_state_dict",
-            "linear_relu_stack.0.weight",
-            id="gp-embedding",
-        ),
-        pytest.param(
-            train_gp, eq.EquineGP, "laplace_model_save", "precision", id="gp-head"
-        ),
-        pytest.param(
-            train_gp, eq.EquineGP, "laplace_model_save", "seen_data", id="gp-count"
-        ),
+        (*_P, "embedding_state_dict", "linear_relu_stack.0.weight"),
+        (*_G, "embedding_state_dict", "linear_relu_stack.0.weight"),
+        (*_G, "laplace_model_save", "precision"),
+        (*_G, "laplace_model_save", "seen_data"),
     ],
+    ids=["protonet-embedding", "gp-embedding", "gp-head", "gp-count"],
 )
 def test_weights_of_another_dtype_kind_are_refused(
     tmp_path, train, cls, key, name
@@ -590,15 +559,6 @@ def test_unregistered_embedding_is_refused(tmp_path, train, cls) -> None:
     assert "UnregisteredNet" in message
     assert "embedding_architecture" in message
     assert "TorchScript" not in message and "allow_executable" not in message
-
-
-@pytest.mark.parametrize("train, cls", TRAINERS)
-def test_save_writes_no_executable_entries(tmp_path, train, cls) -> None:
-    model, _ = train(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    ckpt = _model_file.read(path)
-    assert "embed_jit_save" not in ckpt and "contains_executable" not in ckpt
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)
@@ -1135,29 +1095,20 @@ def test_save_refuses_submodules_changed_after_construction(
 def test_submodule_check_is_independent_of_the_device() -> None:
     """The check compares a meta-device rebuild with the live module. Layer descriptions
     do not mention the device."""
-    layers = [
-        torch.nn.Linear(4, 3),
-        torch.nn.Conv2d(2, 3, 3, stride=2, padding=1),
-        torch.nn.BatchNorm1d(3),
-        torch.nn.LayerNorm(3),
-        torch.nn.Embedding(10, 3, padding_idx=0),
-        torch.nn.LSTM(4, 3, num_layers=2),
-        torch.nn.MultiheadAttention(4, 2),
-        torch.nn.Dropout(0.2),
-        torch.nn.PReLU(3),
+    makers = [
+        lambda: torch.nn.Linear(4, 3),
+        lambda: torch.nn.Conv2d(2, 3, 3, stride=2, padding=1),
+        lambda: torch.nn.BatchNorm1d(3),
+        lambda: torch.nn.LayerNorm(3),
+        lambda: torch.nn.Embedding(10, 3, padding_idx=0),
+        lambda: torch.nn.LSTM(4, 3, num_layers=2),
+        lambda: torch.nn.MultiheadAttention(4, 2),
+        lambda: torch.nn.Dropout(0.2),
+        lambda: torch.nn.PReLU(3),
     ]
+    layers = [make() for make in makers]
     with torch.device("meta"):
-        on_meta = [
-            torch.nn.Linear(4, 3),
-            torch.nn.Conv2d(2, 3, 3, stride=2, padding=1),
-            torch.nn.BatchNorm1d(3),
-            torch.nn.LayerNorm(3),
-            torch.nn.Embedding(10, 3, padding_idx=0),
-            torch.nn.LSTM(4, 3, num_layers=2),
-            torch.nn.MultiheadAttention(4, 2),
-            torch.nn.Dropout(0.2),
-            torch.nn.PReLU(3),
-        ]
+        on_meta = [make() for make in makers]
     for live, skeleton in zip(layers, on_meta):
         assert equine.utils._submodule_difference(skeleton, live) is None, live
 
@@ -1847,36 +1798,62 @@ _HUGE = "x" * 100_000
 @pytest.mark.parametrize(
     "train, cls, settings, message",
     [
+        pytest.param(*_P, {"cov_type": _HUGE}, "cov_type", id="protonet-cov_type"),
+        pytest.param(*_P, {"cov_type": 3}, "cov_type", id="protonet-cov_type-int"),
+        pytest.param(*_P, {"device": _HUGE}, "device", id="protonet-device"),
+        pytest.param(*_G, {"device": _HUGE}, "device", id="gp-device"),
+        pytest.param(*_G, {"device": 0}, "device", id="gp-device-int"),
         pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"cov_type": _HUGE},
-            "cov_type",
-            id="protonet-cov_type",
+            *_P,
+            {"init_temperature": _HUGE},
+            "init_temperature",
+            id="protonet-temperature-str",
         ),
         pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"cov_type": 3},
-            "cov_type",
-            id="protonet-cov_type-int",
+            *_G,
+            {"init_temperature": True},
+            "init_temperature",
+            id="gp-temperature-bool",
         ),
         pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"device": _HUGE},
-            "device",
-            id="protonet-device",
+            *_P,
+            {"init_temperature": 10**400},
+            "init_temperature",
+            id="protonet-temperature-huge-int",
         ),
         pytest.param(
-            train_gp, eq.EquineGP, {"device": _HUGE}, "device", id="gp-device"
+            *_G,
+            {"init_temperature": 10**400},
+            "init_temperature",
+            id="gp-temperature-huge-int",
         ),
         pytest.param(
-            train_gp, eq.EquineGP, {"device": 0}, "device", id="gp-device-int"
+            *_P, {"relative_mahal": 1}, "relative_mahal", id="relative_mahal-int"
         ),
+        pytest.param(
+            *_P, {"use_temperature": "yes"}, "use_temperature", id="use_temperature-str"
+        ),
+        pytest.param(
+            *_G, {"feature_names": [1, 2]}, "feature_names", id="feature_names-ints"
+        ),
+        pytest.param(*_P, {"label_names": _HUGE}, "label_names", id="label_names-str"),
+        pytest.param(*_P, {"device": "meta"}, "device", id="protonet-meta"),
+        pytest.param(
+            *_P,
+            {"ood_distance": "rmd"},
+            r"settings\['ood_distance'\]",
+            id="ood_distance-unknown",
+        ),
+        pytest.param(
+            *_P,
+            {"ood_distance": 2},
+            r"settings\['ood_distance'\]",
+            id="ood_distance-int",
+        ),
+        pytest.param(*_G, {"device": "meta"}, "device", id="gp-meta"),
     ],
 )
-def test_file_supplied_settings_give_bounded_errors(
+def test_file_supplied_setting_values_are_type_checked(
     tmp_path, monkeypatch, train, cls, settings, message
 ) -> None:
     model, _ = train(BasicEmbeddingModel(6, 3))
@@ -1918,19 +1895,10 @@ def test_load_equine_model_bounds_train_summary_errors(
 @pytest.mark.parametrize(
     "train, cls, missing",
     [
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            ["settings", "outlier_kde", "model_head_save"],
-            id="protonet",
-        ),
-        pytest.param(
-            train_gp,
-            eq.EquineGP,
-            ["support", "laplace_model_save", "num_data", "train_batch_size"],
-            id="gp",
-        ),
+        (*_P, ["settings", "outlier_kde", "model_head_save"]),
+        (*_G, ["support", "laplace_model_save", "num_data", "train_batch_size"]),
     ],
+    ids=["protonet", "gp"],
 )
 def test_missing_checkpoint_entries_are_listed(tmp_path, train, cls, missing) -> None:
     model, _ = train(BasicEmbeddingModel(6, 3))
@@ -1943,17 +1911,18 @@ def test_missing_checkpoint_entries_are_listed(tmp_path, train, cls, missing) ->
         assert all(repr(key) in str(err.value) for key in missing)
 
 
-def test_protonet_support_the_embedding_cannot_read_is_a_value_error(
-    tmp_path,
+@pytest.mark.parametrize("train, cls", TRAINERS)
+def test_support_the_embedding_cannot_read_is_a_value_error(
+    tmp_path, train, cls
 ) -> None:
-    """The width probe runs the embedding on a stored support row."""
-    model, _ = train_protonet(BasicEmbeddingModel(6, 3))
+    """Loading runs the embedding on the stored support."""
+    model, _ = train(BasicEmbeddingModel(6, 3))
     path = str(tmp_path / "m.eq")
     model.save(path)
     ckpt = _model_file.read(path)
     ckpt["support"] = {label: torch.zeros(10, 7) for label in ckpt["support"]}
     _model_file.write(path, ckpt)
-    for loader in (eq.EquineProtonet.load, eq.load_equine_model):
+    for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="support") as err:
             loader(path)
         assert len(str(err.value)) < 1000
@@ -2165,105 +2134,6 @@ def test_outlier_kde_labels_that_collide_are_refused() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "train, cls, settings, message",
-    [
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"init_temperature": _HUGE},
-            "init_temperature",
-            id="protonet-temperature-str",
-        ),
-        pytest.param(
-            train_gp,
-            eq.EquineGP,
-            {"init_temperature": True},
-            "init_temperature",
-            id="gp-temperature-bool",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"init_temperature": 10**400},
-            "init_temperature",
-            id="protonet-temperature-huge-int",
-        ),
-        pytest.param(
-            train_gp,
-            eq.EquineGP,
-            {"init_temperature": 10**400},
-            "init_temperature",
-            id="gp-temperature-huge-int",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"relative_mahal": 1},
-            "relative_mahal",
-            id="relative_mahal-int",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"use_temperature": "yes"},
-            "use_temperature",
-            id="use_temperature-str",
-        ),
-        pytest.param(
-            train_gp,
-            eq.EquineGP,
-            {"feature_names": [1, 2]},
-            "feature_names",
-            id="feature_names-ints",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"label_names": _HUGE},
-            "label_names",
-            id="label_names-str",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"device": "meta"},
-            "device",
-            id="protonet-meta",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"ood_distance": "rmd"},
-            r"settings\['ood_distance'\]",
-            id="ood_distance-unknown",
-        ),
-        pytest.param(
-            train_protonet,
-            eq.EquineProtonet,
-            {"ood_distance": 2},
-            r"settings\['ood_distance'\]",
-            id="ood_distance-int",
-        ),
-        pytest.param(train_gp, eq.EquineGP, {"device": "meta"}, "device", id="gp-meta"),
-    ],
-)
-def test_file_supplied_setting_values_are_type_checked(
-    tmp_path, monkeypatch, train, cls, settings, message
-) -> None:
-    model, _ = train(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    ckpt = _model_file.read(path)
-    ckpt["settings"].update(settings)
-    _model_file.write(path, ckpt)
-    monkeypatch.setattr(cls, "__init__", _refuse_construction)
-    for loader in (cls.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match=message) as err:
-            loader(path)
-        assert len(str(err.value)) < 1000
-
-
 @pytest.mark.parametrize("train, cls", TRAINERS)
 @pytest.mark.parametrize("key", ["feature_names", "label_names"])
 def test_top_level_names_are_type_checked(tmp_path, train, cls, key) -> None:
@@ -2311,19 +2181,6 @@ def test_constructor_failures_are_bounded_value_errors(
     monkeypatch.setattr(cls, "__init__", explode)
     for loader in (cls.load, eq.load_equine_model):
         with pytest.raises(ValueError, match=cls.__name__) as err:
-            loader(path)
-        assert len(str(err.value)) < 1000
-
-
-def test_gp_support_the_embedding_cannot_read_is_a_value_error(tmp_path) -> None:
-    model, _ = train_gp(BasicEmbeddingModel(6, 3))
-    path = str(tmp_path / "m.eq")
-    model.save(path)
-    ckpt = _model_file.read(path)
-    ckpt["support"] = {label: torch.zeros(10, 7) for label in ckpt["support"]}
-    _model_file.write(path, ckpt)
-    for loader in (eq.EquineGP.load, eq.load_equine_model):
-        with pytest.raises(ValueError, match="support") as err:
             loader(path)
         assert len(str(err.value)) < 1000
 

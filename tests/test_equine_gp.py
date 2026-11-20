@@ -7,9 +7,11 @@ import pytest
 import torch
 import torchmetrics
 from conftest import (
+    LABEL_KINDS,
     BasicEmbeddingModel,
     assert_valid_prediction,
     generate_random_string_list,
+    labels_of_kind,
     random_dataset,
     stored_tensors,
     use_basic_embedding_model,
@@ -639,7 +641,10 @@ def test_update_support_draws_one_permutation_per_class(label_dtype, shift) -> N
     )
     support_x[:, 0] = torch.arange(len(support_y))
     model = eq.EquineGP(
-        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+        BasicEmbeddingModel(FEATURES, CLASSES),
+        CLASSES,
+        CLASSES + shift,
+        num_random_features=16,
     )
     for seed in range(5):
         torch.manual_seed(seed)
@@ -670,6 +675,134 @@ def test_update_support_refuses_support_x_and_support_y_of_different_lengths() -
         with pytest.raises(ValueError, match="support_x has 19 examples"):
             model.update_support(x[1:], y, support_size=3)
         assert torch.equal(torch.get_rng_state(), state)
+
+
+GP_LABEL_KINDS = LABEL_KINDS + [
+    f"{kind} {dtype}"
+    for kind in ("ignored", "negative", "too large")
+    for dtype in ("float", "long")
+]
+
+
+def _gp_labels_of_kind(y: torch.Tensor, kind: str) -> tuple[torch.Tensor, str]:
+    """``labels_of_kind``, plus labels 0, 1 and 2 with label 2 replaced by a value
+    outside the classes (-100, -1 or ``CLASSES``), as float or long."""
+    if kind in LABEL_KINDS:
+        return labels_of_kind(y, kind)
+    name, dtype = kind.rsplit(" ", 1)
+    value = {"ignored": -100, "negative": -1, "too large": CLASSES}[name]
+    labels = torch.where(y == 2, value, y)
+    labels = labels.float() if dtype == "float" else labels.long()
+    return labels, f"must be class indices from 0 to {CLASSES - 1}, got {value}\\."
+
+
+@pytest.mark.parametrize("labels", GP_LABEL_KINDS)
+def test_train_model_refuses_labels_that_are_not_1d_whole_numbers(labels) -> None:
+    torch.manual_seed(0)
+    _, x, y = separable_dataset()
+    y, message = _gp_labels_of_kind(y, labels)
+    model = eq.EquineGP(
+        BasicEmbeddingModel(FEATURES, CLASSES), CLASSES, CLASSES, num_random_features=16
+    )
+    model.eval()
+    state = copy.deepcopy(model.state_dict())
+    summary = copy.deepcopy(model.train_summary)
+    with pytest.raises(ValueError, match=f"dataset labels {message}"):
+        model.train_model(
+            torch.utils.data.TensorDataset(x, y),
+            torch.nn.CrossEntropyLoss(),
+            torch.optim.SGD(model.parameters(), lr=0.05),
+            num_epochs=1,
+            batch_size=32,
+        )
+    after = model.state_dict()
+    assert all(torch.equal(state[key], after[key]) for key in state)
+    assert not model.training
+    assert not model.model.training_parameters_set
+    assert model.train_summary == summary
+
+
+@pytest.mark.parametrize("labels", GP_LABEL_KINDS)
+def test_calibrate_model_refuses_labels_that_are_not_1d_whole_numbers(labels) -> None:
+    model, x = _gp_trained_on_cpu()
+    _, _, y = separable_dataset()
+    y, message = _gp_labels_of_kind(y, labels)
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    with pytest.raises(ValueError, match=f"dataset labels {message}"):
+        model.calibrate_model(
+            torch.utils.data.TensorDataset(x, y), calibration_batch_size=16
+        )
+    assert model.temperature.item() == 0.5
+    assert not model.temperature.requires_grad
+
+
+@pytest.mark.parametrize("error", ["label", "interrupt"])
+def test_calibrate_model_restores_the_temperature_when_a_later_batch_raises(
+    error,
+) -> None:
+    model, x = _gp_trained_on_cpu()
+    _, _, y = separable_dataset()
+    y = y.float()
+    if error == "label":
+        y[-1] = 0.5
+    forward_calls = []
+
+    def count_and_interrupt(*_):
+        forward_calls.append(None)
+        if error == "interrupt" and len(forward_calls) == 3:
+            raise KeyboardInterrupt
+
+    model.model.register_forward_hook(count_and_interrupt)
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    expected = ValueError if error == "label" else KeyboardInterrupt
+    with pytest.raises(expected):
+        model.calibrate_model(
+            torch.utils.data.TensorDataset(x, y),
+            calibration_lr=0.1,
+            calibration_batch_size=4,
+        )
+    assert len(forward_calls) > 0
+    assert model.temperature.item() == 0.5
+    assert not model.temperature.requires_grad
+
+
+def test_calibrate_model_leaves_the_temperature_as_it_was_when_the_optimizer_raises(
+    monkeypatch,
+) -> None:
+    model, x = _gp_trained_on_cpu()
+    _, _, y = separable_dataset()
+
+    def refuse(*args, **kwargs):
+        raise ValueError("refused")
+
+    monkeypatch.setattr(torch.optim, "Adam", refuse)
+    with torch.no_grad():
+        model.temperature.fill_(0.5)
+    with pytest.raises(ValueError, match="refused"):
+        model.calibrate_model(torch.utils.data.TensorDataset(x, y.float()))
+    assert model.temperature.item() == 0.5
+    assert not model.temperature.requires_grad
+
+
+@pytest.mark.parametrize("labels", GP_LABEL_KINDS)
+def test_update_support_refuses_labels_that_are_not_1d_whole_numbers(labels) -> None:
+    model, x = _gp_trained_on_cpu()
+    _, _, y = separable_dataset()
+    model.update_support(x, y.float(), support_size=5)
+    support = {label: rows.clone() for label, rows in model.support.items()}
+    prototypes = model.prototypes.clone()
+    y, message = _gp_labels_of_kind(y, labels)
+    state = torch.get_rng_state()
+    with pytest.raises(ValueError, match=f"support_y {message}"):
+        model.update_support(x, y, support_size=5)
+    assert torch.equal(torch.get_rng_state(), state)
+    assert list(model.support) == list(support)
+    assert all(
+        torch.equal(model.support[label], rows) for label, rows in support.items()
+    )
+    assert torch.equal(model.prototypes, prototypes)
 
 
 @pytest.mark.parametrize("batch_size", [1, 7])

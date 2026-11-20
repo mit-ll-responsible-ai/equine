@@ -9,7 +9,6 @@ import os
 import sys
 import tempfile
 import warnings
-import zipfile
 from random import choice
 from string import ascii_lowercase, digits
 
@@ -72,16 +71,6 @@ def archive_tensor(module: torch.nn.Module) -> torch.Tensor:
         warnings.simplefilter("ignore", FutureWarning)
         torch.jit.save(script_module(module), buffer)
     return torch.frombuffer(bytearray(buffer.getvalue()), dtype=torch.uint8)
-
-
-def _rewrite_zip(src: str, dst: str, edit) -> None:
-    """Copy a torch archive entry by entry (uncompressed) through ``edit(name, data)``."""
-    with (
-        zipfile.ZipFile(src) as zin,
-        zipfile.ZipFile(dst, "w", compression=zipfile.ZIP_STORED) as zout,
-    ):
-        for info in zin.infolist():
-            zout.writestr(info, edit(info.filename, zin.read(info.filename)))
 
 
 @pytest.fixture(autouse=True)

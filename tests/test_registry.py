@@ -220,17 +220,15 @@ REJECTED_PLAIN_VALUES = [
 
 
 @pytest.mark.parametrize("value", ACCEPTED_PLAIN_VALUES)
-def test_accepted_plain_values_survive_weights_only_round_trip(value, tmp_path) -> None:
+def test_accepted_plain_values_survive_a_recipe_round_trip(value) -> None:
     @registry.embedding_architecture(_fresh_name("plain_ok"))
     class Net(torch.nn.Module):
         def __init__(self, value) -> None:
             super().__init__()
 
     recipe = registry.embedding_recipe(Net(value))
-    path = tmp_path / "recipe.pt"
-    torch.save(recipe, path)
-    loaded = torch.load(path, weights_only=True)
-    assert loaded == recipe
+    rebuilt = registry.build_from_recipe(recipe)
+    assert registry.embedding_recipe(rebuilt) == recipe
 
 
 @pytest.mark.parametrize("value", REJECTED_PLAIN_VALUES)
@@ -280,9 +278,9 @@ def _nested(depth: int, leaf: Any = 1) -> Any:
     return leaf
 
 
-def test_containers_shared_many_times_are_checked_once(tmp_path) -> None:
+def test_containers_shared_many_times_are_checked_once() -> None:
     """Each level holds the level below twice, so a walk of every path would
-    visit 2**25 lists; a file stores each list once."""
+    visit 2**25 lists."""
     Net = _architecture_taking("shared_dag")
     node: Any = [1]
     for _ in range(24):
@@ -290,17 +288,14 @@ def test_containers_shared_many_times_are_checked_once(tmp_path) -> None:
 
     start = time.perf_counter()
     recipe = registry.embedding_recipe(Net(node))
-    path = tmp_path / "recipe.pt"
-    torch.save(recipe, path)
-    rebuilt = registry.build_from_recipe(torch.load(path, weights_only=True))
+    rebuilt = registry.build_from_recipe(recipe)
     assert time.perf_counter() - start < 2.0
 
-    assert path.stat().st_size < 10_000
     options = registry.embedding_recipe(rebuilt)["kwargs"]["options"]
     assert options[0] is options[1]  # the recipe's copies keep the sharing
 
 
-def test_a_list_passed_twice_is_accepted_and_round_trips(tmp_path) -> None:
+def test_a_list_passed_twice_is_accepted_and_round_trips() -> None:
     @registry.embedding_architecture(_fresh_name("shared_list"))
     class Net(torch.nn.Module):
         def __init__(self, sizes: list, other_sizes: list, nested: dict) -> None:
@@ -313,15 +308,13 @@ def test_a_list_passed_twice_is_accepted_and_round_trips(tmp_path) -> None:
         "other_sizes": [4, 8],
         "nested": {"a": [4, 8], "b": [[4, 8]]},
     }
-    path = tmp_path / "recipe.pt"
-    torch.save(recipe, path)
-    rebuilt = registry.build_from_recipe(torch.load(path, weights_only=True))
+    rebuilt = registry.build_from_recipe(recipe)
     assert registry.embedding_recipe(rebuilt) == recipe
 
 
 def test_a_container_shared_by_many_arguments_is_checked_once() -> None:
-    """Many keyword arguments can hold one large list, which a file stores
-    once; walking it once per argument would visit 40 million items."""
+    """Many keyword arguments can hold one large list; walking it once per
+    argument would visit 40 million items."""
 
     @registry.embedding_architecture(_fresh_name("shared_kwargs"))
     class Net(torch.nn.Module):

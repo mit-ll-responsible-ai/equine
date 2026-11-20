@@ -32,7 +32,8 @@
 - **Dependency floors.** numpy `>= 2.0, < 3`, scipy `>= 1.13`, torchmetrics
   `>= 1.2.1` (the previous `>= 0.6` allowed releases that cannot import
   EQUINE's metrics, #201, #205), tqdm `>= 4.66.3`, beartype `>= 0.22.1`
-  (`>= 0.23` on Python 3.15) and icontract `>= 2.6.2`. The `tests` extra needs
+  (`>= 0.23` on Python 3.15) and icontract `>= 2.6.2`. safetensors `>= 0.5.0` is a
+  new dependency (model files are safetensors files, see below). The `tests` extra needs
   pytest `>= 7.3.2` and pytest-cov `>= 4.0`.
 - The `tests` extra holds what the test suite needs, now including
   `pytest-xdist`; `pre-commit` and `codespell` move to a new `dev` extra
@@ -132,10 +133,16 @@
   `None`, and lists, tuples and dicts of those, with `str` or `int` dict
   keys). The shipped `equine.MLP` is already registered. The example
   notebooks now register their embedding architectures.
-- Model files are read with `torch.load(weights_only=True)` (#168). Files
-  written by earlier releases are refused. Rewrite each one once, passing the
-  embedding architecture it was built from (only for files you trust: the
-  upgrade unpickles the file without restrictions and loads its TorchScript):
+- **Model files are safetensors files** (#168, #287). `save()` writes the
+  tensors as a safetensors file, and the settings, the embedding recipe and the
+  train summary as JSON in its header (`equine_format_version` 4; EQUINE 0.1.8
+  wrote none). Values JSON does not hold (tuples, dict keys that are not
+  strings, NaN and infinities, `OrderedDict` and its module versions,
+  `torch.Size`) are tagged, so they load back as they were saved. Loading reads
+  no pickle and runs no code from the file. Files written by earlier releases
+  are refused. Rewrite each one once, passing the embedding architecture it was
+  built from (only for files you trust: the upgrade unpickles the file without
+  restrictions and loads its TorchScript):
 
   ```python
   # from Python
@@ -158,10 +165,13 @@
   Pass inputs to compare on, one per row: `check_inputs=X` from Python, or
   `--check-inputs FILE` with a tensor saved by `torch.save`. To upgrade
   without the check, pass `allow_unchecked=True` (`--no-check`). The upgrade
-  reads the file with the safe loader first, and unpickles a file from an
-  earlier release only after the recipe, the architecture, the check inputs
-  and the output path have been validated. Reading the old layout is
-  deprecated: `equine.upgrade` is removed in a later release.
+  reads the file with `torch.load(weights_only=True)` first, and unpickles a
+  file from an earlier release only after the recipe, the architecture, the
+  check inputs and the output path have been validated. The upgrade also
+  rewrites a format 2 or 3 file, which development builds wrote, with no
+  `--recipe`: `python -m equine.upgrade FILE`, adding `--import MODULE` when
+  its recipe names an architecture that EQUINE does not ship. Reading the old
+  layout is deprecated: `equine.upgrade` is removed in a later release.
 - `load_equine_model` accepts `embedding_model` (keyword-only), like
   `EquineProtonet.load` and `EquineGP.load`.
 - Requires `torch >= 2.14.1`, which has MPS kernels for the Cholesky
@@ -169,24 +179,28 @@
   predicts on MPS (with EQUINE 0.1.8 and torch 2.6 or 2.9, `EquineGP.predict`
   raised `NotImplementedError` there). On macOS this means an Apple silicon
   Mac with macOS 14 or later: torch 2.12 and later publish macOS wheels only
-  for those, so Intel Macs are not supported. Releases before 2.6 also have a
-  known bypass of `weights_only=True` (CVE-2025-32434), and the safe load
-  path refuses to run on them.
+  for those, so Intel Macs are not supported.
 - `save()` refuses a `train_summary` entry or embedding extra state that is not a
   plain value, a tensor, a `torch.Size` or an `OrderedDict`, and a tensor in either
   that is quantized or carries Python attributes. Dict keys must be `str` or `int`;
-  in `train_summary` they may also be `float`, `bool` or `None`.
-- Loading now refuses several kinds of files crafted to exhaust memory:
-  compressed or oversized archives, non-zip files, pickles that call a function
-  or class `save` does not write (such as a dtype conversion or a `bytearray`
-  that allocates far more than the file holds), tensors whose shape is
-  larger than their storage (expanded views), weights laid out as views of
-  one storage too small for the network they describe, support tensors that
-  alias one another (`equine.upgrade` copies them apart), and
-  recipes or settings that describe a model larger than the weights stored in
-  the file. Known limit: the work done after loading (embedding the support
-  set) grows with the number of support rows times the embedding's width, so
-  it can exceed the file's size even for an honest file.
+  in `train_summary` they may also be `float`, `bool` or `None`. It also refuses a
+  tensor anywhere in the model that is not dense or whose dtype a model file does
+  not store (only float64, float32, float16, bfloat16, int64, int32, int16, int8,
+  uint8 and bool are stored), settings, a recipe, feature and label names and a
+  summary that need more than 4 MiB of JSON (a recipe whose lists contain each
+  other many levels deep can reach it), and a model file header longer than
+  12 MiB.
+- Loading refuses a header other than the ones `save` writes: a header longer
+  than 12 MiB, other metadata, a newer format version, JSON that is not strict
+  or is larger than 4 MiB, and a stored tensor referenced from more than one
+  place or from none (all checked before any tensor is read), then malformed
+  tags, nesting deeper than `save` writes, and dict keys whose hashes repeat.
+  safetensors refuses tensors whose bytes overlap or run past the file. Each
+  tensor is read once. Recipes or settings that describe a model larger than
+  the weights stored in the file are refused too. Known limit: the work done
+  after loading (embedding the support set) grows with the number of support
+  rows times the embedding's width, so it can exceed the file's size even for
+  an honest file.
 - Settings keys that the model class does not accept are refused with a
   `ValueError`. `EquineGP` files saved by EQUINE 0.1.5 or earlier store
   `use_temperature`, which EquineGP has not accepted since 0.1.6 (such files
@@ -203,17 +217,16 @@
   selects the statistic: `"rmd_sq"` (the default) or `"rmd_sqrt"` (0.1.8's,
   including its division of the class distance by the temperature). `save`
   writes the setting; a model file without it, which includes every file
-  `equine.upgrade` writes, loads as `"rmd_sqrt"` and keeps its scores. `load`
+  `equine.upgrade` writes from an EQUINE 0.1.x file, loads as `"rmd_sqrt"` and
+  keeps its scores. `load`
   builds the model from the file's settings and then sets `ood_distance`, so a
   subclass whose `__init__` does not take `ood_distance` loads files without
   the setting; like every saved setting, a file that holds it needs a class
   whose `__init__` takes it. The outlier-score KDEs are fitted for the
   statistic in use: after changing `ood_distance` on a model, refit them with
   `update_support` or `train_model` (#210).
-- Model files carry `equine_format_version` 3 (EQUINE 0.1.8 wrote none),
-  `EquineGP` files too, whose contents are otherwise unchanged. An EQUINE that
-  reads format version 2 at most refuses them with "Unsupported EQUINE model
-  format version 3" (#210).
+- A model file with an `equine_format_version` newer than this EQUINE's is
+  refused with "Unsupported EQUINE model format version N".
 - `Equine` declares `get_support()` and `update_support(support_x,
   support_y, *args, **kwargs)` as abstract methods, so a subclass of `Equine`
   must implement both. `update_support` on both model classes takes its

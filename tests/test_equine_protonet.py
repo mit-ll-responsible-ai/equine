@@ -29,6 +29,7 @@ from hypothesis import given, settings, strategies as st
 from scipy.stats import gaussian_kde
 
 import equine as eq
+from equine import _model_file
 from equine.equine_protonet import DEFAULT_EPSILON, Protonet
 
 
@@ -699,7 +700,7 @@ def test_load_refuses_a_class_with_one_support_example(tmp_path) -> None:
     checkpoint = model._to_checkpoint()
     checkpoint["support"][0] = checkpoint["support"][0][:1]
     path = str(tmp_path / "one_example.eq")
-    torch.save(checkpoint, path)
+    _model_file.write(path, checkpoint)
     with pytest.raises(ValueError, match="holds 1 example\\(s\\) of class 0"):
         eq.EquineProtonet.load(path)
 
@@ -710,7 +711,7 @@ def test_load_refuses_a_one_class_support(tmp_path) -> None:
     checkpoint["support"] = {0: checkpoint["support"][0]}
     checkpoint["outlier_kde"] = {0: checkpoint["outlier_kde"][0]}
     path = str(tmp_path / "one_class.eq")
-    torch.save(checkpoint, path)
+    _model_file.write(path, checkpoint)
     for loader in (eq.EquineProtonet.load, eq.load_equine_model):
         with pytest.raises(ValueError, match="support holds one class"):
             loader(path)
@@ -861,7 +862,7 @@ def test_update_support_keeps_kdes_only_for_the_new_labels(tmp_path) -> None:
     assert list(model.outlier_score_kde) == [7, 8]
     path = str(tmp_path / "m.eq")
     model.save(path)
-    assert list(torch.load(path, weights_only=True)["outlier_kde"]) == [7, 8]
+    assert list(_model_file.read(path)["outlier_kde"]) == [7, 8]
 
 
 def test_update_support_scores_ood_with_the_new_labels_kdes() -> None:

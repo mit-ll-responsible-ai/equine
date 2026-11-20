@@ -213,7 +213,7 @@ def _check_plain(
 
     With ``allow_tensors`` (for a module's extra state, which lives in its
     state_dict), tensors that are not quantized and carry no Python attributes,
-    ``torch.Size`` and ``OrderedDict`` are accepted too: the safe loader reads all
+    ``torch.Size`` and ``OrderedDict`` are accepted too: a model file stores all
     three. ``what`` and ``owner`` name the kind of value and what it belongs to in the
     error message, which locates an offending value starting from its key in
     ``values``. Dict keys must be exactly one of ``key_types``. The message names a

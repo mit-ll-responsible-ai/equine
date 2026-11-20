@@ -1147,6 +1147,12 @@ def _first_label_predictions(rows: int) -> torch.Tensor:
     return torch.nn.functional.one_hot(torch.zeros(rows, dtype=torch.long), 3).double()
 
 
+def _build(points, weights, bandwidth):
+    """``_OutlierGrid.build`` for as many rows as a grid can have nodes."""
+    grid_class = eq.equine_protonet._OutlierGrid
+    return grid_class.build(points, weights, bandwidth, grid_class.MAX_NODES)
+
+
 KDE_KINDS = [
     "halfnormal",
     "lognormal",
@@ -1269,7 +1275,7 @@ def test_outlier_grid_scores_the_top_point_when_its_reach_rounds_away() -> None:
 def test_outlier_grid_takes_unequal_weights_within_1e_14_of_summing_to_1() -> None:
     """``build`` returns None for unequal weights whose sum is 2e-14 from 1 and a
     grid for unequal weights whose sum is 5e-15 from 1."""
-    build = eq.equine_protonet._OutlierGrid.build
+    build = _build
     points = torch.tensor([0.0, 1.0], dtype=torch.float64)
     off = torch.tensor([0.5, 0.5 + 2e-14], dtype=torch.float64)
     near = torch.tensor([0.5, 0.5 + 5e-15], dtype=torch.float64)
@@ -1344,7 +1350,7 @@ def test_outlier_scores_of_a_kde_off_the_grid_are_summed_directly(change) -> Non
     model = copy.deepcopy(_model_with_labels_0_2_5())
     kde = gaussian_kde(np.abs(np.random.default_rng(0).standard_normal(50)))
     model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
-    dists = torch.linspace(-1.0, 4.0, 101, dtype=torch.float64)
+    dists = torch.linspace(-1.0, 4.0, 1001, dtype=torch.float64)
     predictions = _first_label_predictions(len(dists))
     model._compute_outlier_scores(dists, predictions)
     assert list(model._outlier_grids) == [0]
@@ -1380,7 +1386,7 @@ def test_a_kde_over_a_cap_is_summed_directly(monkeypatch, cap, dtype) -> None:
     points = torch.from_numpy(kde.dataset[0]).double()
     weights = torch.from_numpy(kde.weights).double()
     bandwidth = float(np.sqrt(kde.covariance[0, 0]))
-    grid = eq.equine_protonet._OutlierGrid.build(points, weights, bandwidth)
+    grid = _build(points, weights, bandwidth)
     assert grid is not None
     nodes = len(grid.table)
     limit = nodes if cap == "MAX_NODES" else nodes * len(points)
@@ -1405,7 +1411,7 @@ def test_a_kde_over_a_cap_is_summed_directly(monkeypatch, cap, dtype) -> None:
 
 def test_outlier_grid_is_not_built_with_a_zero_node_spacing() -> None:
     """``build`` returns None when the spacing of the nodes rounds to 0."""
-    grid = eq.equine_protonet._OutlierGrid.build(
+    grid = _build(
         torch.tensor([0.0, 2e-322], dtype=torch.float64),
         torch.full((2,), 0.5, dtype=torch.float64),
         5e-324,
@@ -1413,16 +1419,108 @@ def test_outlier_grid_is_not_built_with_a_zero_node_spacing() -> None:
     assert grid is None
 
 
+def test_outlier_grid_is_built_for_at_least_an_eighth_as_many_rows_as_nodes() -> None:
+    """``build`` tabulates a KDE whose grid has 800 nodes for 100 rows and returns
+    None for 99."""
+    grid_class = eq.equine_protonet._OutlierGrid
+    points = torch.tensor([0.0, 6.96875], dtype=torch.float64)
+    weights = torch.full((2,), 0.5, dtype=torch.float64)
+    grid = grid_class.build(points, weights, 1.0, 100)
+    assert grid is not None
+    assert len(grid.table) == 800
+    assert grid_class.build(points, weights, 1.0, 99) is None
+
+
+def _model_with_one_kde():
+    """A copy of ``_model_with_labels_0_2_5()`` whose labels share one KDE of 50
+    points, the KDE, and the fewest rows for which ``build`` tabulates it."""
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    kde = gaussian_kde(np.abs(np.random.default_rng(0).standard_normal(50)))
+    model.outlier_score_kde = OrderedDict((label, kde) for label in (0, 2, 5))
+    points = torch.from_numpy(kde.dataset[0]).double()
+    weights = torch.from_numpy(kde.weights).double()
+    nodes = len(_build(points, weights, float(np.sqrt(kde.covariance[0, 0]))).table)
+    per_row = eq.equine_protonet._OutlierGrid.MAX_NODES_PER_ROW
+    return model, kde, math.ceil(nodes / per_row)
+
+
+def test_a_call_builds_the_grid_of_each_label_it_predicts_often_enough() -> None:
+    """A call that predicts the first label for the fewest examples ``build``
+    tabulates its KDE for, and the second label for one fewer, builds and reads
+    the first label's grid and sums the second label's KDE directly."""
+    model, kde, rows = _model_with_one_kde()
+    dists = torch.linspace(-1.0, 4.0, 2 * rows - 1, dtype=torch.float64)
+    columns = torch.arange(len(dists)) % 2
+    first, second = columns == 0, columns == 1
+    assert int(first.sum()) == rows
+    assert int(second.sum()) == rows - 1
+    predictions = torch.nn.functional.one_hot(columns, 3).double()
+
+    scores = model._compute_outlier_scores(dists, predictions)
+
+    assert list(model._outlier_grids) == [0]
+    grid = model._outlier_grids[0][1]
+    assert torch.equal(scores[first], grid(dists[first]))
+    assert torch.equal(scores[second], _direct_outlier_cdf(kde, dists[second]))
+
+
+def test_a_kept_grid_scores_a_single_example(monkeypatch) -> None:
+    """After a call builds the first label's grid, a call that predicts the first
+    label for one example reads that grid without summing the KDE or building
+    another grid."""
+    model, _, rows = _model_with_one_kde()
+    dists = torch.linspace(-1.0, 4.0, rows, dtype=torch.float64)
+    model._compute_outlier_scores(dists, _first_label_predictions(rows))
+    grid = model._outlier_grids[0][1]
+
+    def fail(*args):
+        raise AssertionError("summed or built")
+
+    monkeypatch.setattr(eq.equine_protonet, "_upper_tail", fail)
+    monkeypatch.setattr(eq.equine_protonet._OutlierGrid, "build", staticmethod(fail))
+    one = torch.tensor([1.234], dtype=torch.float64)
+
+    score = model._compute_outlier_scores(one, _first_label_predictions(1))
+
+    assert torch.equal(score, grid(one))
+    assert model._outlier_grids[0][1] is grid
+
+
+def test_a_call_with_too_few_examples_drops_a_stale_grid_and_sums_directly() -> None:
+    """After the KDE of a label with a grid changes, a call that predicts the label
+    for one example drops the grid and sums the KDE directly."""
+    model, kde, rows = _model_with_one_kde()
+    dists = torch.linspace(-1.0, 4.0, rows, dtype=torch.float64)
+    model._compute_outlier_scores(dists, _first_label_predictions(rows))
+    assert list(model._outlier_grids) == [0]
+    kde.set_bandwidth(kde.factor * 2.0)
+    one = torch.tensor([1.234], dtype=torch.float64)
+
+    score = model._compute_outlier_scores(one, _first_label_predictions(1))
+
+    assert model._outlier_grids == {}
+    assert torch.equal(score, _direct_outlier_cdf(kde, one))
+
+
+def test_predict_of_one_example_builds_no_grid() -> None:
+    """A ``predict`` of one example on a model without grids keeps no grid."""
+    model = copy.deepcopy(_model_with_labels_0_2_5())
+    _, x, _ = separable_dataset()
+    model.predict(x[:1])
+    assert model._outlier_grids == {}
+
+
 def _model_with_grids():
-    """A copy of ``_model_with_labels_0_2_5()``, its training rows and labels, and
-    the OOD scores of its first ``predict`` of the rows, which builds a grid for
-    each label."""
+    """A copy of ``_model_with_labels_0_2_5()``, its training rows and labels, the
+    rows repeated 4 times, and the OOD scores of its first ``predict`` of those,
+    which builds a grid for each label."""
     model = copy.deepcopy(_model_with_labels_0_2_5())
     _, x, y = separable_dataset()
     y = torch.tensor([0.0, 2.0, 5.0])[y]
-    scores = model.predict(x).ood_scores
+    queries = x.repeat(4, 1)
+    scores = model.predict(queries).ood_scores
     assert sorted(model._outlier_grids) == [0, 2, 5]
-    return model, x, y, scores
+    return model, x, y, queries, scores
 
 
 def _scores_from_new_grids(model, x) -> torch.Tensor:
@@ -1464,28 +1562,28 @@ def _change_kde_of_label_2(model, change: str) -> None:
     ],
 )
 def test_predict_rebuilds_the_grid_of_a_changed_kde(change) -> None:
-    model, x, _, before = _model_with_grids()
+    model, _, _, queries, before = _model_with_grids()
     _change_kde_of_label_2(model, change)
-    expected = _scores_from_new_grids(model, x)
+    expected = _scores_from_new_grids(model, queries)
     assert not torch.equal(expected, before)
-    assert torch.equal(model.predict(x).ood_scores, expected)
+    assert torch.equal(model.predict(queries).ood_scores, expected)
 
 
 def test_predict_keeps_the_grid_of_a_kde_replaced_by_an_equal_one() -> None:
-    model, x, _, before = _model_with_grids()
+    model, _, _, queries, before = _model_with_grids()
     grid = model._outlier_grids[2][1]
     model.outlier_score_kde[2] = copy.deepcopy(model.outlier_score_kde[2])
-    assert torch.equal(model.predict(x).ood_scores, before)
+    assert torch.equal(model.predict(queries).ood_scores, before)
     assert model._outlier_grids[2][1] is grid
 
 
 def test_update_support_and_train_model_drop_the_grids() -> None:
-    model, x, y, before = _model_with_grids()
+    model, x, y, queries, before = _model_with_grids()
     model.update_support(x, y, calib_frac=0.5)
     assert model._outlier_grids == {}
-    expected = _scores_from_new_grids(model, x)
+    expected = _scores_from_new_grids(model, queries)
     assert not torch.equal(expected, before)
-    assert torch.equal(model.predict(x).ood_scores, expected)
+    assert torch.equal(model.predict(queries).ood_scores, expected)
     assert sorted(model._outlier_grids) == [0, 2, 5]
     before = expected
     model.train_model(
@@ -1497,15 +1595,15 @@ def test_update_support_and_train_model_drop_the_grids() -> None:
         episode_size=30,
     )
     assert model._outlier_grids == {}
-    expected = _scores_from_new_grids(model, x)
+    expected = _scores_from_new_grids(model, queries)
     assert not torch.equal(expected, before)
-    assert torch.equal(model.predict(x).ood_scores, expected)
+    assert torch.equal(model.predict(queries).ood_scores, expected)
 
 
 def test_a_failed_update_support_keeps_the_grids(monkeypatch) -> None:
     """``update_support`` that fails after refitting the KDEs restores the KDEs and
     the grids built from them."""
-    model, x, y, before = _model_with_grids()
+    model, x, y, queries, before = _model_with_grids()
     grids = model._outlier_grids
     kept = dict(grids)
     fit = model._fit_outlier_scores
@@ -1519,12 +1617,12 @@ def test_a_failed_update_support_keeps_the_grids(monkeypatch) -> None:
         model.update_support(x, y, calib_frac=0.5)
     assert model._outlier_grids is grids
     assert grids == kept
-    assert torch.equal(model.predict(x).ood_scores, before)
+    assert torch.equal(model.predict(queries).ood_scores, before)
     assert all(grids[label][1] is kept[label][1] for label in kept)
 
 
 def test_load_unpickling_and_deepcopy_start_without_grids(tmp_path) -> None:
-    model, x, _, before = _model_with_grids()
+    model, _, _, queries, before = _model_with_grids()
     assert "_outlier_grids" not in model.__getstate__()
     assert sorted(model._outlier_grids) == [0, 2, 5]
     path = str(tmp_path / "protonet.eq")
@@ -1535,7 +1633,7 @@ def test_load_unpickling_and_deepcopy_start_without_grids(tmp_path) -> None:
         copy.deepcopy(model),
     ):
         assert other._outlier_grids == {}
-        assert torch.equal(other.predict(x).ood_scores, before)
+        assert torch.equal(other.predict(queries).ood_scores, before)
         assert sorted(other._outlier_grids) == [0, 2, 5]
     assert sorted(model._outlier_grids) == [0, 2, 5]
 
@@ -1545,14 +1643,14 @@ def test_two_threads_predicting_at_once_get_the_scores_of_one(monkeypatch) -> No
     scores of a single-threaded ``predict``, and the model keeps a grid per
     label."""
     model = copy.deepcopy(_model_with_labels_0_2_5())
-    _, x, _ = separable_dataset()
-    expected = _scores_from_new_grids(model, x)
+    queries = separable_dataset()[1].repeat(4, 1)
+    expected = _scores_from_new_grids(model, queries)
     build = eq.equine_protonet._OutlierGrid.build
     together = threading.Barrier(2, timeout=30)
 
-    def build_together(points, weights, bandwidth):
+    def build_together(points, weights, bandwidth, rows):
         together.wait()
-        return build(points, weights, bandwidth)
+        return build(points, weights, bandwidth, rows)
 
     monkeypatch.setattr(
         eq.equine_protonet._OutlierGrid, "build", staticmethod(build_together)
@@ -1561,7 +1659,7 @@ def test_two_threads_predicting_at_once_get_the_scores_of_one(monkeypatch) -> No
 
     def predict(i: int) -> None:
         try:
-            results[i] = model.predict(x).ood_scores
+            results[i] = model.predict(queries).ood_scores
         except Exception as err:
             results[i] = err
 
@@ -1575,7 +1673,7 @@ def test_two_threads_predicting_at_once_get_the_scores_of_one(monkeypatch) -> No
         assert torch.equal(result, expected)
     assert sorted(model._outlier_grids) == [0, 2, 5]
     monkeypatch.undo()
-    assert torch.equal(model.predict(x).ood_scores, expected)
+    assert torch.equal(model.predict(queries).ood_scores, expected)
 
 
 @pytest.mark.parametrize("label_dtype", [torch.float32, torch.long])

@@ -27,6 +27,7 @@ from .utils import (
     _checked_settings,
     _cholesky_with_jitter,
     _embedding_checkpoint,
+    _EpisodeSampler,
     _get_shuffle_idxs_by_class,
     _input_to_model,
     _label_text,
@@ -46,7 +47,6 @@ from .utils import (
     _require_names,
     _shown,
     _support_from_file,
-    generate_episode,
     generate_support,
     generate_train_summary,
     stratified_train_test_split,
@@ -593,6 +593,33 @@ def _require_examples_per_class(
             )
 
 
+def _require_whole_number_labels(y: torch.Tensor, labels: list[Any], name: str) -> None:
+    """
+    Refuse labels that are not 1-D or not whole numbers.
+
+    Parameters
+    ----------
+    y : torch.Tensor
+        The labels.
+    labels : list[Any]
+        The distinct values in ``y``.
+    name : str
+        What ``y`` is, named in the message.
+
+    Raises
+    ------
+    ValueError
+        If ``y`` is not 1-D, or ``y`` is a floating-point tensor and a value in
+        ``labels`` is not a whole number (a fraction, an infinity or NaN).
+    """
+    if y.dim() != 1:
+        raise ValueError(f"{name} must be 1-D, got shape {tuple(y.shape)}.")
+    if y.is_floating_point():
+        fractional = [label for label in labels if not label.is_integer()]
+        if fractional:
+            raise ValueError(f"{name} must be whole numbers, got {fractional[0]}.")
+
+
 ###############################################
 @beartype
 class EquineProtonet(Equine):
@@ -808,17 +835,17 @@ class EquineProtonet(Equine):
         Raises
         ------
         ValueError
-            If ``support_size`` is below 2 or ``dataset`` has fewer than 2
-            classes; if ``num_episodes`` is positive and ``way`` is not between 2
-            and the number of classes, or
-            ``episode_size`` is below ``way``; or if the ``calib_frac`` split leaves a
-            class with fewer than 2 calibration examples or too few training
-            examples (more than ``support_size`` when ``num_episodes`` is
-            positive, ``support_size`` otherwise); the model is then unchanged. Also, after
-            training, if a calibration example's embedding or OOD distance holds
-            a NaN or infinite value, or a class's calibration examples all have
-            the same OOD distance; the model is then trained but its outlier
-            scores are not refitted.
+            If ``support_size`` is below 2, ``dataset`` has fewer than 2
+            classes, or its labels are not 1-D or not whole numbers; if
+            ``num_episodes`` is positive and ``way`` is not between 2 and the
+            number of classes, or ``episode_size`` is below ``way``; or if the
+            ``calib_frac`` split leaves a class with fewer than 2 calibration
+            examples or too few training examples (more than ``support_size``
+            when ``num_episodes`` is positive, ``support_size`` otherwise); the
+            model is then unchanged. Also, after training, if a calibration
+            example's embedding or OOD distance holds a NaN or infinite value,
+            or a class's calibration examples all have the same OOD distance;
+            the model is then trained but its outlier scores are not refitted.
         """
         if support_size < 2:
             raise ValueError(
@@ -831,6 +858,7 @@ class EquineProtonet(Equine):
             raise ValueError(
                 f"dataset must hold at least 2 classes, got {len(labels)}."
             )
+        _require_whole_number_labels(Y, labels, "dataset labels")
         if num_episodes > 0:
             if not 2 <= way <= len(labels):
                 raise ValueError(
@@ -870,11 +898,12 @@ class EquineProtonet(Equine):
         model_calib_x = _input_to_model(calib_x, self.embedding_model, self.device)
         model_calib_y = calib_y.to(self.device)
 
+        sampler = _EpisodeSampler(train_x, train_y) if num_episodes > 0 else None
         for i in tqdm(range(num_episodes)):
             optimizer.zero_grad()
 
-            support, episode_x, episode_y = generate_episode(
-                train_x, train_y, support_size, way, episode_size
+            support, episode_x, episode_y = cast(_EpisodeSampler, sampler).sample(
+                support_size, way, episode_size
             )
             # Episodes read only the prototypes and the covariance; the
             # global moments are computed by the full-support update below.
@@ -1233,8 +1262,9 @@ class EquineProtonet(Equine):
             If ``calib_frac`` is missing, an option is passed both by position and
             by keyword, or more than two options are passed by position.
         ValueError
-            If ``support_y`` has fewer than 2 classes, the ``calib_frac`` split
-            leaves a class with fewer than 2 support or 2 calibration examples, a
+            If ``support_y`` has fewer than 2 classes, is not 1-D or holds a
+            label that is not a whole number; if the ``calib_frac`` split leaves
+            a class with fewer than 2 support or 2 calibration examples; or if a
             calibration example's embedding or OOD distance holds a NaN or
             infinite value, or a class's calibration examples all have the same
             OOD distance. A failed update leaves the model as it was.
@@ -1279,6 +1309,7 @@ class EquineProtonet(Equine):
                 raise ValueError(
                     f"support_y must hold at least 2 classes, got {len(all_labels)}."
                 )
+            _require_whole_number_labels(support_y, all_labels, "support_y")
             support_x, calib_x, support_y, calib_y = stratified_train_test_split(
                 support_x, support_y, test_size=calib_frac
             )

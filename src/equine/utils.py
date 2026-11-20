@@ -55,12 +55,6 @@ _TORCHSCRIPT_FILE_ERROR = (
     + ". Only upgrade files you trust: loading TorchScript runs code from the file."
 )
 
-_TORCHSCRIPT_CHECKPOINT_ERROR = (
-    "Model file stores its embedding model as TorchScript, which EQUINE does not "
-    f"load. Rewrite it once with `{_UPGRADE_HINT}`. Only upgrade files you trust: "
-    "loading TorchScript runs code from the file."
-)
-
 _LEGACY_FILE_ERROR = (
     "'{path}' is not in the current EQUINE model format (a safetensors file, format "
     f"{EQUINE_FORMAT_VERSION}): it is a PyTorch archive or a pickle, as files saved "
@@ -182,13 +176,16 @@ def _load_checkpoint_for_device(path: str, device: str | None) -> dict[str, Any]
     The tensors stay on the CPU; the loader builds the model from them and
     moves it to ``device``. An explicit ``device`` is checked as
     ``map_location`` is: before the file is opened, and against the dtypes
-    of the tensors the file holds.
+    of the tensors the file holds. A file that stores its embedding model as
+    TorchScript is then refused.
     """
     if device is not None:
         _require_device({"device": device}, what="The requested device")
     checkpoint = load_checkpoint(path)
     if device is not None:
         _require_supported_dtypes(_unique_tensors(checkpoint), torch.device(device))
+    if _holds_torchscript(checkpoint):
+        raise ValueError(_TORCHSCRIPT_FILE_ERROR.format(path=path))
     return checkpoint
 
 
@@ -1122,23 +1119,14 @@ def _holds_torchscript(checkpoint: Mapping[str, Any]) -> bool:
     )
 
 
-def _refuse_torchscript(checkpoint: Mapping[str, Any], path: str) -> None:
-    """Raise if the checkpoint read from ``path`` stores its embedding as TorchScript."""
-    if _holds_torchscript(checkpoint):
-        raise ValueError(_TORCHSCRIPT_FILE_ERROR.format(path=path))
-
-
 def _rebuild_embedding(
     model_save: dict[str, Any], embedding_model: torch.nn.Module | None
 ) -> torch.nn.Module:
     """
     Reconstitute an embedding model from a checkpoint: a caller-supplied
     module (the file's stored dtypes and weights loaded into it), else the
-    file's recipe rebuilt through the registry. A file that stores its
-    embedding as TorchScript is refused first, whatever else it holds.
+    file's recipe rebuilt through the registry.
     """
-    if _holds_torchscript(model_save):
-        raise ValueError(_TORCHSCRIPT_CHECKPOINT_ERROR)
     state_dict = model_save.get("embedding_state_dict")
     if state_dict is not None:
         _require_weights_dict(

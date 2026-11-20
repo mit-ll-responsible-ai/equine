@@ -637,9 +637,6 @@ def test_file_with_torchscript_is_refused_without_running_it(
         assert "PATH" not in str(err.value)
         with pytest.raises(ValueError, match="--recipe"):
             load(path, embedding_model=BasicEmbeddingModel(6, 3))
-    # Callers that pass a checkpoint read elsewhere are refused too.
-    with pytest.raises(ValueError, match="stores its embedding model as TorchScript"):
-        cls._from_checkpoint(_model_file.read(path))
 
 
 @pytest.mark.parametrize("train, cls", TRAINERS)

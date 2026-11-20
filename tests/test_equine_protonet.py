@@ -30,6 +30,7 @@ from scipy.stats import gaussian_kde
 
 import equine as eq
 from equine import _model_file
+from equine.equine import MIN_TEMPERATURE
 from equine.equine_protonet import DEFAULT_EPSILON, Protonet
 
 
@@ -271,6 +272,24 @@ def _float64_protonet_with_temperature(
         num_calibration_epochs=num_calibration_epochs,
     )
     return model
+
+
+def test_calibrate_temperature_keeps_the_temperature_at_or_above_the_floor(
+    monkeypatch,
+) -> None:
+    model, x, y = _briefly_trained_protonet_with_data()
+    used = []
+    cross_entropy = torch.nn.functional.cross_entropy
+
+    def record(*args, **kwargs):
+        used.append(model.temperature.item())
+        return cross_entropy(*args, **kwargs)
+
+    monkeypatch.setattr(torch.nn.functional, "cross_entropy", record)
+    model.calibrate_temperature(x, y, num_calibration_epochs=200, calibration_lr=5.0)
+    assert len(used) == 200
+    assert min(used) >= MIN_TEMPERATURE
+    assert model.temperature.item() >= MIN_TEMPERATURE
 
 
 def test_temperature_restarts_rounded_through_the_default_dtype() -> None:

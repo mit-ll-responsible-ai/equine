@@ -21,7 +21,13 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from . import _model_file
-from .equine import Equine, EquineOutput, _apply_to_stored_tensors, _eval_mode
+from .equine import (
+    MIN_TEMPERATURE,
+    Equine,
+    EquineOutput,
+    _apply_to_stored_tensors,
+    _eval_mode,
+)
 from .registry import _describe_error, _positive_int, _truncate
 from .utils import (
     _OOD_DISTANCES,
@@ -1085,8 +1091,9 @@ class EquineProtonet(Equine):
         calibration_lr: float = 0.01,
     ) -> None:
         """
-        Fine-tune the temperature on the given examples. ``train_model`` calls this
-        method when ``use_temperature`` is True.
+        Fine-tune the temperature on the given examples. After each optimizer step
+        the temperature is clamped to at least ``MIN_TEMPERATURE`` (1e-3).
+        ``train_model`` calls this method when ``use_temperature`` is True.
 
         Parameters
         ----------
@@ -1129,6 +1136,8 @@ class EquineProtonet(Equine):
             )
             loss.backward()
             optimizer.step()
+            with torch.no_grad():
+                self.temperature.clamp_(min=MIN_TEMPERATURE)
         self.temperature.requires_grad = False
 
     @icontract.ensure(lambda self: len(self.model.support_embeddings) > 0)

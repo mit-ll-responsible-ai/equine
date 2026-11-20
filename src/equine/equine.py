@@ -15,6 +15,8 @@ from torch.utils.data import TensorDataset
 
 from .equine_output import EquineOutput
 
+MIN_TEMPERATURE = 1e-3  # the smallest temperature calibration leaves
+
 
 @contextlib.contextmanager
 def _eval_mode(module: torch.nn.Module):

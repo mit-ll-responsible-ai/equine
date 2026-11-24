@@ -28,17 +28,9 @@ few dependencies beyond torch.
 pip install equine
 ```
 EQUINE supports Python 3.11 to 3.15 and requires torch 2.14.1 or later (on macOS, an Apple silicon
-Mac with macOS 14 or later). On Python 3.15, install torch from PyTorch's index first:
-```console
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install equine
-```
-On macOS with Python 3.15, use torch 2.15 or later: torch 2.14 crashes there when it is used
-from several threads at once, and EQUINE warns at import. Until torch 2.15 is released,
-install it from PyTorch's test index:
-```console
-pip install --upgrade 'torch>=2.15' --index-url https://download.pytorch.org/whl/test/cpu
-```
+Mac with macOS 14 or later). On macOS with Python 3.15, use torch 2.15 or later: torch 2.14
+crashes there when it is used from several threads at once, and EQUINE warns at import.
+
 Users interested in contributing should refer to [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Design

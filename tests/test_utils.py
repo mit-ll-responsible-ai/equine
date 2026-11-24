@@ -382,7 +382,11 @@ def test_warns_where_torch_crashes_with_threads(
     with warnings.catch_warnings(record=True) as record:
         warnings.simplefilter("always")
         eq.utils._warn_if_torch_crashes_with_threads()
-    assert any("several threads" in str(w.message) for w in record) == warns
+    messages = [str(w.message) for w in record if "several threads" in str(w.message)]
+    assert bool(messages) == warns
+    for message in messages:
+        assert "pip install --upgrade 'torch>=2.15'" in message
+        assert "whl/test" not in message
 
 
 def _spd(classes: int, dim: int) -> torch.Tensor:

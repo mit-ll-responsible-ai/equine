@@ -192,9 +192,8 @@ def _warn_if_torch_crashes_with_threads() -> None:
         warnings.warn(
             f"torch {torch.__version__} can crash on macOS with Python 3.15 when "
             "torch runs on several threads at once (for example, two threads "
-            "calling predict). Install torch >= 2.15; until it is on PyPI: "
-            "pip install --upgrade 'torch>=2.15' "
-            "--index-url https://download.pytorch.org/whl/test/cpu",
+            "calling predict). Install torch >= 2.15: "
+            "pip install --upgrade 'torch>=2.15'",
             RuntimeWarning,
             stacklevel=3,
         )

@@ -5,14 +5,10 @@
 ### Changed
 - **Python 3.11–3.15.** EQUINE requires Python 3.11 or later and supports
   Python 3.15 (EQUINE 0.1.8 supported 3.9 and later; 3.9 and 3.10 are end of
-  life). On Python 3.15, install torch from PyTorch's index until torch
-  publishes 3.15 wheels on PyPI
-  (`pip install torch --index-url https://download.pytorch.org/whl/cpu`). On
-  macOS with Python 3.15, use torch >= 2.15: torch 2.14 there crashes when
-  torch is used from several threads at once (for example two threads calling
-  `predict`), and EQUINE warns at import when it finds that combination. Until
-  torch 2.15 is released, install it there from
-  `https://download.pytorch.org/whl/test/cpu`.
+  life). On macOS with Python 3.15, use torch >= 2.15: torch 2.14 there
+  crashes when torch is used from several threads at once (for example two
+  threads calling `predict`), and EQUINE warns at import when it finds that
+  combination.
 - **Dependency floors.** numpy `>= 2.0, < 3`, scipy `>= 1.13`, torchmetrics
   `>= 1.2.1` (the previous `>= 0.6` allowed releases that cannot import
   EQUINE's metrics, #201, #205), tqdm `>= 4.66.3`, beartype `>= 0.22.1`

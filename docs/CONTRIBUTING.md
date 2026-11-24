@@ -61,6 +61,7 @@ for each method.  Assuming that tests pass, then make a pull request.
 
 ## Continuous Integration
 There are a number of Github Actions enabled to ensure high code quality upon commiting. 
+* The tests also run on `main` every Monday and can be started from the Actions tab ("Run workflow"). When a scheduled run fails or does not finish (for example, a job hits its time limit), a workflow opens a "Scheduled CI failed" issue (or comments on the open one) and closes it when a scheduled run passes again.
 * Tests must be added and all tests must pass (100%) before closing a pull request
 * Total coverage should be 97% or higher
 * We enforce a code style via `ruff` (formatting + linting, including import sorting) and `codespell`. If formatting issues are found, `tox -e format` usually fixes them automatically.

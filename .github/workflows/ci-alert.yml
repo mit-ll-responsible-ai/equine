@@ -1,0 +1,42 @@
+name: CI alert
+
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  issues: write
+
+jobs:
+  scheduled-run-issue:
+    if: github.event.workflow_run.event == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TITLE: Scheduled CI failed
+      CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      WORKFLOW: ${{ github.event.workflow_run.name }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      STARTED: ${{ github.event.workflow_run.run_started_at }}
+    steps:
+    - name: Open, comment on or close the scheduled-failure issue
+      run: |
+        number=$(gh issue list --state open --limit 200 --json number,title,author \
+          --jq 'map(select(.title == env.TITLE and .author.login == "app/github-actions")) | .[0].number // empty')
+        if [ "$CONCLUSION" = success ]; then
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "The scheduled $WORKFLOW run of $STARTED passes again: $RUN_URL"
+            gh issue close "$number"
+          fi
+        else
+          message="The scheduled $WORKFLOW run of $STARTED on $HEAD_SHA did not pass (conclusion: $CONCLUSION): $RUN_URL"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$message"
+          else
+            gh issue create --title "$TITLE" --body "$message"
+          fi
+        fi

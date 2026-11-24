@@ -31,14 +31,10 @@
     uv pip install -e '.[dev]'
     ```
 
-    On Python 3.15, torch is published only on PyTorch's own package index
-    until torch 2.15 reaches PyPI; install it from there first, e.g.
-    `pip install torch --index-url https://download.pytorch.org/whl/cpu`.
     On macOS with Python 3.15, use torch >= 2.15 (torch 2.14 crashes there
-    when used from several threads, and EQUINE warns at import); until it is
-    released, use `https://download.pytorch.org/whl/test/cpu`, or for tox
-    `EQUINE_TORCH_INDEX=https://download.pytorch.org/whl/test/cpu tox -r -e py315`
-    (`-r` rebuilds an environment that already has an older torch).
+    when used from several threads, and EQUINE warns at import).
+    `tox -e py315` installs torch from PyTorch's CPU index; set
+    `EQUINE_TORCH_INDEX` to use another index.
 
 4. Activate the pre-commit hooks
     ```console

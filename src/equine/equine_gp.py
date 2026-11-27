@@ -965,8 +965,10 @@ class EquineGP(Equine):
         """
         Fine-tune the temperature on ``dataset``.
 
-        ``train_model`` does not call this method; ``temperature`` stays at
-        ``init_temperature`` until it is called.
+        Computes in eval mode and leaves the model in the mode the caller had it in (via
+        ``train()``/``eval()``), so calibration does not touch the Laplace precision
+        matrix or BatchNorm/Dropout state. ``train_model`` does not call this method;
+        ``temperature`` stays at ``init_temperature`` until it is called.
 
         Parameters
         ----------
@@ -989,21 +991,24 @@ class EquineGP(Equine):
         )
 
         temperature = cast(torch.Tensor, self.temperature)
-        temperature.requires_grad = True
         loss_fn = torch.nn.functional.cross_entropy
-        optimizer = torch.optim.Adam([temperature], lr=calibration_lr)
-        for _ in range(num_calibration_epochs):
-            for xs, labels in calibration_loader:
-                optimizer.zero_grad()
-                xs = self._input_to_model(xs)
-                labels = labels.to(self.device)
-                with torch.no_grad():
-                    logits = self.model(xs)
-                logits = logits / temperature
-                loss = loss_fn(logits, labels.to(torch.long))
-                loss.backward()
-                optimizer.step()
-        temperature.requires_grad = False
+        with _eval_mode(self):
+            temperature.requires_grad = True
+            try:
+                optimizer = torch.optim.Adam([temperature], lr=calibration_lr)
+                for _ in range(num_calibration_epochs):
+                    for xs, labels in calibration_loader:
+                        optimizer.zero_grad()
+                        xs = self._input_to_model(xs)
+                        labels = labels.to(self.device)
+                        with torch.no_grad():
+                            logits = self.model(xs)
+                        logits = logits / temperature
+                        loss = loss_fn(logits, labels.to(torch.long))
+                        loss.backward()
+                        optimizer.step()
+            finally:
+                temperature.requires_grad = False
 
     def _input_to_model(self, X: torch.Tensor) -> torch.Tensor:
         """

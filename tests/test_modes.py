@@ -234,13 +234,71 @@ def _update_support(model, x, y):
         model.update_support(x, y.long(), support_size=10)
 
 
+def _calibrate(model, x, y):
+    if isinstance(model, eq.EquineProtonet):
+        model.calibrate_temperature(x, y.long(), num_calibration_epochs=2)
+    else:
+        ds = torch.utils.data.TensorDataset(x, y.long())
+        model.calibrate_model(ds, num_calibration_epochs=2, calibration_batch_size=32)
+
+
+@_MODES
+def test_gp_calibrate_model_restores_callers_mode(training):
+    """calibrate_model() computes in eval mode without touching the Laplace buffers
+    and restores the caller's mode."""
+    model, x, y = _gp()
+    ds = torch.utils.data.TensorDataset(x, y.long())
+    precision = model.model.precision.clone()
+    seen_data = model.model.seen_data.clone()
+    init_temp = model.temperature.clone()
+
+    _set_mode(model, training)
+    model.embedding_model.modes.clear()
+    torch.manual_seed(1)
+    model.calibrate_model(ds, num_calibration_epochs=2, calibration_batch_size=32)
+    _ran_in_eval_mode(model.embedding_model)
+    _assert_mode(model, training)
+    assert not model.temperature.requires_grad
+    torch.testing.assert_close(model.model.precision, precision, atol=0, rtol=0)
+    torch.testing.assert_close(model.model.seen_data, seen_data, atol=0, rtol=0)
+    calibrated = model.temperature.clone()
+
+    model.temperature.copy_(init_temp)
+    model.eval()
+    torch.manual_seed(1)
+    model.calibrate_model(ds, num_calibration_epochs=2, calibration_batch_size=32)
+    torch.testing.assert_close(calibrated, model.temperature)
+
+
+@_MODES
+def test_protonet_calibrate_temperature_restores_callers_mode(training):
+    """calibrate_temperature() computes in eval mode and restores the caller's mode."""
+    model, x, y = _protonet()
+    init_temp = model.temperature.clone()
+
+    _set_mode(model, training)
+    model.embedding_model.modes.clear()
+    model.calibrate_temperature(x, y.long(), num_calibration_epochs=2)
+    _ran_in_eval_mode(model.embedding_model)
+    _assert_mode(model, training)
+    assert not model.temperature.requires_grad
+    calibrated = model.temperature.clone()
+
+    model.temperature.copy_(init_temp)
+    model.eval()
+    model.calibrate_temperature(x, y.long(), num_calibration_epochs=2)
+    torch.testing.assert_close(calibrated, model.temperature)
+
+
 @pytest.mark.parametrize(
-    "entry_point", [_predict, _update_support], ids=["predict", "update_support"]
+    "entry_point",
+    [_predict, _update_support, _calibrate],
+    ids=["predict", "update_support", "calibrate"],
 )
 @_MODES
 @_BUILDERS
 def test_mode_restored_when_the_entry_point_raises(build, training, entry_point):
-    """An exception inside predict/update_support still leaves the caller's mode in place."""
+    """An exception inside predict/update_support/calibrate still leaves the caller's mode in place."""
     model, x, y = build()
     _set_mode(model, training)
     model.embedding_model.fail_next = True
@@ -248,6 +306,7 @@ def test_mode_restored_when_the_entry_point_raises(build, training, entry_point)
         entry_point(model, x, y)
     _assert_mode(model, training)
     assert model.embedding_model.training is training
+    assert not model.temperature.requires_grad
 
 
 def _batchnorm_embedding() -> torch.nn.Sequential:
@@ -284,7 +343,9 @@ def _gp_with(make_embedding):
 
 
 @pytest.mark.parametrize(
-    "entry_point", [_predict, _update_support], ids=["predict", "update_support"]
+    "entry_point",
+    [_predict, _update_support, _calibrate],
+    ids=["predict", "update_support", "calibrate"],
 )
 @pytest.mark.parametrize("build", [_protonet_with, _gp_with], ids=["protonet", "gp"])
 def test_frozen_embedding_stays_frozen(build, entry_point):
@@ -354,7 +415,9 @@ def _merging_embedding() -> torch.nn.Sequential:
 
 
 @pytest.mark.parametrize(
-    "entry_point", [_predict, _update_support], ids=["predict", "update_support"]
+    "entry_point",
+    [_predict, _update_support, _calibrate],
+    ids=["predict", "update_support", "calibrate"],
 )
 @pytest.mark.parametrize("build", [_protonet_with, _gp_with], ids=["protonet", "gp"])
 def test_train_side_effects_are_undone(build, entry_point):

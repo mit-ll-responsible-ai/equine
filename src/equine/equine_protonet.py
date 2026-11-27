@@ -935,6 +935,9 @@ class EquineProtonet(Equine):
         Fine-tune the temperature on the given examples. ``train_model`` calls this
         method when ``use_temperature`` is True.
 
+        Computes in eval mode and leaves the model in the mode the caller had it in
+        (via ``train()``/``eval()``).
+
         Parameters
         ----------
         calib_x : torch.Tensor
@@ -955,8 +958,8 @@ class EquineProtonet(Equine):
         ------
         ValueError
             If the model has no support, `calib_y` holds a label that is not in
-            the support, or, in eval mode, the embeddings of ``calib_x`` hold a
-            NaN or infinite value.
+            the support, or the embeddings of ``calib_x`` hold a NaN or infinite
+            value.
         """
         if len(self.model.support) == 0:
             raise ValueError(
@@ -964,19 +967,22 @@ class EquineProtonet(Equine):
                 "before calibrate_temperature."
             )
         targets = _labels_to_columns(calib_y, self._label_order()).to(self.device)
-        self.temperature.requires_grad = True
-        optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
-        for t in range(num_calibration_epochs):
-            optimizer.zero_grad()
-            with torch.no_grad():
-                pred_probs, dists = self.model(calib_x)
-            dists = dists.to(self.device) / self.temperature.to(self.device)
-            loss = torch.nn.functional.cross_entropy(
-                torch.neg(dists).to(self.device), targets
-            )
-            loss.backward()
-            optimizer.step()
-        self.temperature.requires_grad = False
+        with _eval_mode(self):
+            self.temperature.requires_grad = True
+            try:
+                optimizer = torch.optim.Adam([self.temperature], lr=calibration_lr)
+                for t in range(num_calibration_epochs):
+                    optimizer.zero_grad()
+                    with torch.no_grad():
+                        pred_probs, dists = self.model(calib_x)
+                    dists = dists.to(self.device) / self.temperature.to(self.device)
+                    loss = torch.nn.functional.cross_entropy(
+                        torch.neg(dists).to(self.device), targets
+                    )
+                    loss.backward()
+                    optimizer.step()
+            finally:
+                self.temperature.requires_grad = False
 
     @icontract.ensure(lambda self: len(self.model.support_embeddings) > 0)
     def _fit_outlier_scores(
